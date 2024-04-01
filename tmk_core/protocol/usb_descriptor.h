@@ -92,7 +92,7 @@ typedef struct {
     USB_Descriptor_Endpoint_t  Shared_INEndpoint;
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(VIRTSER_ENABLE)
     // Console HID Interface
     USB_Descriptor_Interface_t Console_Interface;
     USB_HID_Descriptor_HID_t   Console_HID;
@@ -173,7 +173,7 @@ enum usb_interfaces {
     SHARED_INTERFACE,
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(VIRTSER_ENABLE)
     CONSOLE_INTERFACE,
 #endif
 
@@ -230,7 +230,7 @@ enum usb_endpoints {
     SHARED_IN_EPNUM = NEXT_EPNUM,
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(VIRTSER_ENABLE)
     CONSOLE_IN_EPNUM = NEXT_EPNUM,
 
 #    ifdef PROTOCOL_CHIBIOS
@@ -293,7 +293,11 @@ enum usb_endpoints {
 
 // TODO - ARM_ATSAM
 
+#define _XSTR(x) _STR(x)
+#define _STR(x) #x
+
 #if (NEXT_EPNUM - 1) > MAX_ENDPOINTS
+// #pragma message "MAX_ENDPOINTS too small: " _XSTR(MAX_ENDPOINTS)
 #    error There are not enough available endpoints to support all functions. Please disable one or more of the following: Mouse Keys, Extra Keys, Console, NKRO, MIDI, Serial, Steno
 #endif
 

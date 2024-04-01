@@ -347,7 +347,7 @@ typedef struct {
 typedef struct {
     union {
         struct {
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_VIRTSER)
             usb_driver_config_t console_driver;
 #endif
 #ifdef RAW_ENABLE
@@ -365,7 +365,7 @@ typedef struct {
 } usb_driver_configs_t;
 
 static usb_driver_configs_t drivers = {
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_VIRTSER)
 #    define CONSOLE_IN_CAPACITY 4
 #    define CONSOLE_OUT_CAPACITY 4
 #    define CONSOLE_IN_MODE USB_EP_MODE_TYPE_INTR
@@ -901,6 +901,17 @@ void send_digitizer(report_digitizer_t *report) {
 
 #ifdef CONSOLE_ENABLE
 
+#ifdef VIRTSER_ENABLE
+
+int8_t sendchar(uint8_t c) {
+    return sendchar_virtser(c);
+}
+
+void console_task(void) {
+}
+
+#else
+
 int8_t sendchar(uint8_t c) {
     static bool timed_out = false;
     /* The `timed_out` state is an approximation of the ideal `is_listener_disconnected?` state.
@@ -947,6 +958,8 @@ void console_task(void) {
         }
     } while (size > 0);
 }
+
+#endif
 
 #endif /* CONSOLE_ENABLE */
 
@@ -1007,6 +1020,14 @@ void virtser_init(void) {}
 
 void virtser_send(const uint8_t byte) {
     chnWrite(&drivers.serial_driver.driver, &byte, 1);
+}
+
+void virtser_send_nonblock(const uint8_t c) {
+    static bool virtser_timed_out = false;
+
+    const sysinterval_t timeout = virtser_timed_out ? TIME_IMMEDIATE : TIME_MS2I(5);
+    const size_t        result  = chnWriteTimeout(&drivers.serial_driver.driver, &c, 1, timeout);
+    virtser_timed_out   = (result == 0);
 }
 
 __attribute__((weak)) void virtser_recv(uint8_t c) {
