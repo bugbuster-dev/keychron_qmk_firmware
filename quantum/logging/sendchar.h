@@ -27,6 +27,7 @@ typedef int8_t (*sendchar_func_t)(uint8_t c);
 
 /* transmit a character.  return 0 on success, -1 on error. */
 int8_t sendchar(uint8_t c);
+int8_t sendchar_virtser(uint8_t c);
 
 #ifdef __cplusplus
 }

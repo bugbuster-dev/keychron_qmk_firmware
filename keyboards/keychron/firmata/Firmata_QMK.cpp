@@ -2,6 +2,7 @@
 #include "Firmata.h"
 
 extern "C" {
+#include "raw_hid.h"
 #include "virtser.h"
 }
 
@@ -12,7 +13,8 @@ extern "C" {
 typedef uint16_t tx_buffer_index_t;
 typedef uint16_t rx_buffer_index_t;
 
-typedef void (*send_char_fn)(uint8_t ch);
+typedef void (*send_data_fn)(uint8_t *data, uint16_t len);
+typedef void (*send_char_fn)(int ch);
 
 
 class BufferStream : public Stream
@@ -20,7 +22,8 @@ class BufferStream : public Stream
 public:
 
 uint8_t _rx_buffer[RX_BUFFER_SIZE] = {};
-uint8_t _tx_buffer[TX_BUFFER_SIZE] = {};
+uint8_t _tx_hdr_buffer[TX_BUFFER_SIZE+4] = {};
+uint8_t *_tx_buffer;
 
 volatile rx_buffer_index_t _rx_buffer_head;
 volatile rx_buffer_index_t _rx_buffer_tail;
@@ -31,19 +34,22 @@ volatile tx_buffer_index_t _tx_buffer_tail;
 bool _written;
 bool _tx_eol;
 
+send_data_fn    _send_data;
 send_char_fn    _send_char;
-
 
 public:
 
-    inline BufferStream(send_char_fn send_char) {
+    BufferStream(send_data_fn send_data, send_char_fn send_char) {
         _tx_eol = 0;
         _written = 0;
         _rx_buffer_head = 0;
         _rx_buffer_tail = 0;
+
+        _tx_buffer = _tx_hdr_buffer + 4; // 4 bytes reserved for header
         _tx_buffer_head = 0;
         _tx_buffer_tail = 0;
 
+        _send_data = send_data;
         _send_char = send_char;
     };
 
@@ -111,6 +117,11 @@ public:
         if (!_written)
             return;
 
+        if (_send_data) {
+            if (_tx_buffer_head != _tx_buffer_tail) {
+                _send_data(&_tx_buffer[_tx_buffer_tail], _tx_buffer_head - _tx_buffer_tail);
+            }
+        } else
         if (_send_char) {
             while (_tx_buffer_head != _tx_buffer_tail) {
                 uint8_t c = _tx_buffer[_tx_buffer_tail];
@@ -123,7 +134,6 @@ public:
         _tx_eol = 0;
         _tx_buffer_head = 0;
         _tx_buffer_tail = 0;
-        //if (_tx_buffer_head == _tx_buffer_tail) // buffer empty
     }
 
     virtual size_t write(uint8_t c) {
@@ -138,38 +148,74 @@ public:
     }
 
     uint8_t tx_eol() { return _tx_eol; }
-
-    //using Print::write; // pull in write(str) and wC2rite(buf, size) from Print
-    //operator bool() { return true; }
 };
 
 
 //------------------------------------------------------------------------------
 
+#define MIN(a,b) (a) < (b)? (a):(b)
+
+void rawhid_send_data(uint8_t *data, uint16_t len) {
+    const uint8_t msg_size = 32;
+    uint8_t buf[msg_size] = {0};
+    uint8_t *hdr = data - 1;
+    *hdr = RAWHID_FIRMATA_MSG; // firmata
+
+    while (len) {
+        uint8_t send_len = MIN(msg_size, len+1);
+        if (send_len < msg_size) {
+            memset(buf, 0, sizeof(buf));
+            memcpy(buf, hdr, len+1);
+            raw_hid_send(buf, msg_size);
+            return;
+        } else {
+            raw_hid_send(hdr, msg_size);
+        }
+
+        len -= send_len - 1;
+        if (len) {
+            hdr += send_len - 1; //todo bb: check offset
+            *hdr = RAWHID_FIRMATA_MSG;
+        }
+    }
+}
 
 static firmata::FirmataClass g_firmata;
 static bool g_firmata_started = 0;
-static BufferStream g_virtser_stream(virtser_send_nonblock);
-static BufferStream g_console_stream(nullptr);
+//static BufferStream g_virtser_stream(virtser_send_nonblock);
+static BufferStream g_rawhid_stream(rawhid_send_data, nullptr);
+static BufferStream g_console_stream(nullptr, nullptr);
 
 extern "C" {
 
-__attribute__((weak)) void virtser_send_nonblock(const uint8_t byte) {}
+void debug_led_on(int led)
+{
+    extern rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
+    static uint8_t i = 0;
+    if (led == -1) led = i;
+    g_rgb_matrix_host_buf.led[led].duration = 250;
+    g_rgb_matrix_host_buf.led[led].r = 0;
+    g_rgb_matrix_host_buf.led[led].g = 200;
+    g_rgb_matrix_host_buf.led[led].b = 200;
+    g_rgb_matrix_host_buf.written = 1;
+    i = (i+1)%RGB_MATRIX_LED_COUNT;
+}
+
 
 // "console sendchar"
 int8_t sendchar_virtser(uint8_t c) {
     g_console_stream.write(c);
+    //if (g_console_stream.tx_eol()) debug_led_on(0);
     return 1;
 }
 
 
 void firmata_initialize(const char* firmware) {
     g_firmata.setFirmwareNameAndVersion(firmware, FIRMATA_QMK_MAJOR_VERSION, FIRMATA_QMK_MINOR_VERSION);
-    //g_firmata.begin(g_virtser_stream);
 }
 
 void firmata_start() {
-    g_firmata.begin(g_virtser_stream);
+    g_firmata.begin(g_rawhid_stream);
     g_firmata_started = 1;
 }
 
@@ -188,14 +234,22 @@ int firmata_recv(uint8_t c) {
     if (!g_firmata_started) {
         firmata_start();
     }
+    return g_rawhid_stream.received(c);
+}
 
-    return g_virtser_stream.received(c);
+int firmata_recv_data(uint8_t *data, uint8_t len) {
+    int i = 0;
+    while (len--) {
+        if (firmata_recv(data[i++]) < 0) return -1;
+    }
+    //debug_led_on(-1);
+    return 0;
 }
 
 void firmata_process() {
     if (!g_firmata_started) return;
 
-    const uint8_t max_iterations = 100;
+    const uint8_t max_iterations = 64;
     uint8_t n = 0;
     while (g_firmata.available()) {
         g_firmata.processInput();
@@ -208,6 +262,5 @@ void firmata_process() {
         g_console_stream.flush();
     }
 }
-
 
 }

@@ -28,6 +28,10 @@
 #    include "lkbt51.h"
 #endif
 
+#ifdef FIRMATA_ENABLE
+#include "firmata/Firmata_QMK.h"
+#endif
+
 bool     is_siri_active = false;
 uint32_t siri_timer     = 0;
 
@@ -190,6 +194,12 @@ bool via_command_kb(uint8_t *data, uint8_t length) {
 #ifdef FACTORY_TEST_ENABLE
         case 0xAB:
             factory_test_rx(data, length);
+            break;
+#endif
+
+#ifdef FIRMATA_ENABLE
+        case RAWHID_FIRMATA_MSG:
+            firmata_recv_data(&data[1], length-1);
             break;
 #endif
         default:

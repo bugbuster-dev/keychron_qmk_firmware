@@ -45,6 +45,10 @@ else
     OPT_DEFS += -DNO_DEBUG
 endif
 
+ifeq ($(strip $(CONSOLE_VIRTSER)), yes)
+    OPT_DEFS += -DCONSOLE_VIRTSER
+endif
+
 ifeq ($(strip $(NKRO_ENABLE)), yes)
     ifeq ($(strip $(BLUETOOTH_ENABLE)), yes)
         $(info NKRO is not currently supported with Bluetooth, and has been disabled.)

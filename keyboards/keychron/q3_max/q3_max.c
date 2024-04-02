@@ -58,6 +58,8 @@ void keyboard_post_init_kb(void) {
     keyboard_post_init_user();
 }
 
+extern void keychron_task_user(void);
+
 bool keychron_task_kb(void) {
 
     if (power_on_indicator_timer) {
@@ -73,6 +75,8 @@ bool keychron_task_kb(void) {
 #endif
         }
     }
+
+    keychron_task_user();
     return true;
 }
 

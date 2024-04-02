@@ -46,7 +46,6 @@ enum {
     FRMT_ID_DYNLD_FUNEXEC   = 8, // exec "dynamic loaded function"
 };
 
-
 // rgb matrix buffer set from host
 typedef struct rgb_matrix_host_buffer_t {
     struct {
@@ -71,6 +70,8 @@ typedef struct dynld_funcs {
     void* func[DYNLD_FUN_ID_MAX];
 } dynld_funcs_t;
 
+#define RAWHID_FIRMATA_MSG  0xFA
+
 //------------------------------------------------------------------------------
 
 typedef void (*sysexCallbackFunction)(uint8_t command, uint8_t argc, uint8_t *argv);
@@ -81,6 +82,8 @@ void firmata_start(void);
 void firmata_attach(uint8_t cmd, sysexCallbackFunction newFunction);
 
 int firmata_recv(uint8_t c);
+int firmata_recv_data(uint8_t *data, uint8_t len);
+
 void firmata_send_sysex(uint8_t cmd, uint8_t* data, int len);
 
 void firmata_process(void);

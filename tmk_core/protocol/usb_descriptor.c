@@ -666,7 +666,7 @@ const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor = {
     },
 #endif
 
-#if defined(CONSOLE_ENABLE) && !defined(VIRTSER_ENABLE)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_VIRTSER)
     /*
      * Console
      */
@@ -1178,7 +1178,7 @@ uint16_t get_usb_descriptor(const uint16_t wValue, const uint16_t wIndex, const 
                     break;
 #endif
 
-#if defined(CONSOLE_ENABLE) && !defined(VIRTSER_ENABLE)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_VIRTSER)
                 case CONSOLE_INTERFACE:
                     Address = &ConfigurationDescriptor.Console_HID;
                     Size    = sizeof(USB_HID_Descriptor_HID_t);
@@ -1235,7 +1235,7 @@ uint16_t get_usb_descriptor(const uint16_t wValue, const uint16_t wIndex, const 
                     break;
 #endif
 
-#if defined(CONSOLE_ENABLE) && !defined(VIRTSER_ENABLE)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_VIRTSER)
                 case CONSOLE_INTERFACE:
                     Address = &ConsoleReport;
                     Size    = sizeof(ConsoleReport);

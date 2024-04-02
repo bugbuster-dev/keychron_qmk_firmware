@@ -901,7 +901,7 @@ void send_digitizer(report_digitizer_t *report) {
 
 #ifdef CONSOLE_ENABLE
 
-#ifdef VIRTSER_ENABLE
+#ifdef CONSOLE_VIRTSER
 
 int8_t sendchar(uint8_t c) {
     return sendchar_virtser(c);
@@ -964,9 +964,18 @@ void console_task(void) {
 #endif /* CONSOLE_ENABLE */
 
 #ifdef RAW_ENABLE
+
 void raw_hid_send(uint8_t *data, uint8_t length) {
     // TODO: implement variable size packet
     if (length != RAW_EPSIZE) {
+        #ifdef FIRMATA_ENABLE
+        /*
+        if (length == 64 && data[0] == 0xfa) { // firmata message
+            chnWrite(&drivers.raw_driver.driver, data, length);
+        }
+        */
+        #endif
+
         return;
     }
     chnWrite(&drivers.raw_driver.driver, data, length);
