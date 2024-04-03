@@ -16,9 +16,10 @@
 
 #include "quantum.h"
 #include "keychron_task.h"
+#include "keychron_common.h"
+
 #ifdef FACTORY_TEST_ENABLE
 #    include "factory_test.h"
-#    include "keychron_common.h"
 #endif
 #ifdef LK_WIRELESS_ENABLE
 #    include "lkbt51.h"
@@ -32,11 +33,11 @@ static uint32_t power_on_indicator_timer;
 
 #ifdef DIP_SWITCH_ENABLE
 bool dip_switch_update_kb(uint8_t index, bool active) {
+    if (dip_switch_update_user(index, active)) return true;
+
     if (index == 0) {
         default_layer_set(1UL << (active ? 2 : 0));
     }
-    dip_switch_update_user(index, active);
-
     return true;
 }
 #endif
@@ -82,6 +83,10 @@ bool keychron_task_kb(void) {
 
 #ifdef LK_WIRELESS_ENABLE
 bool lpm_is_kb_idle(void) {
-    return power_on_indicator_timer == 0 && !factory_reset_indicating();
+    return power_on_indicator_timer == 0
+#ifdef FACTORY_TEST_ENABLE
+    && !factory_reset_indicating()
+#endif
+    ;
 }
 #endif

@@ -30,7 +30,6 @@ void keyboard_post_init_user(void) {
 #endif
 }
 
-
 #ifdef FIRMATA_ENABLE
 extern rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
 
@@ -51,6 +50,11 @@ static void rgb_matrix_host_show(void)
     if (!matrix_set) g_rgb_matrix_host_buf.written = 0;
 }
 #endif
+
+bool dip_switch_update_user(uint8_t index, bool active) {
+    // todo bb: ignore win/mac switch when overrided by user
+    return false;
+}
 
 void keychron_task_user(void) {
 #ifdef FIRMATA_ENABLE
