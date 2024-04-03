@@ -1,8 +1,11 @@
-#include "debug.h"
+#include "action_layer.h"
+
 #include "firmata/Firmata_QMK.h"
 
 #include "rgb_matrix.h"
 #include "dynld_func.h"
+
+#include "debug.h"
 
 //------------------------------------------------------------------------------
 
@@ -117,6 +120,8 @@ void _process_cmd_set_rgb_matrix_buf(uint8_t cmd, uint8_t len, uint8_t *buf)
 void _process_cmd_set_default_layer(uint8_t cmd, uint8_t len, uint8_t *buf)
 {
     dprintf("[L]%d\n", buf[0]);
+    layer_state_t state = 1 << buf[0];
+    default_layer_set(state);
 }
 
 void _process_cmd_set_debug_mask(uint8_t cmd, uint8_t len, uint8_t *buf)
@@ -127,6 +132,11 @@ void _process_cmd_set_debug_mask(uint8_t cmd, uint8_t len, uint8_t *buf)
 
 void _process_cmd_set_macwin_mode(uint8_t cmd, uint8_t len, uint8_t *buf)
 {
+    extern void keyb_user_set_macwin_mode(int mode);
+    int mode = buf[0];
+    dprintf("macwin:%c\n", buf[0]);
+    if (buf[0] == '-') mode = -1;
+    keyb_user_set_macwin_mode(mode);
 }
 
 void _process_cmd_get_default_layer(uint8_t cmd, uint8_t len, uint8_t *buf)
@@ -143,6 +153,11 @@ void _process_cmd_get_debug_mask(uint8_t cmd, uint8_t len, uint8_t *buf)
 
 void _process_cmd_get_macwin_mode(uint8_t cmd, uint8_t len, uint8_t *buf)
 {
+    extern int keyb_user_get_macwin_mode(void);
+    uint8_t response[2];
+    response[0] = FRMT_ID_MACWIN_MODE;
+    response[1] = keyb_user_get_macwin_mode();
+    firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
 }
 
 void _process_cmd_get_battery_status(uint8_t cmd, uint8_t len, uint8_t *buf)

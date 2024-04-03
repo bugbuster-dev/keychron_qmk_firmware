@@ -69,7 +69,10 @@ public:
         _rx_buffer[_rx_buffer_head] = c;
         _rx_buffer_head = i;
 
-        if (_rx_buffer_head == _rx_buffer_tail) return -1;
+        if (_rx_buffer_head == _rx_buffer_tail) {
+            _rx_buffer_head = _rx_buffer_tail = 0;
+            return -1;
+        }
 
         return 1;
     }
@@ -102,15 +105,8 @@ public:
     }
 
     virtual int availableForWrite(void) {
-        tx_buffer_index_t head;
-        tx_buffer_index_t tail;
-
-        {
-            head = _tx_buffer_head;
-            tail = _tx_buffer_tail;
-        }
-        if (head >= tail) return TX_BUFFER_SIZE - 1 - head + tail;
-        return tail - head - 1;
+        if (_tx_buffer_head < TX_BUFFER_SIZE) return 1;
+        return 0;
     }
 
     virtual void flush(void) {

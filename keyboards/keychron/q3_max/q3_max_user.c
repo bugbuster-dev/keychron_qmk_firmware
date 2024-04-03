@@ -51,8 +51,41 @@ static void rgb_matrix_host_show(void)
 }
 #endif
 
+// user override of mac/win mode and keyboard mac/win switch
+static int s_keyb_user_macwin_mode = -1;
+static int s_keyb_switch_macwin_mode = -1;
+
+void keyb_user_set_macwin_mode(int mode) {
+    s_keyb_user_macwin_mode = mode;
+    if (mode < 0) {
+        mode = s_keyb_switch_macwin_mode;
+    }
+
+    int layer = 0;
+    if (mode == 'm')
+        layer = 0;
+    if (mode == 'w')
+        layer = 2;
+
+    default_layer_set(1UL << layer);
+}
+
+int keyb_user_get_macwin_mode(void) {
+    if (s_keyb_user_macwin_mode < 0)
+        return s_keyb_switch_macwin_mode;
+    return s_keyb_user_macwin_mode;
+}
+
 bool dip_switch_update_user(uint8_t index, bool active) {
     // todo bb: ignore win/mac switch when overrided by user
+    if (index == 0) {
+        if (active)
+            s_keyb_switch_macwin_mode = 'w';
+        else
+            s_keyb_switch_macwin_mode = 'm';
+
+        if (s_keyb_user_macwin_mode != -1) return true;
+    }
     return false;
 }
 
