@@ -14,7 +14,7 @@ typedef uint16_t tx_buffer_index_t;
 typedef uint16_t rx_buffer_index_t;
 
 typedef void (*send_data_fn)(uint8_t *data, uint16_t len);
-typedef void (*send_char_fn)(int ch);
+typedef void (*send_char_fn)(uint8_t ch);
 
 
 class BufferStream : public Stream
@@ -149,25 +149,23 @@ public:
 
 //------------------------------------------------------------------------------
 
-#define MIN(a,b) (a) < (b)? (a):(b)
+#define MIN(a,b) (((a)<(b))?(a):(b))
 
 void rawhid_send_data(uint8_t *data, uint16_t len) {
-    const uint8_t msg_size = 32;
-    uint8_t buf[msg_size] = {0};
+    uint8_t buf[RAW_EPSIZE_FIRMATA] = {0};
     uint8_t *hdr = data - 1;
     *hdr = RAWHID_FIRMATA_MSG; // firmata
 
     while (len) {
-        uint8_t send_len = MIN(msg_size, len+1);
-        if (send_len < msg_size) {
+        uint8_t send_len = MIN(RAW_EPSIZE_FIRMATA, len+1);
+        if (send_len < RAW_EPSIZE_FIRMATA) {
             memset(buf, 0, sizeof(buf));
-            memcpy(buf, hdr, len+1);
-            raw_hid_send(buf, msg_size);
+            memcpy(buf, hdr, send_len);
+            raw_hid_send(buf, RAW_EPSIZE_FIRMATA);
             return;
-        } else {
-            raw_hid_send(hdr, msg_size);
         }
 
+        raw_hid_send(hdr, RAW_EPSIZE_FIRMATA);
         len -= send_len - 1;
         if (len) {
             hdr += send_len - 1; //todo bb: check offset
@@ -178,7 +176,6 @@ void rawhid_send_data(uint8_t *data, uint16_t len) {
 
 static firmata::FirmataClass g_firmata;
 static bool g_firmata_started = 0;
-//static BufferStream g_virtser_stream(virtser_send_nonblock);
 static BufferStream g_rawhid_stream(rawhid_send_data, nullptr);
 static BufferStream g_console_stream(nullptr, nullptr);
 

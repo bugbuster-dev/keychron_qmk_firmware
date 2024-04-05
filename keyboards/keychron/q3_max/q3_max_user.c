@@ -51,9 +51,9 @@ static void rgb_matrix_host_show(void)
 }
 #endif
 
-// user override of mac/win mode and keyboard mac/win switch
-static int s_keyb_user_macwin_mode = -1;
-static int s_keyb_switch_macwin_mode = -1;
+// user override of mac/win mode and keyboard mac/win switch state
+static int s_keyb_user_macwin_mode = -1;    // -1=use switch, 'm'=mac, 'w'=windows
+static int s_keyb_switch_macwin_mode = -1;  // 'm' or 'w'
 
 void keyb_user_set_macwin_mode(int mode) {
     s_keyb_user_macwin_mode = mode;
