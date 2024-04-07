@@ -63,6 +63,13 @@ bool rgb_matrix_indicators_keychron(void) {
 #    ifdef FACTORY_TEST_ENABLE
     factory_test_indicator();
 #    endif
+
+#ifdef FIRMATA_ENABLE
+    {
+        extern void rgb_matrix_host_buf_render(void);
+        rgb_matrix_host_buf_render();
+    }
+#endif
     return true;
 }
 #endif

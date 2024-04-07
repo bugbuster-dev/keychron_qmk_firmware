@@ -33,8 +33,8 @@ void keyboard_post_init_user(void) {
 #ifdef FIRMATA_ENABLE
 extern rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
 
-// show rgb matrix set by user on host side
-static void rgb_matrix_host_show(void)
+// render rgb matrix "host buffer" set by user from host
+void rgb_matrix_host_buf_render(void)
 {
     if (!g_rgb_matrix_host_buf.written) return;
 
@@ -91,8 +91,6 @@ bool dip_switch_update_user(uint8_t index, bool active) {
 
 void keychron_task_user(void) {
 #ifdef FIRMATA_ENABLE
-    rgb_matrix_host_show();
-
     firmata_process();
 #endif
 }
