@@ -77,13 +77,13 @@ int keyb_user_get_macwin_mode(void) {
 }
 
 bool dip_switch_update_user(uint8_t index, bool active) {
-    // todo bb: ignore win/mac switch when overrided by user
     if (index == 0) {
         if (active)
             s_keyb_switch_macwin_mode = 'w';
         else
             s_keyb_switch_macwin_mode = 'm';
 
+        // ignore win/mac switch when overrided by user
         if (s_keyb_user_macwin_mode != -1) return true;
     }
     return false;

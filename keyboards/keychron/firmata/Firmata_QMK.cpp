@@ -4,6 +4,7 @@
 extern "C" {
 #include "raw_hid.h"
 #include "virtser.h"
+#include "timer.h"
 }
 
 
@@ -32,7 +33,8 @@ volatile tx_buffer_index_t _tx_buffer_tail;
 
 // Has any byte been written to the UART since begin()
 bool _written;
-bool _tx_eol;
+bool _tx_flush; // flag to flush it
+uint16_t _tx_last_flush = 0;
 
 send_data_fn    _send_data;
 send_char_fn    _send_char;
@@ -40,7 +42,6 @@ send_char_fn    _send_char;
 public:
 
     BufferStream(send_data_fn send_data, send_char_fn send_char) {
-        _tx_eol = 0;
         _written = 0;
         _rx_buffer_head = 0;
         _rx_buffer_tail = 0;
@@ -48,6 +49,8 @@ public:
         _tx_buffer = _tx_hdr_buffer + 4; // 4 bytes reserved for header
         _tx_buffer_head = 0;
         _tx_buffer_tail = 0;
+        _tx_flush = 0;
+        _tx_last_flush = 0;
 
         _send_data = send_data;
         _send_char = send_char;
@@ -77,7 +80,6 @@ public:
         return 1;
     }
 
-    //virtual int available(void) { return ((unsigned int)(RX_BUFFER_SIZE + _rx_buffer_head - _rx_buffer_tail)) % RX_BUFFER_SIZE; }
     virtual int available(void) { if (_rx_buffer_head != _rx_buffer_tail) return 1; return 0; }
 
     virtual int peek(void) {
@@ -110,8 +112,7 @@ public:
     }
 
     virtual void flush(void) {
-        if (!_written)
-            return;
+        if (!_written) return;
 
         if (_send_data) {
             if (_tx_buffer_head != _tx_buffer_tail) {
@@ -127,23 +128,32 @@ public:
         }
 
         _written = 0;
-        _tx_eol = 0;
         _tx_buffer_head = 0;
         _tx_buffer_tail = 0;
+        _tx_flush = 0;
+        _tx_last_flush = timer_read();
     }
 
     virtual size_t write(uint8_t c) {
-        _written = 1;
-
         tx_buffer_index_t i = (_tx_buffer_head + 1) % TX_BUFFER_SIZE;
         _tx_buffer[_tx_buffer_head] = c;
         _tx_buffer_head = i;
+        _written = 1;
 
-        if (c == '\n') _tx_eol = 1;
+        // flush when eol or buffer is getting full
+        if (c == '\n') _tx_flush = 1;
+        if (i >= TX_BUFFER_SIZE/2) _tx_flush = 1;
         return 1;
     }
 
-    uint8_t tx_eol() { return _tx_eol; }
+    bool need_flush() {
+        if (_tx_flush) return 1;
+
+        uint16_t time_elapsed = timer_elapsed(_tx_last_flush);
+        if (time_elapsed > 100) {
+            return 1;
+        }
+    }
 };
 
 
@@ -168,13 +178,13 @@ void rawhid_send_data(uint8_t *data, uint16_t len) {
         raw_hid_send(hdr, RAW_EPSIZE_FIRMATA);
         len -= send_len - 1;
         if (len) {
-            hdr += send_len - 1; //todo bb: check offset
+            hdr += send_len - 1;
             *hdr = RAWHID_FIRMATA_MSG;
         }
     }
 }
 
-static firmata::FirmataClass g_firmata;
+static firmata::FirmataClass g_firmata; // todo bb: override FirmataClass and add "started flag"
 static bool g_firmata_started = 0;
 static BufferStream g_rawhid_stream(rawhid_send_data, nullptr);
 static BufferStream g_console_stream(nullptr, nullptr);
@@ -196,9 +206,9 @@ void debug_led_on(int led)
 
 
 // "console sendchar"
-int8_t sendchar_virtser(uint8_t c) {
+int8_t sendchar_virtser(uint8_t c) { //todo bb: rename sendchar_virtser to sendchar_console
     g_console_stream.write(c);
-    //if (g_console_stream.tx_eol()) debug_led_on(0);
+    //if (g_console_stream.need_flush()) debug_led_on(0);
     return 1;
 }
 
@@ -249,11 +259,25 @@ void firmata_process() {
         if (n++ >= max_iterations) break;
     }
 
-    if (g_console_stream.tx_eol()) {
+    if (g_console_stream.need_flush()) {
         g_console_stream._tx_buffer[g_console_stream._tx_buffer_head] = 0;
         g_firmata.sendString((char*)&g_console_stream._tx_buffer[g_console_stream._tx_buffer_tail]);
         g_console_stream.flush();
     }
+
+#if 1
+    {
+        static uint32_t i = 0;
+        if (i % 50 == 0)
+            sendchar_virtser('1');
+        if (i % 500 == 0)
+            sendchar_virtser('2');
+        if (i % 5000 == 0)
+            sendchar_virtser('3');
+
+        i++;
+    }
+#endif
 }
 
 }
