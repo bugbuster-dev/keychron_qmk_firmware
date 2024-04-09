@@ -408,7 +408,7 @@ const USB_Descriptor_HIDReport_Datatype_t PROGMEM RawReport[] = {
 };
 #endif
 
-#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_VIRTSER)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_FIRMATA)
 const USB_Descriptor_HIDReport_Datatype_t PROGMEM ConsoleReport[] = {
     HID_RI_USAGE_PAGE(16, 0xFF31), // Vendor Defined (PJRC Teensy compatible)
     HID_RI_USAGE(8, 0x74),         // Vendor Defined (PJRC Teensy compatible)
@@ -666,7 +666,7 @@ const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor = {
     },
 #endif
 
-#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_VIRTSER)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_FIRMATA)
     /*
      * Console
      */
@@ -1178,7 +1178,7 @@ uint16_t get_usb_descriptor(const uint16_t wValue, const uint16_t wIndex, const 
                     break;
 #endif
 
-#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_VIRTSER)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_FIRMATA)
                 case CONSOLE_INTERFACE:
                     Address = &ConfigurationDescriptor.Console_HID;
                     Size    = sizeof(USB_HID_Descriptor_HID_t);
@@ -1235,7 +1235,7 @@ uint16_t get_usb_descriptor(const uint16_t wValue, const uint16_t wIndex, const 
                     break;
 #endif
 
-#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_VIRTSER)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_FIRMATA)
                 case CONSOLE_INTERFACE:
                     Address = &ConsoleReport;
                     Size    = sizeof(ConsoleReport);

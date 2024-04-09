@@ -204,12 +204,11 @@ void debug_led_on(int led)
     i = (i+1)%RGB_MATRIX_LED_COUNT;
 }
 
-
-// "console sendchar"
-int8_t sendchar_virtser(uint8_t c) { //todo bb: rename sendchar_virtser to sendchar_console
+// console sendchar
+int8_t sendchar(uint8_t c) {
     g_console_stream.write(c);
     //if (g_console_stream.need_flush()) debug_led_on(0);
-    return 1;
+    return 0;
 }
 
 
@@ -264,20 +263,6 @@ void firmata_process() {
         g_firmata.sendString((char*)&g_console_stream._tx_buffer[g_console_stream._tx_buffer_tail]);
         g_console_stream.flush();
     }
-
-#if 1
-    {
-        static uint32_t i = 0;
-        if (i % 50 == 0)
-            sendchar_virtser('1');
-        if (i % 500 == 0)
-            sendchar_virtser('2');
-        if (i % 5000 == 0)
-            sendchar_virtser('3');
-
-        i++;
-    }
-#endif
 }
 
 }

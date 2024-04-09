@@ -13,5 +13,5 @@ $(FIRMATA_DIR)/Print.cpp \
 #empty line
 
 CONSOLE_ENABLE = yes
-CONSOLE_VIRTSER = yes
+CONSOLE_FIRMATA = yes
 RGB_MATRIX_CUSTOM_USER = yes
