@@ -148,11 +148,8 @@ public:
 
     bool need_flush() {
         if (_tx_flush) return 1;
-
-        uint16_t time_elapsed = timer_elapsed(_tx_last_flush);
-        if (time_elapsed > 100) {
-            return 1;
-        }
+        if (timer_elapsed(_tx_last_flush) > 100) return 1;
+        return 0;
     }
 };
 
