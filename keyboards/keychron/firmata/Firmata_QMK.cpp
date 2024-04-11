@@ -112,6 +112,7 @@ public:
     }
 
     virtual void flush(void) {
+        _tx_last_flush = timer_read();
         if (!_written) return;
 
         if (_send_data) {
@@ -126,12 +127,10 @@ public:
                 _send_char(c);
             }
         }
-
         _written = 0;
         _tx_buffer_head = 0;
         _tx_buffer_tail = 0;
         _tx_flush = 0;
-        _tx_last_flush = timer_read();
     }
 
     virtual size_t write(uint8_t c) {
@@ -148,17 +147,45 @@ public:
 
     bool need_flush() {
         if (_tx_flush) return 1;
-        if (timer_elapsed(_tx_last_flush) > 100) return 1;
+        if ((_tx_buffer_head != _tx_buffer_tail) &&
+           (timer_elapsed(_tx_last_flush) > 100)) return 1;
         return 0;
     }
 };
 
+class QmkFirmata : public firmata::FirmataClass
+{
+    bool _started = 0;
+    bool _paused  = 0;
+public:
+    QmkFirmata() : FirmataClass() {}
+
+    void begin(Stream &s) {
+        FirmataClass::begin(s);
+        _started = 1;
+    }
+
+    void pause() {  // todo bb: pause/resume if host firmata app disconnects
+        _paused = 1;
+    }
+
+    void resume() {
+        _paused = 0;
+    }
+
+    int available() {
+        if (_paused) return 0;
+        return FirmataClass::available();
+    }
+
+    bool started() { return _started; }
+};
 
 //------------------------------------------------------------------------------
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
-void rawhid_send_data(uint8_t *data, uint16_t len) {
+static void _rawhid_send_data(uint8_t *data, uint16_t len) {
     uint8_t buf[RAW_EPSIZE_FIRMATA] = {0};
     uint8_t *hdr = data - 1;
     *hdr = RAWHID_FIRMATA_MSG; // firmata
@@ -181,9 +208,8 @@ void rawhid_send_data(uint8_t *data, uint16_t len) {
     }
 }
 
-static firmata::FirmataClass g_firmata; // todo bb: override FirmataClass and add "started flag"
-static bool g_firmata_started = 0;
-static BufferStream g_rawhid_stream(rawhid_send_data, nullptr);
+static QmkFirmata g_firmata;
+static BufferStream g_rawhid_stream(_rawhid_send_data, nullptr);
 static BufferStream g_console_stream(nullptr, nullptr);
 
 extern "C" {
@@ -215,7 +241,6 @@ void firmata_initialize(const char* firmware) {
 
 void firmata_start() {
     g_firmata.begin(g_rawhid_stream);
-    g_firmata_started = 1;
 }
 
 void firmata_attach(uint8_t cmd, sysexCallbackFunction newFunction) {
@@ -224,13 +249,13 @@ void firmata_attach(uint8_t cmd, sysexCallbackFunction newFunction) {
 
 
 void firmata_send_sysex(uint8_t cmd, uint8_t* data, int len) {
-    if (!g_firmata_started) return;
+    if (!g_firmata.started()) return;
 
     g_firmata.sendSysex(cmd, len, data);
 }
 
 int firmata_recv(uint8_t c) {
-    if (!g_firmata_started) {
+    if (!g_firmata.started()) {
         firmata_start();
     }
     return g_rawhid_stream.received(c);
@@ -246,7 +271,7 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
 }
 
 void firmata_process() {
-    if (!g_firmata_started) return;
+    if (!g_firmata.started()) return;
 
     const uint8_t max_iterations = 64;
     uint8_t n = 0;
