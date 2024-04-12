@@ -4,12 +4,9 @@
 extern "C" {
 #include "raw_hid.h"
 #include "virtser.h"
+#include "util.h"
 #include "timer.h"
 }
-
-
-#define RX_BUFFER_SIZE 256
-#define TX_BUFFER_SIZE 256
 
 typedef uint16_t tx_buffer_index_t;
 typedef uint16_t rx_buffer_index_t;
@@ -17,38 +14,46 @@ typedef uint16_t rx_buffer_index_t;
 typedef void (*send_data_fn)(uint8_t *data, uint16_t len);
 typedef void (*send_char_fn)(uint8_t ch);
 
-
+// BufferStream is a "Firmata Stream" implementation that uses a buffer for "streaming" by
+// receiving with received() and transmitting with write() to a buffer and flush() to send it.
+// sending is done in flush() by calling send_data() or send_char()
 class BufferStream : public Stream
 {
 public:
 
-uint8_t _rx_buffer[RX_BUFFER_SIZE] = {};
-uint8_t _tx_hdr_buffer[TX_BUFFER_SIZE+4] = {};
+uint8_t *_rx_buffer;
+uint16_t _rx_buffer_size;
 uint8_t *_tx_buffer;
+uint16_t _tx_buffer_size;
 
-volatile rx_buffer_index_t _rx_buffer_head;
-volatile rx_buffer_index_t _rx_buffer_tail;
-volatile tx_buffer_index_t _tx_buffer_head;
-volatile tx_buffer_index_t _tx_buffer_tail;
+rx_buffer_index_t _rx_buffer_head;
+rx_buffer_index_t _rx_buffer_tail;
+tx_buffer_index_t _tx_buffer_head;
+tx_buffer_index_t _tx_buffer_tail;
 
-// Has any byte been written to the UART since begin()
-bool _written;
+// any byte been written to tx buffer
+bool _tx_written;
 bool _tx_flush; // flag to flush it
 uint16_t _tx_last_flush = 0;
 
-send_data_fn    _send_data;
-send_char_fn    _send_char;
+send_data_fn    _send_data; // send data buf function
+send_char_fn    _send_char; // send char function
 
 public:
 
-    BufferStream(send_data_fn send_data, send_char_fn send_char) {
-        _written = 0;
+    BufferStream(uint8_t* rx_buf, uint16_t rx_buf_size,
+                 uint8_t* tx_buf, uint16_t tx_buf_size,
+                 send_data_fn send_data, send_char_fn send_char) {
+        _rx_buffer = rx_buf;
+        _rx_buffer_size = rx_buf_size;
         _rx_buffer_head = 0;
         _rx_buffer_tail = 0;
 
-        _tx_buffer = _tx_hdr_buffer + 4; // 4 bytes reserved for header
+        _tx_buffer = tx_buf;
+        _tx_buffer_size = tx_buf_size;
         _tx_buffer_head = 0;
         _tx_buffer_tail = 0;
+        _tx_written = 0;
         _tx_flush = 0;
         _tx_last_flush = 0;
 
@@ -68,7 +73,7 @@ public:
 
     // received byte insert at head
     int received(uint8_t c) {
-        rx_buffer_index_t i = (_rx_buffer_head + 1) % RX_BUFFER_SIZE;
+        rx_buffer_index_t i = (_rx_buffer_head + 1) % _rx_buffer_size;
         _rx_buffer[_rx_buffer_head] = c;
         _rx_buffer_head = i;
 
@@ -97,7 +102,7 @@ public:
             return -1;
         } else {
             unsigned char c = _rx_buffer[_rx_buffer_tail];
-            _rx_buffer_tail = (rx_buffer_index_t)(_rx_buffer_tail + 1) % RX_BUFFER_SIZE;
+            _rx_buffer_tail = (rx_buffer_index_t)(_rx_buffer_tail + 1) % _rx_buffer_size;
             if (_rx_buffer_tail == _rx_buffer_head) {
                 _rx_buffer_head = 0;
                 _rx_buffer_tail = 0;
@@ -107,13 +112,13 @@ public:
     }
 
     virtual int availableForWrite(void) {
-        if (_tx_buffer_head < TX_BUFFER_SIZE) return 1;
+        if (_tx_buffer_head < _tx_buffer_size) return 1;
         return 0;
     }
 
     virtual void flush(void) {
         _tx_last_flush = timer_read();
-        if (!_written) return;
+        if (!_tx_written) return;
 
         if (_send_data) {
             if (_tx_buffer_head != _tx_buffer_tail) {
@@ -123,25 +128,25 @@ public:
         if (_send_char) {
             while (_tx_buffer_head != _tx_buffer_tail) {
                 uint8_t c = _tx_buffer[_tx_buffer_tail];
-                _tx_buffer_tail = (_tx_buffer_tail + 1) % TX_BUFFER_SIZE;
+                _tx_buffer_tail = (_tx_buffer_tail + 1) % _tx_buffer_size;
                 _send_char(c);
             }
         }
-        _written = 0;
+        _tx_written = 0;
         _tx_buffer_head = 0;
         _tx_buffer_tail = 0;
         _tx_flush = 0;
     }
 
     virtual size_t write(uint8_t c) {
-        tx_buffer_index_t i = (_tx_buffer_head + 1) % TX_BUFFER_SIZE;
+        tx_buffer_index_t i = (_tx_buffer_head + 1) % _tx_buffer_size;
         _tx_buffer[_tx_buffer_head] = c;
         _tx_buffer_head = i;
-        _written = 1;
+        _tx_written = 1;
 
         // flush when eol or buffer is getting full
         if (c == '\n') _tx_flush = 1;
-        if (i >= TX_BUFFER_SIZE/2) _tx_flush = 1;
+        if (i >= _tx_buffer_size/2) _tx_flush = 1;
         return 1;
     }
 
@@ -165,7 +170,7 @@ public:
         _started = 1;
     }
 
-    void pause() {  // todo bb: pause/resume if host firmata app disconnects
+    void pause() {  // todo bb: pause/resume needed?
         _paused = 1;
     }
 
@@ -180,11 +185,9 @@ public:
 
     bool started() { return _started; }
 };
+static QmkFirmata s_firmata;
 
 //------------------------------------------------------------------------------
-
-#define MIN(a,b) (((a)<(b))?(a):(b))
-
 static void _rawhid_send_data(uint8_t *data, uint16_t len) {
     uint8_t buf[RAW_EPSIZE_FIRMATA] = {0};
     uint8_t *hdr = data - 1;
@@ -208,12 +211,27 @@ static void _rawhid_send_data(uint8_t *data, uint16_t len) {
     }
 }
 
-static QmkFirmata g_firmata;
-static BufferStream g_rawhid_stream(_rawhid_send_data, nullptr);
-static BufferStream g_console_stream(nullptr, nullptr);
+static void _send_console_string(uint8_t *data, uint16_t len) {
+    data[len] = 0;
+    s_firmata.sendString((char*)data);
+}
+
+//------------------------------------------------------------------------------
+#define TX_BUF_RESERVE 4 // reserve bytes before tx buffer for RAWHID_FIRMATA_MSG
+static uint8_t _qmk_firmata_rx_buf[256] = {};
+static uint8_t _qmk_firmata_tx_buf[256+TX_BUF_RESERVE] = {};
+static uint8_t _qmk_firmata_console_buf[256] = {}; // todo bb: check to use "console printf buffer" directly
+
+static BufferStream s_rawhid_stream(_qmk_firmata_rx_buf, sizeof(_qmk_firmata_rx_buf),
+                                    _qmk_firmata_tx_buf+TX_BUF_RESERVE, sizeof(_qmk_firmata_tx_buf)-TX_BUF_RESERVE,
+                                    _rawhid_send_data, nullptr);
+static BufferStream s_console_stream(nullptr, 0,
+                                     _qmk_firmata_console_buf, sizeof(_qmk_firmata_console_buf)-1,
+                                     _send_console_string, nullptr);
 
 extern "C" {
 
+#ifdef DEBUG_LED_ENABLE
 void debug_led_on(int led)
 {
     extern rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
@@ -226,39 +244,39 @@ void debug_led_on(int led)
     g_rgb_matrix_host_buf.written = 1;
     i = (i+1)%RGB_MATRIX_LED_COUNT;
 }
+#endif
 
 // console sendchar
 int8_t sendchar(uint8_t c) {
-    g_console_stream.write(c);
+    s_console_stream.write(c);
     //if (g_console_stream.need_flush()) debug_led_on(0);
     return 0;
 }
 
 
 void firmata_initialize(const char* firmware) {
-    g_firmata.setFirmwareNameAndVersion(firmware, FIRMATA_QMK_MAJOR_VERSION, FIRMATA_QMK_MINOR_VERSION);
+    s_firmata.setFirmwareNameAndVersion(firmware, FIRMATA_QMK_MAJOR_VERSION, FIRMATA_QMK_MINOR_VERSION);
 }
 
 void firmata_start() {
-    g_firmata.begin(g_rawhid_stream);
+    s_firmata.begin(s_rawhid_stream);
 }
 
 void firmata_attach(uint8_t cmd, sysexCallbackFunction newFunction) {
-    g_firmata.attach(cmd, newFunction);
+    s_firmata.attach(cmd, newFunction);
 }
 
-
 void firmata_send_sysex(uint8_t cmd, uint8_t* data, int len) {
-    if (!g_firmata.started()) return;
+    if (!s_firmata.started()) return;
 
-    g_firmata.sendSysex(cmd, len, data);
+    s_firmata.sendSysex(cmd, len, data);
 }
 
 int firmata_recv(uint8_t c) {
-    if (!g_firmata.started()) {
+    if (!s_firmata.started()) {
         firmata_start();
     }
-    return g_rawhid_stream.received(c);
+    return s_rawhid_stream.received(c);
 }
 
 int firmata_recv_data(uint8_t *data, uint8_t len) {
@@ -271,19 +289,17 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
 }
 
 void firmata_process() {
-    if (!g_firmata.started()) return;
+    if (!s_firmata.started()) return;
 
     const uint8_t max_iterations = 64;
     uint8_t n = 0;
-    while (g_firmata.available()) {
-        g_firmata.processInput();
+    while (s_firmata.available()) {
+        s_firmata.processInput();
         if (n++ >= max_iterations) break;
     }
 
-    if (g_console_stream.need_flush()) {
-        g_console_stream._tx_buffer[g_console_stream._tx_buffer_head] = 0;
-        g_firmata.sendString((char*)&g_console_stream._tx_buffer[g_console_stream._tx_buffer_tail]);
-        g_console_stream.flush();
+    if (s_console_stream.need_flush()) {
+        s_console_stream.flush();
     }
 }
 
