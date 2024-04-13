@@ -29,6 +29,12 @@ volatile uint8_t dynld_func_buf[DYNLD_FUN_ID_MAX][DYNLD_FUNC_SIZE] __attribute__
 dynld_funcs_t g_dynld_funcs = { 0 };
 
 void load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, size_t size) {
+    // set function pointer after fully loaded
+    if (offset == 0xffff) {
+        g_dynld_funcs.func[fun_id] = (void*)thumb_fun_addr((uint8_t*)dynld_func_buf[fun_id]);
+        //dprintf_buf((uint8_t*)&dynld_func_buf[fun_id][0], 16);
+        return;
+    }
     if (offset + size > DYNLD_FUNC_SIZE) {
         memset((void*)&dynld_func_buf[fun_id][offset], 0, DYNLD_FUNC_SIZE);
         g_dynld_funcs.func[fun_id] = NULL;
@@ -45,9 +51,6 @@ void load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, si
         if (size >= 4 && data[0] == 0 && data[1] == 0 && data[2] == 0 && data[3] == 0) return;
     }
     memcpy((void*)&dynld_func_buf[fun_id][offset], data, size);
-    //todo bb: set after fully loaded
-    g_dynld_funcs.func[fun_id] = (void*)thumb_fun_addr((uint8_t*)dynld_func_buf[fun_id]); //(void*)dynld_func_buf[fun_id];
-    //dprintf_buf((uint8_t*)&dynld_func_buf[fun_id][offset], 16);
 }
 
 //------------------------------------------------------------------------------
@@ -183,7 +186,7 @@ _FRMT_HANDLE_CMD_SET(dynld_function) // uint8_t cmd, uint8_t len, uint8_t *buf
     uint16_t fun_id = buf[0] | buf[1] << 8;
     uint16_t offset = buf[2] | buf[3] << 8;
     len -= 4;
-    dprintf("[DYNLD]func id=%d off=%d\n", fun_id, offset);
+    dprintf("[DYNLD]func id=%d off=%d, len=%d\n", fun_id, offset, len);
     load_function(fun_id, &buf[4], offset, len);
 }
 

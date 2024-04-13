@@ -1,21 +1,18 @@
-#include "rgb_matrix.h"
-#include "firmata/Firmata_QMK.h"
-#include "dynld_func.h"
 #include <lib/lib8tion/lib8tion.h>
-
+#include "rgb_matrix.h"
 #include "debug.h"
 
+#include "firmata/Firmata_QMK.h"
+#include "dynld_func.h"
+
 extern dynld_funcs_t g_dynld_funcs;
-
-
-//typedef HSV (*dx_dy_dist_f)(HSV hsv, int16_t dx, int16_t dy, uint8_t dist, uint8_t time);
 
 static int dynld_env_printf(const char* fmt, ...) {
 /*
     char buffer[80];
     va_list args;
     va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args); // Build the string
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
     dprintf(buffer);
 */
@@ -82,6 +79,7 @@ bool dynld_rgb_animation_run(effect_params_t* params) {
     //dprintf("[DYNLD]rgb anim run iter=%d time=%ld\n", params->iter, s_custom_animation_env.time);
     if (g_dynld_funcs.func[DYNLD_FUN_ID_ANIMATION]) {
         funptr_animation_run_t func_animation = (funptr_animation_run_t)g_dynld_funcs.func[DYNLD_FUN_ID_ANIMATION];
+        s_custom_animation_env.time = g_rgb_timer;
         bool ret = func_animation(&s_custom_animation_env, params);
         if (debug_config.dynld) {
             dprintf("[DYNLD]rgb anim buf: %d %d %d %d\n", s_custom_animation_env.buf[0], s_custom_animation_env.buf[1],
@@ -94,7 +92,5 @@ bool dynld_rgb_animation_run(effect_params_t* params) {
 
 bool dynld_rgb_animation(effect_params_t* params) {
     if (params->init) dynld_rgb_animation_init(params);
-    s_custom_animation_env.time = g_rgb_timer;
     return dynld_rgb_animation_run(params);
 }
-
