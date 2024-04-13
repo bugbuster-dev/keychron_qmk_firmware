@@ -16,17 +16,14 @@
 
 #include "quantum.h"
 #include "keychron_task.h"
-
 #ifdef FIRMATA_ENABLE
 #include "firmata/Firmata_QMK.h"
 #endif
-
 
 void keyboard_post_init_user(void) {
 #ifdef FIRMATA_ENABLE
     debug_config.enable = 1;
     firmata_initialize("Keychron Firmata");
-    firmata_attach(0, firmata_sysex_handler);
 #endif
 }
 
@@ -37,7 +34,6 @@ extern rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
 void rgb_matrix_host_buf_render(void)
 {
     if (!g_rgb_matrix_host_buf.written) return;
-
     bool matrix_set = 0;
     for (uint8_t li = 0; li < RGB_MATRIX_LED_COUNT; li++) {
         if (g_rgb_matrix_host_buf.led[li].duration > 0) {
@@ -46,7 +42,6 @@ void rgb_matrix_host_buf_render(void)
             matrix_set = 1;
         }
     }
-
     if (!matrix_set) g_rgb_matrix_host_buf.written = 0;
 }
 #endif
@@ -60,13 +55,11 @@ void keyb_user_set_macwin_mode(int mode) {
     if (mode < 0) {
         mode = s_keyb_switch_macwin_mode;
     }
-
     int layer = 0;
     if (mode == 'm')
         layer = 0;
     if (mode == 'w')
         layer = 2;
-
     default_layer_set(1UL << layer);
 }
 
@@ -91,6 +84,6 @@ bool dip_switch_update_user(uint8_t index, bool active) {
 
 void keychron_task_user(void) {
 #ifdef FIRMATA_ENABLE
-    firmata_process();
+    firmata_task();
 #endif
 }

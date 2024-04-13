@@ -253,17 +253,14 @@ int8_t sendchar(uint8_t c) {
     return 0;
 }
 
-
 void firmata_initialize(const char* firmware) {
+    extern void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf);
     s_firmata.setFirmwareNameAndVersion(firmware, FIRMATA_QMK_MAJOR_VERSION, FIRMATA_QMK_MINOR_VERSION);
+    s_firmata.attach(0, firmata_sysex_handler);
 }
 
 void firmata_start() {
     s_firmata.begin(s_rawhid_stream);
-}
-
-void firmata_attach(uint8_t cmd, sysexCallbackFunction newFunction) {
-    s_firmata.attach(cmd, newFunction);
 }
 
 void firmata_send_sysex(uint8_t cmd, uint8_t* data, int len) {
@@ -288,7 +285,7 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
     return 0;
 }
 
-void firmata_process() {
+void firmata_task() {
     if (!s_firmata.started()) return;
 
     const uint8_t max_iterations = 64;
