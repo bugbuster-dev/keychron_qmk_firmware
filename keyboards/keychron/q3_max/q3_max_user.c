@@ -18,22 +18,77 @@
 #include "keychron_task.h"
 #ifdef FIRMATA_ENABLE
 #include "firmata/Firmata_QMK.h"
+#include "debug_user.h"
 #endif
 
 void keyboard_post_init_user(void) {
 #ifdef FIRMATA_ENABLE
-    debug_config.enable = 1;
+    //debug_config.enable = 1;
     firmata_initialize("Keychron Firmata");
 #endif
 }
 
 #ifdef FIRMATA_ENABLE
+#ifdef DEVEL_BUILD
+typedef struct stats_time {
+    uint32_t counter;
+    uint32_t print_interval;
+    uint32_t start_time;
+    uint32_t max_time;
+    uint32_t min_time;
+    uint32_t total_time;
+} stats_time_t;
+
+static stats_time_t stats_rgb_render;
+static stats_time_t stats_firmata_task;
+
+static inline void _stats_print(stats_time_t *stats, const char *name) {
+    if (debug_config_user.stats) {
+        dprintf("[STS]%s:%ldx,%ldms,%ld/%ld\n",
+                name, stats->counter, stats->total_time, stats->max_time, stats->min_time);
+    }
+}
+
+static inline void _stats_start(stats_time_t *stats, uint32_t print_interval) {
+    if (debug_config_user.stats) {
+        stats->start_time = timer_read32();
+        stats->print_interval = print_interval;
+        if (stats->counter == 0) {
+            stats->max_time = 0;
+            stats->min_time = 0xFFFFFFFF;
+        }
+    }
+}
+
+static inline void _stats_stop(stats_time_t *stats, const char *name) {
+    if (debug_config_user.stats) {
+        uint32_t elapsed = timer_elapsed32(stats->start_time);
+        if (elapsed > stats->max_time) stats->max_time = elapsed;
+        if (elapsed < stats->min_time) stats->min_time = elapsed;
+        stats->total_time += elapsed;
+        stats->counter++;
+        if (stats->counter % stats->print_interval == 0) {
+            _stats_print(stats, name);
+            stats->counter = 0;
+            stats->total_time = 0;
+        }
+    }
+}
+
+#define STATS_START(stats, interval)    _stats_start(stats, interval)
+#define STATS_STOP(stats, name)         _stats_stop(stats, name)
+#else
+#define STATS_START(stats, interval)
+#define STATS_STOP(stats, name)
+#endif
+
 extern rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
 
 // render rgb matrix "host buffer" set by user from host
 void rgb_matrix_host_buf_render(void)
 {
     if (!g_rgb_matrix_host_buf.written) return;
+    STATS_START(&stats_rgb_render, 1000);
     bool matrix_set = 0;
     for (uint8_t li = 0; li < RGB_MATRIX_LED_COUNT; li++) {
         if (g_rgb_matrix_host_buf.led[li].duration > 0) {
@@ -43,6 +98,7 @@ void rgb_matrix_host_buf_render(void)
         }
     }
     if (!matrix_set) g_rgb_matrix_host_buf.written = 0;
+    STATS_STOP(&stats_rgb_render, "rgb buf render");
 }
 #endif
 
@@ -84,6 +140,8 @@ bool dip_switch_update_user(uint8_t index, bool active) {
 
 void keychron_task_user(void) {
 #ifdef FIRMATA_ENABLE
+    STATS_START(&stats_firmata_task, 10000);
     firmata_task();
+    STATS_STOP(&stats_firmata_task, "firmata task");
 #endif
 }

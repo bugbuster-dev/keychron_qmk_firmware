@@ -20,7 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdbool.h>
 #include "print.h"
 
-
 #ifdef __cplusplus
 extern "C" {
 #define _Static_assert static_assert
@@ -35,9 +34,7 @@ typedef union {
         bool    matrix : 1;
         bool    keyboard : 1;
         bool    mouse : 1;
-        bool    via : 1;
-        bool    dynld : 1;
-        uint8_t reserved : 2;
+        uint8_t reserved : 4;
     };
     uint8_t raw;
 } debug_config_t;

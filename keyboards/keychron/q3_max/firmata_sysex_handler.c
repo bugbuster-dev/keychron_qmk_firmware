@@ -1,6 +1,7 @@
 #include "action_layer.h"
 #include "rgb_matrix.h"
 #include "debug.h"
+#include "debug_user.h"
 
 #include "firmata/Firmata_QMK.h"
 #include "dynld_func.h"
@@ -104,11 +105,41 @@ _FRMT_HANDLE_CMD_SET(default_layer) {
     default_layer_set(state);
 }
 
-_FRMT_HANDLE_CMD_SET(debug_mask) {
-    debug_config = (debug_config_t) buf[0];
-    dprintf("[D]%02x\n", buf[0]);
+_FRMT_HANDLE_CMD_GET(default_layer) {
 }
 
+//------------------------------------------------------------------------------
+_FRMT_HANDLE_CMD_SET(debug_mask) {
+    if (len < 4) {
+        debug_config.raw = buf[0];
+        dprintf("[DMSK]%02x\n", debug_config.raw);
+        return;
+    }
+    if (len >= 4) {
+        //uint32_t dbg_mask = buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3];
+        debug_config.raw = buf[3];
+    }
+    if (len >= 8) {
+        const int off = 4;
+        uint32_t dbg_user_mask = buf[off] << 24 | buf[off+1] << 16 | buf[off+2] << 8 | buf[off+3];
+        debug_config_user.raw = dbg_user_mask;
+        dprintf("[DMSK]%02x:%08lx\n", debug_config.raw, debug_config_user.raw);
+    }
+}
+
+_FRMT_HANDLE_CMD_GET(debug_mask) {
+    uint8_t response[9];
+    response[0] = FRMT_ID_DEBUG_MASK;
+    response[1] = response[2] = response[3] = 0;
+    response[4] = debug_config.raw;
+    response[5] = (debug_config_user.raw >> 24) & 0xff;
+    response[6] = (debug_config_user.raw >> 16) & 0xff;
+    response[7] = (debug_config_user.raw >> 8) & 0xff;
+    response[8] = (debug_config_user.raw) & 0xff;
+    firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
+}
+
+//------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(macwin_mode) {
     extern void keyb_user_set_macwin_mode(int mode);
     int mode = buf[0];
@@ -117,19 +148,6 @@ _FRMT_HANDLE_CMD_SET(macwin_mode) {
     keyb_user_set_macwin_mode(mode);
 }
 
-//------------------------------------------------------------------------------
-_FRMT_HANDLE_CMD_GET(default_layer) {
-}
-
-//------------------------------------------------------------------------------
-_FRMT_HANDLE_CMD_GET(debug_mask) {
-    uint8_t response[2];
-    response[0] = FRMT_ID_DEBUG_MASK;
-    response[1] = *((uint8_t*)&debug_config);
-    firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
-}
-
-//------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_GET(macwin_mode) {
     extern int keyb_user_get_macwin_mode(void);
     uint8_t response[2];
@@ -138,6 +156,7 @@ _FRMT_HANDLE_CMD_GET(macwin_mode) {
     firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
 }
 
+//------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_GET(battery_status) {
 }
 
@@ -165,12 +184,9 @@ _FRMT_HANDLE_CMD_GET(rgb_matrix_mode) {
 //------------------------------------------------------------------------------
 static int dynld_env_printf(const char* fmt, ...) {
 /*
-    char buffer[80];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args); // Build the string
-    va_end(args);
-    dprintf(buffer);
+    if (debug_config.enable) {
+        xprintf(...);
+    }
 */
     return -1;
 }

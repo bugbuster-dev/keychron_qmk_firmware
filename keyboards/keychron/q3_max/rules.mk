@@ -5,6 +5,6 @@ include keyboards/keychron/firmata/firmata.mk
 
 SRC += \
 q3_max_user.c \
-
+debug_user.c \
 
 VPATH += $(TOP_DIR)/keyboards/keychron

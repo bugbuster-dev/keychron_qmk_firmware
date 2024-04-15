@@ -1,6 +1,7 @@
 #include <lib/lib8tion/lib8tion.h>
 #include "rgb_matrix.h"
 #include "debug.h"
+#include "debug_user.h"
 
 #include "firmata/Firmata_QMK.h"
 #include "dynld_func.h"
@@ -81,7 +82,7 @@ bool dynld_rgb_animation_run(effect_params_t* params) {
         funptr_animation_run_t func_animation = (funptr_animation_run_t)g_dynld_funcs.func[DYNLD_FUN_ID_ANIMATION];
         s_custom_animation_env.time = g_rgb_timer;
         bool ret = func_animation(&s_custom_animation_env, params);
-        if (debug_config.dynld) {
+        if (debug_config_user.dynld) {
             dprintf("[DYNLD]rgb anim buf: %d %d %d %d\n", s_custom_animation_env.buf[0], s_custom_animation_env.buf[1],
                                                         s_custom_animation_env.buf[2], s_custom_animation_env.buf[3]);
         }

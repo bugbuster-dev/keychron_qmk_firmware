@@ -19,8 +19,6 @@ typedef void (*send_char_fn)(uint8_t ch);
 // sending is done in flush() by calling send_data() or send_char()
 class BufferStream : public Stream
 {
-public:
-
 uint8_t *_rx_buffer;
 uint16_t _rx_buffer_size;
 uint8_t *_tx_buffer;
@@ -220,7 +218,7 @@ static void _send_console_string(uint8_t *data, uint16_t len) {
 #define TX_BUF_RESERVE 4 // reserve bytes before tx buffer for RAWHID_FIRMATA_MSG
 static uint8_t _qmk_firmata_rx_buf[256] = {};
 static uint8_t _qmk_firmata_tx_buf[256+TX_BUF_RESERVE] = {};
-static uint8_t _qmk_firmata_console_buf[256] = {}; // todo bb: check to use "console printf buffer" directly
+static uint8_t _qmk_firmata_console_buf[240] = {}; // adjust size as needed to hold console output until "firmata task" is called
 
 static BufferStream s_rawhid_stream(_qmk_firmata_rx_buf, sizeof(_qmk_firmata_rx_buf),
                                     _qmk_firmata_tx_buf+TX_BUF_RESERVE, sizeof(_qmk_firmata_tx_buf)-TX_BUF_RESERVE,
