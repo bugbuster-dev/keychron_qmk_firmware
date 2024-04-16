@@ -38,8 +38,10 @@ class Print
 {
   private:
     int write_error;
+#if !defined(QMK_KEYBOARD)
     size_t printNumber(unsigned long, uint8_t);
     size_t printFloat(double, uint8_t);
+#endif
   protected:
     void setWriteError(int err = 1) { write_error = err; }
   public:
@@ -62,10 +64,12 @@ class Print
     // should be overridden by subclasses with buffering
     virtual int availableForWrite() { return 0; }
 
-    size_t print(const __FlashStringHelper *);
-    size_t print(const String &);
     size_t print(const char[]);
     size_t print(char);
+
+#if !defined(QMK_KEYBOARD)
+    size_t print(const __FlashStringHelper *);
+    size_t print(const String &);
     size_t print(unsigned char, int = DEC);
     size_t print(int, int = DEC);
     size_t print(unsigned int, int = DEC);
@@ -86,6 +90,7 @@ class Print
     size_t println(double, int = 2);
     size_t println(const Printable&);
     size_t println(void);
+#endif
 
     virtual void flush() { /* Empty implementation for backward compatibility */ }
 };

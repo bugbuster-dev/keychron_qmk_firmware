@@ -24,7 +24,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-//#include "Arduino.h"
+#if !defined(QMK_KEYBOARD)
+#include "Arduino.h"
+#endif
 
 #include "Print.h"
 
@@ -41,9 +43,19 @@ size_t Print::write(const uint8_t *buffer, size_t size)
   return n;
 }
 
+size_t Print::print(const char str[])
+{
+  return write(str);
+}
+
+size_t Print::print(char c)
+{
+  return write(c);
+}
+
+#if !defined(QMK_KEYBOARD)
 size_t Print::print(const __FlashStringHelper *ifsh)
 {
-#if 0
   PGM_P p = reinterpret_cast<PGM_P>(ifsh);
   size_t n = 0;
   while (1) {
@@ -53,22 +65,11 @@ size_t Print::print(const __FlashStringHelper *ifsh)
     else break;
   }
   return n;
-#endif
 }
 
 size_t Print::print(const String &s)
 {
   return write(s.c_str(), s.length());
-}
-
-size_t Print::print(const char str[])
-{
-  return write(str);
-}
-
-size_t Print::print(char c)
-{
-  return write(c);
 }
 
 size_t Print::print(unsigned char b, int base)
@@ -266,3 +267,4 @@ size_t Print::printFloat(double number, uint8_t digits)
 
   return n;
 }
+#endif
