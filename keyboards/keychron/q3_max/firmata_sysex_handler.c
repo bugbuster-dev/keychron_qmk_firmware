@@ -39,11 +39,11 @@ void load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, si
     if (offset + size > DYNLD_FUNC_SIZE) {
         memset((void*)&dynld_func_buf[fun_id][offset], 0, DYNLD_FUNC_SIZE);
         g_dynld_funcs.func[fun_id] = NULL;
-        dprintf("[DYNLD]fun too large!\n");
+        DBG_USR(dynld, "[DYNLD]fun too large!\n");
         return;
     }
     if (fun_id >= DYNLD_FUN_ID_MAX) {
-        dprintf("[DYNLD]fun id too large!\n");
+        DBG_USR(dynld, "[DYNLD]fun id too large!\n");
         return;
     }
     if (offset == 0) {
@@ -202,7 +202,7 @@ _FRMT_HANDLE_CMD_SET(dynld_function) // uint8_t cmd, uint8_t len, uint8_t *buf
     uint16_t fun_id = buf[0] | buf[1] << 8;
     uint16_t offset = buf[2] | buf[3] << 8;
     len -= 4;
-    dprintf("[DYNLD]func id=%d off=%d, len=%d\n", fun_id, offset, len);
+    DBG_USR(dynld, "[DYNLD]func id=%d off=%d, len=%d\n", fun_id, offset, len);
     load_function(fun_id, &buf[4], offset, len);
 }
 
@@ -210,13 +210,15 @@ _FRMT_HANDLE_CMD_SET(dynld_funexec)
 {
     uint16_t fun_id = buf[0] | buf[1] << 8;
     len -= 2;
-    dprintf("[DYNLD]funexec id=%d\n", fun_id);
+    DBG_USR(dynld, "[DYNLD]funexec id=%d\n", fun_id);
 
     if (fun_id == DYNLD_FUN_ID_TEST) {
         funptr_test_t fun_test = (funptr_test_t)g_dynld_funcs.func[DYNLD_FUN_ID_TEST];
         int ret = fun_test(&s_dynld_test_env); (void) ret;
 
-        dprintf("[DYNLD]fun ret=%d\n", ret);
-        dprintf_buf(s_dynld_test_env.buf, 32);
+        if (debug_config_user.dynld) {
+            DBG_USR(dynld, "[DYNLD]fun ret=%d\n", ret);
+            dprintf_buf(s_dynld_test_env.buf, 32);
+        }
     }
 }

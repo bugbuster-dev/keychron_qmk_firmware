@@ -46,7 +46,7 @@ enum {
 typedef struct rgb_matrix_host_buffer_t {
     struct {
         uint8_t duration;
-        uint8_t r; // todo bb: store 4 bits, value diff around 15 not distinguishable
+        uint8_t r; // todo bb: store <8 bits per r/g/b if needed
         uint8_t g;
         uint8_t b;
     } led[RGB_MATRIX_LED_COUNT];

@@ -210,6 +210,7 @@ static void _rawhid_send_data(uint8_t *data, uint16_t len) {
 }
 
 static void _send_console_string(uint8_t *data, uint16_t len) {
+    if (!s_firmata.started()) return;
     data[len] = 0;
     s_firmata.sendString((char*)data);
 }

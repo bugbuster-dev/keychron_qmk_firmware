@@ -77,15 +77,13 @@ void dynld_rgb_animation_init(effect_params_t* params) {
 }
 
 bool dynld_rgb_animation_run(effect_params_t* params) {
-    //dprintf("[DYNLD]rgb anim run iter=%d time=%ld\n", params->iter, s_custom_animation_env.time);
     if (g_dynld_funcs.func[DYNLD_FUN_ID_ANIMATION]) {
         funptr_animation_run_t func_animation = (funptr_animation_run_t)g_dynld_funcs.func[DYNLD_FUN_ID_ANIMATION];
         s_custom_animation_env.time = g_rgb_timer;
         bool ret = func_animation(&s_custom_animation_env, params);
-        if (debug_config_user.dynld) {
-            dprintf("[DYNLD]rgb anim buf: %d %d %d %d\n", s_custom_animation_env.buf[0], s_custom_animation_env.buf[1],
-                                                        s_custom_animation_env.buf[2], s_custom_animation_env.buf[3]);
-        }
+        DBG_USR(user_anim, "[USANI]iter=%d,time=%ld,envbuf:%d %d %d %d\n", params->iter, s_custom_animation_env.time,
+                            s_custom_animation_env.buf[0], s_custom_animation_env.buf[1],
+                            s_custom_animation_env.buf[2], s_custom_animation_env.buf[3]);
         return ret;
     }
     return true;
