@@ -77,8 +77,8 @@ void dynld_rgb_animation_init(effect_params_t* params) {
 }
 
 bool dynld_rgb_animation_run(effect_params_t* params) {
-    if (g_dynld_funcs.func[DYNLD_FUN_ID_ANIMATION]) {
-        funptr_animation_run_t func_animation = (funptr_animation_run_t)g_dynld_funcs.func[DYNLD_FUN_ID_ANIMATION];
+    funptr_animation_run_t func_animation = (funptr_animation_run_t)g_dynld_funcs.func[DYNLD_FUN_ID_ANIMATION];
+    if (func_animation) {
         s_custom_animation_env.time = g_rgb_timer;
         bool ret = func_animation(&s_custom_animation_env, params);
         DBG_USR(user_anim, "[USANI]iter=%d,time=%ld,envbuf:%d %d %d %d\n", params->iter, s_custom_animation_env.time,
