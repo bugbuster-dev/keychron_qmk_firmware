@@ -7,10 +7,9 @@ arduino firmata src in firmata dir is from 2 repos:
 arduino: https://github.com/arduino/ArduinoCore-avr/tree/master/cores/arduino
 arduino firmata: https://github.com/firmata/arduino
 
-
 qmk firmata c wrapper: Firmata_QMK.h/cpp
-qmk sysex handler: <kb>/firmata_sysex_handler.c
-qmk rgb host buffer handler: <kb>/firmata_rgb_matrix_user.c
+qmk firmata sysex handler: <kb>/firmata_sysex_handler.c
+qmk firmata rgb host buffer handler: <kb>/firmata_rgb_matrix_user.c
 
 firmata "com port"
 ------------------
@@ -26,10 +25,13 @@ alternatively "qmk raw hid" (shared with via) can be used, see keychron q3 max.
 on host a "rawhid serial port" is created and passed to pyfirmata2 to be used as 
 a serial port.
 
-note: using firmata, "console stream" is part of "firmata stream" and does not need separate endpoints.
+using qmk firmata, "console stream" is part of "firmata stream" and does not need separate endpoints.
+this makes it possible to enable console on keyboards which do not have additional endpoints for console.
 
-integration
------------
+see CONSOLE_FIRMATA define used in "tmk_core/protocol"
+
+integration summary
+-------------------
 
 todo bb...
 
@@ -41,8 +43,8 @@ copy/extend rgb_matrix_user.inc in <kb>
 copy firmata_rgb_matrix_user.c to <kb>
 copy/strip/extend firmata_sysex_handler.c to <kb>
 
-include firmata/firmata.mk in your mk file
+include firmata/firmata.mk in the keyboard mk file
 modify firmata.mk if needed for:
 - virtser or raw hid
-- console on/off
-- rgb matrix buffer set from host
+- console enable
+- rgb matrix buffer set from host enable
