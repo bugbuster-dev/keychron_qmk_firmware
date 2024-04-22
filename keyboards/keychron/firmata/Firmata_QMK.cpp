@@ -15,7 +15,7 @@ typedef void (*send_data_fn)(uint8_t *data, uint16_t len);
 typedef void (*send_char_fn)(uint8_t ch);
 
 // BufferStream is a "Firmata Stream" implementation that uses a buffer for "streaming" by
-// receiving with received() and transmitting with write() to a buffer and flush() to send it.
+// receiving with received() into rx buffer and transmitting with write() to tx buffer and flush() to send it.
 // sending is done in flush() by calling send_data() or send_char()
 class BufferStream : public Stream
 {
@@ -95,7 +95,6 @@ public:
 
     // read from tail
     virtual int read(void) {
-        // if the head isn't ahead of the tail, we don't have any characters
         if (_rx_buffer_head == _rx_buffer_tail) {
             return -1;
         } else {
@@ -168,7 +167,7 @@ public:
         _started = 1;
     }
 
-    void pause() {  // todo bb: pause/resume needed?
+    void pause() {  // todo bb: pause/resume could be used to prevent sending firmata messages when via is active
         _paused = 1;
     }
 
