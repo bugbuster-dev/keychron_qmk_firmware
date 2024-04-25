@@ -18,6 +18,7 @@ _FRMT_HANDLE_CMD_SETGET(macwin_mode);
 _FRMT_HANDLE_CMD_SETGET(battery_status);
 _FRMT_HANDLE_CMD_SETGET(rgb_matrix_buf);
 _FRMT_HANDLE_CMD_SETGET(rgb_matrix_mode);
+_FRMT_HANDLE_CMD_SETGET(rgb_matrix_hsv);
 _FRMT_HANDLE_CMD_SETGET(dynld_function);
 _FRMT_HANDLE_CMD_SETGET(dynld_funexec);
 
@@ -39,8 +40,9 @@ enum {
     FRMT_ID_BATTERY_STATUS  = 4,
     FRMT_ID_MACWIN_MODE     = 5,
     FRMT_ID_RGB_MATRIX_MODE = 6,
-    FRMT_ID_DYNLD_FUNCTION  = 7, // dynamic load function into ram
-    FRMT_ID_DYNLD_FUNEXEC   = 8, // exec "dynamic loaded function"
+    FRMT_ID_RGB_MATRIX_HSV  = 7,
+    FRMT_ID_DYNLD_FUNCTION  = 250, // dynamic load function into ram
+    FRMT_ID_DYNLD_FUNEXEC   = 251, // exec "dynamic loaded function"
 };
 
 // rgb matrix buffer set from host

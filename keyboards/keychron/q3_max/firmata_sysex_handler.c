@@ -22,7 +22,11 @@ static void dprintf_buf(uint8_t *buf, uint8_t len) {
 
 // adjusting the function pointer for thumb mode
 uint32_t thumb_fun_addr(void* funptr) {
-    return (((uint32_t)funptr)|1);
+    uint8_t thumb_bit = 0;
+#ifdef THUMB_PRESENT
+    thumb_bit = 1;
+#endif
+    return (((uint32_t)funptr) | thumb_bit);
 }
 
 #define DYNLD_FUNC_SIZE 1024 // dynld function max size
@@ -34,7 +38,7 @@ void load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, si
     if (offset == 0xffff) {
         if (memcmp(dynld_func_buf[fun_id], "\0\0", 2) != 0) {
             g_dynld_funcs.func[fun_id] = (void*)thumb_fun_addr((uint8_t*)dynld_func_buf[fun_id]);
-            DBG_USR(firmata, "[FA]dynld fun[%d]:%p\n", fun_id, g_dynld_funcs.func[fun_id]);
+            DBG_USR(firmata, "[FA]dynld fun[%d]:%p\n", (int)fun_id, g_dynld_funcs.func[fun_id]);
         }
         return;
     }
@@ -52,7 +56,7 @@ void load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, si
         g_dynld_funcs.func[fun_id] = NULL;
         memset((void*)dynld_func_buf[fun_id], 0, DYNLD_FUNC_SIZE);
         if (size >= 2 && memcmp(data, "\0\0", 2) == 0) {
-            DBG_USR(firmata, "[FA]dynld fun[%d]:0\n", fun_id);
+            DBG_USR(firmata, "[FA]dynld fun[%d]:0\n", (int)fun_id);
             return;
         }
     }
@@ -71,6 +75,7 @@ void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
         if (id == FRMT_ID_DEBUG_MASK)       _frmt_handle_cmd_set_debug_mask(cmd, len, buf);
         if (id == FRMT_ID_MACWIN_MODE)      _frmt_handle_cmd_set_macwin_mode(cmd, len, buf);
         if (id == FRMT_ID_RGB_MATRIX_MODE)  _frmt_handle_cmd_set_rgb_matrix_mode(cmd, len, buf);
+        if (id == FRMT_ID_RGB_MATRIX_HSV)   _frmt_handle_cmd_set_rgb_matrix_hsv(cmd, len, buf);
         if (id == FRMT_ID_DYNLD_FUNCTION)   _frmt_handle_cmd_set_dynld_function(cmd, len, buf);
         if (id == FRMT_ID_DYNLD_FUNEXEC)    _frmt_handle_cmd_set_dynld_funexec(cmd, len, buf);
     }
@@ -82,13 +87,14 @@ void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
         if (id == FRMT_ID_MACWIN_MODE)      _frmt_handle_cmd_get_macwin_mode(cmd, len, buf);
         if (id == FRMT_ID_BATTERY_STATUS)   _frmt_handle_cmd_get_battery_status(cmd, len, buf);
         if (id == FRMT_ID_RGB_MATRIX_MODE)  _frmt_handle_cmd_get_rgb_matrix_mode(cmd, len, buf);
+        if (id == FRMT_ID_RGB_MATRIX_HSV)   _frmt_handle_cmd_get_rgb_matrix_hsv(cmd, len, buf);
     }
 }
 
 //------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(rgb_matrix_buf) {
     for (uint16_t i = 0; i < len;) {
-        //DBG_USR(firmata, "rgb:%d(%d):%d,%d,%d\n", buf[i], buf[i+1], buf[i+2], buf[i+3], buf[i+4]);
+        //DBG_USR(firmata, "rgb:%d(%d):%d,%d,%d\n", (int)buf[i], (int)buf[i+1], (int)buf[i+2], (int)buf[i+3], (int)buf[i+4]);
         uint8_t li = buf[i++];
         if (li < RGB_MATRIX_LED_COUNT) {
             g_rgb_matrix_host_buf.led[li].duration = buf[i++];
@@ -105,7 +111,7 @@ _FRMT_HANDLE_CMD_SET(rgb_matrix_buf) {
 
 //------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(default_layer) {
-    DBG_USR(firmata, "[FA]layer:%d\n", buf[0]);
+    DBG_USR(firmata, "[FA]layer:%d\n", (int)buf[0]);
     layer_state_t state = 1 << buf[0];
     default_layer_set(state);
 }
@@ -168,7 +174,7 @@ _FRMT_HANDLE_CMD_GET(battery_status) {
 //------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(rgb_matrix_mode) {
     uint8_t matrix_mode = buf[0];
-    DBG_USR(firmata, "[FA]rgb:%d\n", matrix_mode);
+    DBG_USR(firmata, "[FA]rgb:%d\n", (int)matrix_mode);
     if (matrix_mode) {
         rgb_matrix_enable_noeeprom();
         rgb_matrix_mode_noeeprom(matrix_mode);
@@ -177,12 +183,30 @@ _FRMT_HANDLE_CMD_SET(rgb_matrix_mode) {
     }
 }
 
-//------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_GET(rgb_matrix_mode) {
     uint8_t response[2];
     response[0] = FRMT_ID_RGB_MATRIX_MODE;
     response[1] = rgb_matrix_get_mode();
 
+    firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
+}
+
+//------------------------------------------------------------------------------
+_FRMT_HANDLE_CMD_SET(rgb_matrix_hsv) {
+    uint8_t h = buf[0];
+    uint8_t s = buf[1];
+    uint8_t v = buf[2];
+    DBG_USR(firmata, "[FA]hsv:%d,%d,%d\n", (int)h, (int)s, (int)v);
+    rgb_matrix_sethsv_noeeprom(h, s, v);
+}
+
+_FRMT_HANDLE_CMD_GET(rgb_matrix_hsv) {
+    uint8_t response[4];
+    HSV hsv = rgb_matrix_get_hsv();
+    response[0] = FRMT_ID_RGB_MATRIX_HSV;
+    response[1] = hsv.h;
+    response[2] = hsv.s;
+    response[3] = hsv.v;
     firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
 }
 
@@ -204,14 +228,14 @@ _FRMT_HANDLE_CMD_SET(dynld_function) {
     uint16_t fun_id = buf[0] | buf[1] << 8;
     uint16_t offset = buf[2] | buf[3] << 8;
     len -= 4;
-    DBG_USR(firmata, "[FA]dynld id=%d,off=%d,len=%d\n", fun_id, offset, len);
+    DBG_USR(firmata, "[FA]dynld id=%d,off=%d,len=%d\n", (int)fun_id, (int)offset, (int)len);
     load_function(fun_id, &buf[4], offset, len);
 }
 
 _FRMT_HANDLE_CMD_SET(dynld_funexec) {
     uint16_t fun_id = buf[0] | buf[1] << 8;
     len -= 2;
-    DBG_USR(firmata, "[FA]dynld exec id=%d\n", fun_id);
+    DBG_USR(firmata, "[FA]dynld exec id=%d\n", (int)fun_id);
 
     if (fun_id == DYNLD_FUN_ID_TEST) {
         funptr_test_t fun_test = (funptr_test_t)g_dynld_funcs.func[DYNLD_FUN_ID_TEST];
