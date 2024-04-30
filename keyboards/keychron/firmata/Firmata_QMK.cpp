@@ -210,6 +210,14 @@ static void _rawhid_send_data(uint8_t *data, uint16_t len) {
 
 static void _send_console_string(uint8_t *data, uint16_t len) {
     if (!s_firmata.started()) return;
+#ifdef DEVEL_BUILD
+    static bool build_date_sent = 0;
+    if (!build_date_sent) {
+        extern const char* __BUILD_DATE__;
+        s_firmata.sendString(__BUILD_DATE__);
+        build_date_sent = 1;
+    }
+#endif
     data[len] = 0;
     s_firmata.sendString((char*)data);
 }

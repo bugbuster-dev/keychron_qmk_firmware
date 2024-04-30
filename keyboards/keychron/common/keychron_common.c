@@ -218,3 +218,7 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
     }
 }
 #endif
+
+#ifdef DEVEL_BUILD
+const char* __BUILD_DATE__ = "BUILD: " __DATE__ " " __TIME__ "\n";
+#endif
