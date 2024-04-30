@@ -30,6 +30,9 @@
 
 #ifdef FIRMATA_ENABLE
 #include "firmata/Firmata_QMK.h"
+#ifdef DEVEL_BUILD
+const char* __BUILD_DATE__ = "BUILD: " __DATE__ " " __TIME__ "\n";
+#endif
 #endif
 
 bool     is_siri_active = false;
@@ -217,8 +220,4 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             break;
     }
 }
-#endif
-
-#ifdef DEVEL_BUILD
-const char* __BUILD_DATE__ = "BUILD: " __DATE__ " " __TIME__ "\n";
 #endif
