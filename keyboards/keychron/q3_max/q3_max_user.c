@@ -43,35 +43,32 @@ static stats_time_t stats_rgb_render;
 static stats_time_t stats_firmata_task;
 
 static inline void _stats_print(stats_time_t *stats, const char *name) {
-    if (debug_config_user.stats) {
-        dprintf("[STS]%s:%ldx,%ldms,%ld/%ld\n",
-                name, stats->counter, stats->total_time, stats->max_time, stats->min_time);
-    }
+    if (debug_config_user.stats == 0) return;
+    dprintf("[STS]%s:%ldx,%ldms,%ld/%ld\n",
+            name, stats->counter, stats->total_time, stats->max_time, stats->min_time);
 }
 
 static inline void _stats_start(stats_time_t *stats, uint32_t print_interval) {
-    if (debug_config_user.stats) {
-        stats->start_time = timer_read32();
-        stats->print_interval = print_interval;
-        if (stats->counter == 0) {
-            stats->max_time = 0;
-            stats->min_time = 0xFFFFFFFF;
-        }
+    if (debug_config_user.stats == 0) return;
+    stats->start_time = timer_read32();
+    stats->print_interval = print_interval;
+    if (stats->counter == 0) {
+        stats->max_time = 0;
+        stats->min_time = 0xFFFFFFFF;
     }
 }
 
 static inline void _stats_stop(stats_time_t *stats, const char *name) {
-    if (debug_config_user.stats) {
-        uint32_t elapsed = timer_elapsed32(stats->start_time);
-        if (elapsed > stats->max_time) stats->max_time = elapsed;
-        if (elapsed < stats->min_time) stats->min_time = elapsed;
-        stats->total_time += elapsed;
-        stats->counter++;
-        if (stats->counter % stats->print_interval == 0) {
-            _stats_print(stats, name);
-            stats->counter = 0;
-            stats->total_time = 0;
-        }
+    if (debug_config_user.stats == 0) return;
+    uint32_t elapsed = timer_elapsed32(stats->start_time);
+    if (elapsed > stats->max_time) stats->max_time = elapsed;
+    if (elapsed < stats->min_time) stats->min_time = elapsed;
+    stats->total_time += elapsed;
+    stats->counter++;
+    if (stats->counter % stats->print_interval == 0) {
+        _stats_print(stats, name);
+        stats->counter = 0;
+        stats->total_time = 0;
     }
 }
 
