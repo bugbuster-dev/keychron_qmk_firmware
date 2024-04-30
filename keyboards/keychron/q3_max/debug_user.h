@@ -29,9 +29,9 @@ extern debug_config_user_t  debug_config_user;
 STATIC_ASSERT_SIZEOF_STRUCT_RAW(debug_config_user_t, "debug_config_t out of size spec.");
 
 #ifdef DEVEL_BUILD
-#define DBG_USR(m, ...) do { if (debug_config_user.m) dprintf(__VA_ARGS__); } while (0)
+#define DBG_USR(m, p, ...) do { if (debug_config_user.m) dprintf(p); dprintf(__VA_ARGS__); } while (0)
 #else
-#define DBG_USR(m, ...)
+#define DBG_USR(m, p, ...)
 #endif
 
 #ifdef __cplusplus
