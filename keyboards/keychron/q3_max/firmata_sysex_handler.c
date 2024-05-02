@@ -1,5 +1,6 @@
 #include "action_layer.h"
 #include "rgb_matrix.h"
+#include "keycode_config.h"
 #include "debug.h"
 #include "debug_user.h"
 
@@ -70,24 +71,27 @@ void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
     if (cmd == FRMT_CMD_SET) {
         uint8_t id = buf[0];
         buf++; len--;
-        if (id == FRMT_ID_RGB_MATRIX_BUF)   _frmt_handle_cmd_set_rgb_matrix_buf(cmd, len, buf);
-        if (id == FRMT_ID_DEFAULT_LAYER)    _frmt_handle_cmd_set_default_layer(cmd, len, buf);
-        if (id == FRMT_ID_DEBUG_MASK)       _frmt_handle_cmd_set_debug_mask(cmd, len, buf);
-        if (id == FRMT_ID_MACWIN_MODE)      _frmt_handle_cmd_set_macwin_mode(cmd, len, buf);
-        if (id == FRMT_ID_RGB_MATRIX_MODE)  _frmt_handle_cmd_set_rgb_matrix_mode(cmd, len, buf);
-        if (id == FRMT_ID_RGB_MATRIX_HSV)   _frmt_handle_cmd_set_rgb_matrix_hsv(cmd, len, buf);
-        if (id == FRMT_ID_DYNLD_FUNCTION)   _frmt_handle_cmd_set_dynld_function(cmd, len, buf);
-        if (id == FRMT_ID_DYNLD_FUNEXEC)    _frmt_handle_cmd_set_dynld_funexec(cmd, len, buf);
+        if (id == FRMT_ID_RGB_MATRIX_BUF)   _FRMT_HANDLE_CMD_SET_FN(rgb_matrix_buf)(cmd, len, buf);
+        if (id == FRMT_ID_DEFAULT_LAYER)    _FRMT_HANDLE_CMD_SET_FN(default_layer)(cmd, len, buf);
+        if (id == FRMT_ID_DEBUG_MASK)       _FRMT_HANDLE_CMD_SET_FN(debug_mask)(cmd, len, buf);
+        if (id == FRMT_ID_MACWIN_MODE)      _FRMT_HANDLE_CMD_SET_FN(macwin_mode)(cmd, len, buf);
+        if (id == FRMT_ID_RGB_MATRIX_MODE)  _FRMT_HANDLE_CMD_SET_FN(rgb_matrix_mode)(cmd, len, buf);
+        if (id == FRMT_ID_RGB_MATRIX_HSV)   _FRMT_HANDLE_CMD_SET_FN(rgb_matrix_hsv)(cmd, len, buf);
+        if (id == FRMT_ID_DYNLD_FUNCTION)   _FRMT_HANDLE_CMD_SET_FN(dynld_function)(cmd, len, buf);
+        if (id == FRMT_ID_DYNLD_FUNEXEC)    _FRMT_HANDLE_CMD_SET_FN(dynld_funexec)(cmd, len, buf);
+        if (id == FRMT_ID_CONFIG)           _FRMT_HANDLE_CMD_SET_FN(config)(cmd, len, buf);
     }
     if (cmd == FRMT_CMD_GET) {
         uint8_t id = buf[0];
         buf++; len--;
-        if (id == FRMT_ID_DEFAULT_LAYER)    _frmt_handle_cmd_get_default_layer(cmd, len, buf);
-        if (id == FRMT_ID_DEBUG_MASK)       _frmt_handle_cmd_get_debug_mask(cmd, len, buf);
-        if (id == FRMT_ID_MACWIN_MODE)      _frmt_handle_cmd_get_macwin_mode(cmd, len, buf);
-        if (id == FRMT_ID_BATTERY_STATUS)   _frmt_handle_cmd_get_battery_status(cmd, len, buf);
-        if (id == FRMT_ID_RGB_MATRIX_MODE)  _frmt_handle_cmd_get_rgb_matrix_mode(cmd, len, buf);
-        if (id == FRMT_ID_RGB_MATRIX_HSV)   _frmt_handle_cmd_get_rgb_matrix_hsv(cmd, len, buf);
+        if (id == FRMT_ID_DEFAULT_LAYER)    _FRMT_HANDLE_CMD_GET_FN(default_layer)(cmd, len, buf);
+        if (id == FRMT_ID_DEBUG_MASK)       _FRMT_HANDLE_CMD_GET_FN(debug_mask)(cmd, len, buf);
+        if (id == FRMT_ID_MACWIN_MODE)      _FRMT_HANDLE_CMD_GET_FN(macwin_mode)(cmd, len, buf);
+        if (id == FRMT_ID_BATTERY_STATUS)   _FRMT_HANDLE_CMD_GET_FN(battery_status)(cmd, len, buf);
+        if (id == FRMT_ID_RGB_MATRIX_MODE)  _FRMT_HANDLE_CMD_GET_FN(rgb_matrix_mode)(cmd, len, buf);
+        if (id == FRMT_ID_RGB_MATRIX_HSV)   _FRMT_HANDLE_CMD_GET_FN(rgb_matrix_hsv)(cmd, len, buf);
+        if (id == FRMT_ID_CONFIG_LAYOUT)    _FRMT_HANDLE_CMD_GET_FN(config_layout)(cmd, len, buf);
+        if (id == FRMT_ID_CONFIG)           _FRMT_HANDLE_CMD_GET_FN(config)(cmd, len, buf);
     }
 }
 
@@ -121,18 +125,14 @@ _FRMT_HANDLE_CMD_GET(default_layer) {
 
 //------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(debug_mask) {
+    debug_config.raw = buf[0];
     if (len < 4) {
         DBG_USR(firmata, "[FA]","debug:%02x\n", buf[0]);
-        debug_config.raw = buf[0];
         return;
     }
-    if (len >= 4) {
-        //uint32_t dbg_mask = buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3];
-        debug_config.raw = buf[3];
-    }
-    if (len >= 8) {
+    if (len == 8) {
         const int off = 4;
-        uint32_t dbg_user_mask = buf[off] << 24 | buf[off+1] << 16 | buf[off+2] << 8 | buf[off+3];
+        uint32_t dbg_user_mask = buf[off] | buf[off+1] << 8 | buf[off+2] << 16 | buf[off+3] << 24;
         debug_config_user.raw = dbg_user_mask;
         DBG_USR(firmata, "[FA]","debug:%02x:%08lx\n", debug_config.raw, debug_config_user.raw);
     }
@@ -141,12 +141,12 @@ _FRMT_HANDLE_CMD_SET(debug_mask) {
 _FRMT_HANDLE_CMD_GET(debug_mask) {
     uint8_t response[9];
     response[0] = FRMT_ID_DEBUG_MASK;
-    response[1] = response[2] = response[3] = 0;
-    response[4] = debug_config.raw;
-    response[5] = (debug_config_user.raw >> 24) & 0xff;
-    response[6] = (debug_config_user.raw >> 16) & 0xff;
-    response[7] = (debug_config_user.raw >> 8) & 0xff;
-    response[8] = (debug_config_user.raw) & 0xff;
+    response[1] = debug_config.raw;
+    response[2] = response[3] = response[4] = 0;
+    response[5] = debug_config_user.raw;
+    response[6] = debug_config_user.raw >> 8;
+    response[7] = debug_config_user.raw >> 16;
+    response[8] = debug_config_user.raw >> 24;
     firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
 }
 
@@ -208,6 +208,185 @@ _FRMT_HANDLE_CMD_GET(rgb_matrix_hsv) {
     response[2] = hsv.s;
     response[3] = hsv.v;
     firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
+}
+
+//------------------------------------------------------------------------------
+enum config_id {
+    CONFIG_ID_DEBUG = 1,
+    CONFIG_ID_DEBUG_USER,
+    CONFIG_ID_RGB_MATRIX,
+    CONFIG_ID_KEYMAP,
+    CONFIG_ID_MAX
+};
+
+_FRMT_HANDLE_CMD_SET(config) { // todo bb: set "configuration struct" (debug, rgb, keymap, ...)
+    uint8_t config_id = buf[0];
+    DBG_USR(firmata, "[FA]","config:set:%u\n", config_id);
+
+    if (config_id == CONFIG_ID_DEBUG) {
+        memcpy(&debug_config, &buf[1], sizeof(debug_config));
+    }
+    if (config_id == CONFIG_ID_DEBUG_USER) {
+        memcpy(&debug_config_user, &buf[1], sizeof(debug_config_user));
+    }
+    if (config_id == CONFIG_ID_RGB_MATRIX) {
+        memcpy(&rgb_matrix_config, &buf[1], sizeof(rgb_matrix_config));
+    }
+    if (config_id == CONFIG_ID_KEYMAP) {
+        memcpy(&keymap_config, &buf[1], sizeof(keymap_config));
+    }
+}
+
+_FRMT_HANDLE_CMD_GET(config) {
+    uint8_t config_id = buf[0];
+    DBG_USR(firmata, "[FA]","config:get:%u\n", config_id);
+
+    uint8_t resp[16];
+    resp[0] = FRMT_ID_CONFIG;
+    resp[1] = config_id;
+    if (config_id == CONFIG_ID_DEBUG) {
+        resp[2] = debug_config.raw;
+        firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+sizeof(debug_config));
+    }
+    if (config_id == CONFIG_ID_DEBUG_USER) {
+        memcpy(&resp[2], &debug_config_user, sizeof(debug_config_user));
+        firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+sizeof(debug_config_user));
+    }
+    if (config_id == CONFIG_ID_RGB_MATRIX) {
+        memcpy(&resp[2], &rgb_matrix_config, sizeof(rgb_matrix_config));
+        firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+sizeof(rgb_matrix_config));
+    }
+    if (config_id == CONFIG_ID_KEYMAP) {
+        memcpy(&resp[2], &keymap_config, sizeof(keymap_config));
+        firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+sizeof(keymap_config));
+    }
+}
+
+//------------------------------------------------------------------------------
+// todo monitoring task
+// - config changes
+// - state machine to handle future commands which needs multiple "task steps"
+// ...
+
+//------------------------------------------------------------------------------
+enum config_debug_field {
+    CONFIG_FIELD_DEBUG_ENABLE = 1,
+    CONFIG_FIELD_DEBUG_MATRIX,
+    CONFIG_FIELD_DEBUG_KEYBOARD,
+    CONFIG_FIELD_DEBUG_MOUSE,
+};
+
+enum config_debug_user_field {
+    CONFIG_FIELD_DEBUG_USER_FIRMATA = 1,
+    CONFIG_FIELD_DEBUG_USER_STATS,
+    CONFIG_FIELD_DEBUG_USER_USER_ANIM,
+};
+
+enum config_rgb_field {
+    CONFIG_FIELD_RGB_ENABLE = 1,
+    CONFIG_FIELD_RGB_MODE,
+    CONFIG_FIELD_RGB_HSV_H,
+    CONFIG_FIELD_RGB_HSV_S,
+    CONFIG_FIELD_RGB_HSV_V,
+    CONFIG_FIELD_RGB_SPEED,
+    CONFIG_FIELD_RGB_FLAGS,
+};
+
+enum config_keymap_field {
+    CONFIG_FIELD_KEYMAP_SWAP_CONTROL_CAPSLOCK = 1,
+    CONFIG_FIELD_KEYMAP_CAPSLOCK_TO_CONTROL,
+    CONFIG_FIELD_KEYMAP_SWAP_LALT_LGUI,
+    CONFIG_FIELD_KEYMAP_SWAP_RALT_RGUI,
+    CONFIG_FIELD_KEYMAP_NO_GUI,
+    CONFIG_FIELD_KEYMAP_SWAP_GRAVE_ESC,
+    CONFIG_FIELD_KEYMAP_SWAP_BACKSLASH_BACKSPACE,
+    CONFIG_FIELD_KEYMAP_NKRO,
+    CONFIG_FIELD_KEYMAP_SWAP_LCTL_LGUI,
+    CONFIG_FIELD_KEYMAP_SWAP_RCTL_RGUI,
+    CONFIG_FIELD_KEYMAP_ONESHOT_ENABLE,
+    CONFIG_FIELD_KEYMAP_SWAP_ESCAPE_CAPSLOCK,
+    CONFIG_FIELD_KEYMAP_AUTOCORRECT_ENABLE,
+};
+
+enum config_field_type {
+    CONFIG_FIELD_TYPE_BIT = 1,
+    CONFIG_FIELD_TYPE_UINT8,
+    CONFIG_FIELD_TYPE_UINT16,
+    CONFIG_FIELD_TYPE_UINT32,
+    CONFIG_FIELD_TYPE_UINT64,
+    CONFIG_FIELD_TYPE_FLOAT,
+    CONFIG_FIELD_TYPE_ARRAY,
+};
+
+//<config id>:<size>:<field id>:<type>:<offset>:<size> // offset: byte or bit offset
+_FRMT_HANDLE_CMD_GET(config_layout) {
+    static int _bit_order = -1;
+    if (_bit_order < 0) {
+        debug_config_t dc = { .raw = 0 };
+        dc.enable = 1;
+        if (dc.raw == 1) _bit_order = 0; // lsb first
+        else _bit_order = 1;
+    }
+    uint8_t resp[60];
+    int n = 0;
+    #define LSB_FIRST (_bit_order == 0)
+    #define BITPOS(b,n) LSB_FIRST? b : n-1-b
+    #define CONFIG_LAYOUT(id, size) \
+            resp[0] = FRMT_ID_CONFIG_LAYOUT; \
+            resp[1] = id; \
+            resp[2] = size; \
+            n = 3;
+    #define BITFIELD(id,index,nbits,size) \
+            resp[n] = id; \
+            resp[n+1] = CONFIG_FIELD_TYPE_BIT; \
+            resp[n+2] = BITPOS(index, size); \
+            resp[n+3] = nbits; n += 4;
+    #define BYTEFIELD(id,offset) \
+            resp[n] = id; \
+            resp[n+1] = CONFIG_FIELD_TYPE_UINT8; \
+            resp[n+2] = offset; \
+            resp[n+3] = 1; n += 4;
+
+    //--------------------------------
+    CONFIG_LAYOUT(CONFIG_ID_DEBUG, sizeof(debug_config_t))
+    BITFIELD(CONFIG_FIELD_DEBUG_ENABLE,     0, 1, 8);
+    BITFIELD(CONFIG_FIELD_DEBUG_MATRIX,     1, 1, 8);
+    BITFIELD(CONFIG_FIELD_DEBUG_KEYBOARD,   2, 1, 8);
+    BITFIELD(CONFIG_FIELD_DEBUG_MOUSE,      3, 1, 8);
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
+    //--------------------------------
+    CONFIG_LAYOUT(CONFIG_ID_DEBUG_USER, sizeof(debug_config_user_t))
+    BITFIELD(CONFIG_FIELD_DEBUG_USER_FIRMATA,   0, 1, 8);
+    BITFIELD(CONFIG_FIELD_DEBUG_USER_STATS,     1, 1, 8);
+    BITFIELD(CONFIG_FIELD_DEBUG_USER_USER_ANIM, 2, 1, 8);
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
+    //--------------------------------
+    CONFIG_LAYOUT(CONFIG_ID_RGB_MATRIX, sizeof(rgb_config_t));
+    BITFIELD(CONFIG_FIELD_RGB_ENABLE,   0, 2, 8);
+    BITFIELD(CONFIG_FIELD_RGB_MODE,     2, 6, 8);
+    BYTEFIELD(CONFIG_FIELD_RGB_HSV_H,   offsetof(rgb_config_t, hsv) + offsetof(HSV, h));
+    BYTEFIELD(CONFIG_FIELD_RGB_HSV_S,   offsetof(rgb_config_t, hsv) + offsetof(HSV, s));
+    BYTEFIELD(CONFIG_FIELD_RGB_HSV_V,   offsetof(rgb_config_t, hsv) + offsetof(HSV, v));
+    BYTEFIELD(CONFIG_FIELD_RGB_SPEED,   offsetof(rgb_config_t, speed));
+    BYTEFIELD(CONFIG_FIELD_RGB_FLAGS,   offsetof(rgb_config_t, flags));
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
+    //--------------------------------
+    int bp = 0;
+    CONFIG_LAYOUT(CONFIG_ID_KEYMAP, sizeof(keymap_config_t));
+    BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_CONTROL_CAPSLOCK,     bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_CAPSLOCK_TO_CONTROL,       bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_LALT_LGUI,            bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_RALT_RGUI,            bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_NO_GUI,                    bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_GRAVE_ESC,            bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_BACKSLASH_BACKSPACE,  bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_NKRO,                      bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_LCTL_LGUI,            bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_RCTL_RGUI,            bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_ONESHOT_ENABLE,            bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_ESCAPE_CAPSLOCK,      bp, 1, 16); bp++;
+    BITFIELD(CONFIG_FIELD_KEYMAP_AUTOCORRECT_ENABLE,        bp, 1, 16); bp++;
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
 }
 
 //------------------------------------------------------------------------------

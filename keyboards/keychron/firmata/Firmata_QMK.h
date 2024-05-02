@@ -6,21 +6,7 @@ extern "C" {
 #endif
 
 #define FIRMATA_QMK_MAJOR_VERSION   0
-#define FIRMATA_QMK_MINOR_VERSION   1
-
-#define _FRMT_HANDLE_CMD_SET(name)       void _frmt_handle_cmd_set_##name(uint8_t cmd, uint8_t len, uint8_t *buf)
-#define _FRMT_HANDLE_CMD_GET(name)       void _frmt_handle_cmd_get_##name(uint8_t cmd, uint8_t len, uint8_t *buf)
-#define _FRMT_HANDLE_CMD_SETGET(name)    _FRMT_HANDLE_CMD_SET(name); _FRMT_HANDLE_CMD_GET(name)
-
-_FRMT_HANDLE_CMD_SETGET(default_layer);
-_FRMT_HANDLE_CMD_SETGET(debug_mask);
-_FRMT_HANDLE_CMD_SETGET(macwin_mode);
-_FRMT_HANDLE_CMD_SETGET(battery_status);
-_FRMT_HANDLE_CMD_SETGET(rgb_matrix_buf);
-_FRMT_HANDLE_CMD_SETGET(rgb_matrix_mode);
-_FRMT_HANDLE_CMD_SETGET(rgb_matrix_hsv);
-_FRMT_HANDLE_CMD_SETGET(dynld_function);
-_FRMT_HANDLE_CMD_SETGET(dynld_funexec);
+#define FIRMATA_QMK_MINOR_VERSION   2
 
 enum {
     FRMT_CMD_EXTENDED = 0,
@@ -34,6 +20,15 @@ enum {
 };
 
 enum {
+    FRMT_ID_CONFIG_EXTENDED = 0,
+    FRMT_ID_CONFIG_DEBUG,
+    FRMT_ID_CONFIG_DEBUG_USER,
+    FRMT_ID_CONFIG_RGB,
+    FRMT_ID_CONFIG_KEYMAP,
+};
+
+enum {
+    FRMT_ID_EXTENDED        = 0,
     FRMT_ID_RGB_MATRIX_BUF  = 1,
     FRMT_ID_DEFAULT_LAYER   = 2,
     FRMT_ID_DEBUG_MASK      = 3,
@@ -41,9 +36,29 @@ enum {
     FRMT_ID_MACWIN_MODE     = 5,
     FRMT_ID_RGB_MATRIX_MODE = 6,
     FRMT_ID_RGB_MATRIX_HSV  = 7,
+    FRMT_ID_CONFIG_LAYOUT   = 8,   // todo bb: get "configuration layout" returns layout of "configuration structs" (debug, rgb, keymap, ...) to pack "configuration structs" on host
+    FRMT_ID_CONFIG          = 9,
     FRMT_ID_DYNLD_FUNCTION  = 250, // dynamic load function into ram
     FRMT_ID_DYNLD_FUNEXEC   = 251, // exec "dynamic loaded function"
 };
+
+#define _FRMT_HANDLE_CMD_SET_FN(name)   _frmt_handle_cmd_set_##name
+#define _FRMT_HANDLE_CMD_GET_FN(name)   _frmt_handle_cmd_get_##name
+#define _FRMT_HANDLE_CMD_SET(name)      void _FRMT_HANDLE_CMD_SET_FN(name)(uint8_t cmd, uint8_t len, uint8_t *buf)
+#define _FRMT_HANDLE_CMD_GET(name)      void _FRMT_HANDLE_CMD_GET_FN(name)(uint8_t cmd, uint8_t len, uint8_t *buf)
+#define _FRMT_HANDLE_CMD_SETGET(name)   _FRMT_HANDLE_CMD_SET(name); _FRMT_HANDLE_CMD_GET(name)
+
+_FRMT_HANDLE_CMD_SETGET(default_layer);
+_FRMT_HANDLE_CMD_SETGET(debug_mask);
+_FRMT_HANDLE_CMD_SETGET(macwin_mode);
+_FRMT_HANDLE_CMD_GET(battery_status);
+_FRMT_HANDLE_CMD_SET(rgb_matrix_buf);
+_FRMT_HANDLE_CMD_SETGET(rgb_matrix_mode);
+_FRMT_HANDLE_CMD_SETGET(rgb_matrix_hsv);
+_FRMT_HANDLE_CMD_GET(config_layout);
+_FRMT_HANDLE_CMD_SETGET(config);
+_FRMT_HANDLE_CMD_SET(dynld_function);
+_FRMT_HANDLE_CMD_SET(dynld_funexec);
 
 // rgb matrix buffer set from host
 typedef struct rgb_matrix_host_buffer_t {
