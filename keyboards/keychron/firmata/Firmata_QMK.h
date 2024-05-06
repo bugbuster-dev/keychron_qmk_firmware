@@ -31,11 +31,11 @@ enum {
     FRMT_ID_EXTENDED        = 0,
     FRMT_ID_RGB_MATRIX_BUF  = 1,
     FRMT_ID_DEFAULT_LAYER   = 2,
-    FRMT_ID_DEBUG_MASK      = 3,
+    //FRMT_ID_DEBUG_MASK      = 3, // deprecated
     FRMT_ID_BATTERY_STATUS  = 4,
     FRMT_ID_MACWIN_MODE     = 5,
-    FRMT_ID_RGB_MATRIX_MODE = 6,
-    FRMT_ID_RGB_MATRIX_HSV  = 7,
+    //FRMT_ID_RGB_MATRIX_MODE = 6, // deprecated
+    //FRMT_ID_RGB_MATRIX_HSV  = 7, // deprecated
     FRMT_ID_CONFIG_LAYOUT   = 8,
     FRMT_ID_CONFIG          = 9,
     FRMT_ID_KEYEVENT        = 10,

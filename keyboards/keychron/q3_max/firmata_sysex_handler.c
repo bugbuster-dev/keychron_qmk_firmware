@@ -73,10 +73,7 @@ void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
         buf++; len--;
         if (id == FRMT_ID_RGB_MATRIX_BUF)   _FRMT_HANDLE_CMD_SET_FN(rgb_matrix_buf)(cmd, len, buf);
         if (id == FRMT_ID_DEFAULT_LAYER)    _FRMT_HANDLE_CMD_SET_FN(default_layer)(cmd, len, buf);
-        if (id == FRMT_ID_DEBUG_MASK)       _FRMT_HANDLE_CMD_SET_FN(debug_mask)(cmd, len, buf);
         if (id == FRMT_ID_MACWIN_MODE)      _FRMT_HANDLE_CMD_SET_FN(macwin_mode)(cmd, len, buf);
-        if (id == FRMT_ID_RGB_MATRIX_MODE)  _FRMT_HANDLE_CMD_SET_FN(rgb_matrix_mode)(cmd, len, buf);
-        if (id == FRMT_ID_RGB_MATRIX_HSV)   _FRMT_HANDLE_CMD_SET_FN(rgb_matrix_hsv)(cmd, len, buf);
         if (id == FRMT_ID_DYNLD_FUNCTION)   _FRMT_HANDLE_CMD_SET_FN(dynld_function)(cmd, len, buf);
         if (id == FRMT_ID_DYNLD_FUNEXEC)    _FRMT_HANDLE_CMD_SET_FN(dynld_funexec)(cmd, len, buf);
         if (id == FRMT_ID_CONFIG)           _FRMT_HANDLE_CMD_SET_FN(config)(cmd, len, buf);
@@ -85,11 +82,8 @@ void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
         uint8_t id = buf[0];
         buf++; len--;
         if (id == FRMT_ID_DEFAULT_LAYER)    _FRMT_HANDLE_CMD_GET_FN(default_layer)(cmd, len, buf);
-        if (id == FRMT_ID_DEBUG_MASK)       _FRMT_HANDLE_CMD_GET_FN(debug_mask)(cmd, len, buf);
         if (id == FRMT_ID_MACWIN_MODE)      _FRMT_HANDLE_CMD_GET_FN(macwin_mode)(cmd, len, buf);
         if (id == FRMT_ID_BATTERY_STATUS)   _FRMT_HANDLE_CMD_GET_FN(battery_status)(cmd, len, buf);
-        if (id == FRMT_ID_RGB_MATRIX_MODE)  _FRMT_HANDLE_CMD_GET_FN(rgb_matrix_mode)(cmd, len, buf);
-        if (id == FRMT_ID_RGB_MATRIX_HSV)   _FRMT_HANDLE_CMD_GET_FN(rgb_matrix_hsv)(cmd, len, buf);
         if (id == FRMT_ID_CONFIG_LAYOUT)    _FRMT_HANDLE_CMD_GET_FN(config_layout)(cmd, len, buf);
         if (id == FRMT_ID_CONFIG)           _FRMT_HANDLE_CMD_GET_FN(config)(cmd, len, buf);
     }
@@ -124,33 +118,6 @@ _FRMT_HANDLE_CMD_GET(default_layer) {
 }
 
 //------------------------------------------------------------------------------
-_FRMT_HANDLE_CMD_SET(debug_mask) {
-    debug_config.raw = buf[0];
-    if (len < 4) {
-        DBG_USR(firmata, "[FA]","debug:%02x\n", buf[0]);
-        return;
-    }
-    if (len == 8) {
-        const int off = 4;
-        uint32_t dbg_user_mask = buf[off] | buf[off+1] << 8 | buf[off+2] << 16 | buf[off+3] << 24;
-        debug_config_user.raw = dbg_user_mask;
-        DBG_USR(firmata, "[FA]","debug:%02x:%08lx\n", debug_config.raw, debug_config_user.raw);
-    }
-}
-
-_FRMT_HANDLE_CMD_GET(debug_mask) {
-    uint8_t response[9];
-    response[0] = FRMT_ID_DEBUG_MASK;
-    response[1] = debug_config.raw;
-    response[2] = response[3] = response[4] = 0;
-    response[5] = debug_config_user.raw;
-    response[6] = debug_config_user.raw >> 8;
-    response[7] = debug_config_user.raw >> 16;
-    response[8] = debug_config_user.raw >> 24;
-    firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
-}
-
-//------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(macwin_mode) {
     extern void keyb_user_set_macwin_mode(int mode);
     int mode = buf[0];
@@ -169,45 +136,6 @@ _FRMT_HANDLE_CMD_GET(macwin_mode) {
 
 //------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_GET(battery_status) {
-}
-
-//------------------------------------------------------------------------------
-_FRMT_HANDLE_CMD_SET(rgb_matrix_mode) {
-    uint8_t matrix_mode = buf[0];
-    DBG_USR(firmata, "[FA]","rgb:%d\n", (int)matrix_mode);
-    if (matrix_mode) {
-        rgb_matrix_enable_noeeprom();
-        rgb_matrix_mode_noeeprom(matrix_mode);
-    } else {
-        rgb_matrix_disable_noeeprom();
-    }
-}
-
-_FRMT_HANDLE_CMD_GET(rgb_matrix_mode) {
-    uint8_t response[2];
-    response[0] = FRMT_ID_RGB_MATRIX_MODE;
-    response[1] = rgb_matrix_get_mode();
-
-    firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
-}
-
-//------------------------------------------------------------------------------
-_FRMT_HANDLE_CMD_SET(rgb_matrix_hsv) {
-    uint8_t h = buf[0];
-    uint8_t s = buf[1];
-    uint8_t v = buf[2];
-    DBG_USR(firmata, "[FA]","hsv:%d,%d,%d\n", (int)h, (int)s, (int)v);
-    rgb_matrix_sethsv_noeeprom(h, s, v);
-}
-
-_FRMT_HANDLE_CMD_GET(rgb_matrix_hsv) {
-    uint8_t response[4];
-    HSV hsv = rgb_matrix_get_hsv();
-    response[0] = FRMT_ID_RGB_MATRIX_HSV;
-    response[1] = hsv.h;
-    response[2] = hsv.s;
-    response[3] = hsv.v;
-    firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
 }
 
 //------------------------------------------------------------------------------
