@@ -23,8 +23,16 @@ typedef union {
     };
     uint32_t raw;
 } debug_config_user_t;
+extern debug_config_user_t debug_config_user;
 
-extern debug_config_user_t  debug_config_user;
+typedef union {
+    struct {
+        bool pub_keypress:1;
+        bool process_keypress:1;
+    };
+    uint32_t raw;
+} devel_config_t;
+extern devel_config_t devel_config;
 
 STATIC_ASSERT_SIZEOF_STRUCT_RAW(debug_config_user_t, "debug_config_t out of size spec.");
 

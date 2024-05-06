@@ -36,8 +36,9 @@ enum {
     FRMT_ID_MACWIN_MODE     = 5,
     FRMT_ID_RGB_MATRIX_MODE = 6,
     FRMT_ID_RGB_MATRIX_HSV  = 7,
-    FRMT_ID_CONFIG_LAYOUT   = 8,   // todo bb: get "configuration layout" returns layout of "configuration structs" (debug, rgb, keymap, ...) to pack "configuration structs" on host
+    FRMT_ID_CONFIG_LAYOUT   = 8,
     FRMT_ID_CONFIG          = 9,
+    FRMT_ID_KEYEVENT        = 10,
     FRMT_ID_DYNLD_FUNCTION  = 250, // dynamic load function into ram
     FRMT_ID_DYNLD_FUNEXEC   = 251, // exec "dynamic loaded function"
 };
@@ -61,7 +62,7 @@ _FRMT_HANDLE_CMD_SET(dynld_function);
 _FRMT_HANDLE_CMD_SET(dynld_funexec);
 
 // rgb matrix buffer set from host
-typedef struct rgb_matrix_host_buffer_t {
+typedef struct rgb_matrix_host_buffer {
     struct {
         uint8_t duration;
         uint8_t r; // todo bb: store <8 bits per r/g/b if needed

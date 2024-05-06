@@ -216,56 +216,52 @@ enum config_id {
     CONFIG_ID_DEBUG_USER,
     CONFIG_ID_RGB_MATRIX,
     CONFIG_ID_KEYMAP,
+    //CONFIG_ID_BACKLIGHT //backlight_config_t
+    //CONFIG_ID_AUDIO //audio_config_t
+    //CONFIG_ID_USER, // user_config_t
+    //CONFIG_ID_KEYCHRON_INDICATOR // indicator_config_t
+    CONFIG_ID_DEVEL, // devel_config_t
     CONFIG_ID_MAX
 };
 
-_FRMT_HANDLE_CMD_SET(config) { // todo bb: set "configuration struct" (debug, rgb, keymap, ...)
+static struct {
+    uint8_t* ptr;
+    uint8_t size;
+} s_config_table[CONFIG_ID_MAX] = {
+    [CONFIG_ID_DEBUG] =         { (uint8_t*)&debug_config,      sizeof(debug_config) },
+    [CONFIG_ID_DEBUG_USER] =    { (uint8_t*)&debug_config_user, sizeof(debug_config_user) },
+    [CONFIG_ID_RGB_MATRIX] =    { (uint8_t*)&rgb_matrix_config, sizeof(rgb_matrix_config) },
+    [CONFIG_ID_KEYMAP] =        { (uint8_t*)&keymap_config,     sizeof(keymap_config) },
+    [CONFIG_ID_DEVEL] =         { (uint8_t*)&devel_config,      sizeof(devel_config) },
+};
+
+_FRMT_HANDLE_CMD_SET(config) {
     uint8_t config_id = buf[0];
     DBG_USR(firmata, "[FA]","config:set:%u\n", config_id);
-
-    if (config_id == CONFIG_ID_DEBUG) {
-        memcpy(&debug_config, &buf[1], sizeof(debug_config));
-    }
-    if (config_id == CONFIG_ID_DEBUG_USER) {
-        memcpy(&debug_config_user, &buf[1], sizeof(debug_config_user));
-    }
-    if (config_id == CONFIG_ID_RGB_MATRIX) {
-        memcpy(&rgb_matrix_config, &buf[1], sizeof(rgb_matrix_config));
-    }
-    if (config_id == CONFIG_ID_KEYMAP) {
-        memcpy(&keymap_config, &buf[1], sizeof(keymap_config));
-    }
+    if (config_id == 0) return; // no extended config id
+    if (config_id >= CONFIG_ID_MAX) return;
+    if (s_config_table[config_id].ptr == NULL) return;
+    memcpy(s_config_table[config_id].ptr, &buf[1], s_config_table[config_id].size);
 }
 
 _FRMT_HANDLE_CMD_GET(config) {
     uint8_t config_id = buf[0];
     DBG_USR(firmata, "[FA]","config:get:%u\n", config_id);
+    if (config_id == 0) return; // no extended config id
+    if (config_id >= CONFIG_ID_MAX) return;
+    if (s_config_table[config_id].ptr == NULL) return;
 
     uint8_t resp[16];
     resp[0] = FRMT_ID_CONFIG;
     resp[1] = config_id;
-    if (config_id == CONFIG_ID_DEBUG) {
-        resp[2] = debug_config.raw;
-        firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+sizeof(debug_config));
-    }
-    if (config_id == CONFIG_ID_DEBUG_USER) {
-        memcpy(&resp[2], &debug_config_user, sizeof(debug_config_user));
-        firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+sizeof(debug_config_user));
-    }
-    if (config_id == CONFIG_ID_RGB_MATRIX) {
-        memcpy(&resp[2], &rgb_matrix_config, sizeof(rgb_matrix_config));
-        firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+sizeof(rgb_matrix_config));
-    }
-    if (config_id == CONFIG_ID_KEYMAP) {
-        memcpy(&resp[2], &keymap_config, sizeof(keymap_config));
-        firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+sizeof(keymap_config));
-    }
+    memcpy(&resp[2], s_config_table[config_id].ptr, s_config_table[config_id].size);
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+s_config_table[config_id].size);
 }
 
 //------------------------------------------------------------------------------
-// todo monitoring task
-// - config changes
-// - state machine to handle future commands which needs multiple "task steps"
+// todo bb:
+// - config changes monitoring
+// - generic state machine to handle commands which needs multiple "task steps"
 // ...
 
 //------------------------------------------------------------------------------
@@ -306,6 +302,11 @@ enum config_keymap_field {
     CONFIG_FIELD_KEYMAP_ONESHOT_ENABLE,
     CONFIG_FIELD_KEYMAP_SWAP_ESCAPE_CAPSLOCK,
     CONFIG_FIELD_KEYMAP_AUTOCORRECT_ENABLE,
+};
+
+enum config_devel_field {
+    CONFIG_FIELD_DEVEL_PUB_KEYPRESS = 1,
+    CONFIG_FIELD_DEVEL_PROCESS_KEYPRESS,
 };
 
 enum config_field_type {
@@ -386,6 +387,11 @@ _FRMT_HANDLE_CMD_GET(config_layout) {
     BITFIELD(CONFIG_FIELD_KEYMAP_ONESHOT_ENABLE,            bp, 1, 16); bp++;
     BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_ESCAPE_CAPSLOCK,      bp, 1, 16); bp++;
     BITFIELD(CONFIG_FIELD_KEYMAP_AUTOCORRECT_ENABLE,        bp, 1, 16); bp++;
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
+    //--------------------------------
+    CONFIG_LAYOUT(CONFIG_ID_DEVEL, sizeof(devel_config_t));
+    BITFIELD(CONFIG_FIELD_DEVEL_PUB_KEYPRESS,       0, 1, 8);
+    BITFIELD(CONFIG_FIELD_DEVEL_PROCESS_KEYPRESS,   1, 1, 8);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
 }
 

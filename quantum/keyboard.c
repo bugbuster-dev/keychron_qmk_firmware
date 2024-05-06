@@ -28,6 +28,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "sync_timer.h"
 #include "print.h"
 #include "debug.h"
+#include "debug_user.h"
+#include "firmata/Firmata_QMK.h"
 #include "command.h"
 #include "util.h"
 #include "sendchar.h"
@@ -527,7 +529,8 @@ static bool matrix_task(void) {
         matrix_print();
     }
 
-    const bool process_keypress = should_process_keypress();
+    //todo bb: devel_config.process_keypress may be set with a key press (enter), in that case the key release should be processed
+    const bool process_keypress = should_process_keypress() && devel_config.process_keypress;
 
     for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
         const matrix_row_t current_row = matrix_get_row(row);
@@ -544,6 +547,13 @@ static bool matrix_task(void) {
 
                 if (process_keypress) {
                     action_exec(MAKE_KEYEVENT(row, col, key_pressed));
+                }
+                if (devel_config.pub_keypress) {
+                    keyevent_t event = MAKE_KEYEVENT(row, col, key_pressed);
+                    uint8_t data[16];
+                    data[0] = FRMT_ID_KEYEVENT;
+                    memcpy(&data[1], &event, sizeof(event));
+                    firmata_send_sysex(FRMT_CMD_PUB, data, sizeof(event)+1);
                 }
 
                 switch_events(row, col, key_pressed);
