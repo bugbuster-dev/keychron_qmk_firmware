@@ -30,6 +30,7 @@
 
 #ifdef FIRMATA_ENABLE
 #include "firmata/Firmata_QMK.h"
+#include "debug_user.h"
 #endif
 
 bool     is_siri_active = false;
@@ -92,6 +93,15 @@ bool process_record_keychron_common(uint16_t keycode, keyrecord_t *record) {
             }
             return false; // Skip all further processing of this key
         default:
+            if (devel_config.pub_keypress) {
+                uint8_t data[16];
+                data[0] = FRMT_ID_KEYEVENT;
+                memcpy(&data[1], &record->event, sizeof(keyevent_t));
+                firmata_send_sysex(FRMT_CMD_PUB, data, sizeof(keyevent_t)+1);
+            }
+            if (devel_config.process_keypress == 0) {
+                return false;
+            }
             return true; // Process all other keycodes normally
     }
 }
