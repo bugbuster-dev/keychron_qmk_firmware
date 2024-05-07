@@ -148,9 +148,12 @@ enum config_id {
     //CONFIG_ID_AUDIO //audio_config_t
     //CONFIG_ID_USER, // user_config_t
     //CONFIG_ID_KEYCHRON_INDICATOR // indicator_config_t
+    CONFIG_ID_DEBOUNCE, // uint8_t
     CONFIG_ID_DEVEL, // devel_config_t
     CONFIG_ID_MAX
 };
+
+extern uint8_t g_debounce;
 
 static struct {
     uint8_t* ptr;
@@ -160,6 +163,7 @@ static struct {
     [CONFIG_ID_DEBUG_USER] =    { (uint8_t*)&debug_config_user, sizeof(debug_config_user) },
     [CONFIG_ID_RGB_MATRIX] =    { (uint8_t*)&rgb_matrix_config, sizeof(rgb_matrix_config) },
     [CONFIG_ID_KEYMAP] =        { (uint8_t*)&keymap_config,     sizeof(keymap_config) },
+    [CONFIG_ID_DEBOUNCE] =      { (uint8_t*)&g_debounce,        sizeof(g_debounce) },
     [CONFIG_ID_DEVEL] =         { (uint8_t*)&devel_config,      sizeof(devel_config) },
 };
 
@@ -230,6 +234,10 @@ enum config_keymap_field {
     CONFIG_FIELD_KEYMAP_ONESHOT_ENABLE,
     CONFIG_FIELD_KEYMAP_SWAP_ESCAPE_CAPSLOCK,
     CONFIG_FIELD_KEYMAP_AUTOCORRECT_ENABLE,
+};
+
+enum config_debounce_field {
+    CONFIG_FIELD_DEBOUNCE = 1
 };
 
 enum config_devel_field {
@@ -315,6 +323,10 @@ _FRMT_HANDLE_CMD_GET(config_layout) {
     BITFIELD(CONFIG_FIELD_KEYMAP_ONESHOT_ENABLE,            bp, 1, 16); bp++;
     BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_ESCAPE_CAPSLOCK,      bp, 1, 16); bp++;
     BITFIELD(CONFIG_FIELD_KEYMAP_AUTOCORRECT_ENABLE,        bp, 1, 16); bp++;
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
+    //--------------------------------
+    CONFIG_LAYOUT(CONFIG_ID_DEBOUNCE, sizeof(uint8_t));
+    BYTEFIELD(CONFIG_FIELD_DEBOUNCE, 0);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
     CONFIG_LAYOUT(CONFIG_ID_DEVEL, sizeof(devel_config_t));
