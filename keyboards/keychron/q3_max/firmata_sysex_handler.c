@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "action_layer.h"
 #include "rgb_matrix.h"
 #include "keycode_config.h"
@@ -71,6 +72,7 @@ void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
     if (cmd == FRMT_CMD_SET) {
         uint8_t id = buf[0];
         buf++; len--;
+        if (id == FRMT_ID_CLI)              _FRMT_HANDLE_CMD_SET_FN(cli)(cmd, len, buf);
         if (id == FRMT_ID_RGB_MATRIX_BUF)   _FRMT_HANDLE_CMD_SET_FN(rgb_matrix_buf)(cmd, len, buf);
         if (id == FRMT_ID_DEFAULT_LAYER)    _FRMT_HANDLE_CMD_SET_FN(default_layer)(cmd, len, buf);
         if (id == FRMT_ID_MACWIN_MODE)      _FRMT_HANDLE_CMD_SET_FN(macwin_mode)(cmd, len, buf);
@@ -118,6 +120,38 @@ _FRMT_HANDLE_CMD_GET(default_layer) {
 }
 
 //------------------------------------------------------------------------------
+_FRMT_HANDLE_CMD_SET(cli) {
+#ifdef DEVEL_BUILD
+    DBG_USR(firmata, "[FA]","cli:%s\n", &buf[0]);
+    if (buf[0] == 'm') {
+        if (buf[1] == 'r') {
+            int len = 0;
+            uint32_t addr = 0;
+            int res = sscanf((char*)&buf[2], "%"SCNx32 " %d", &addr, &len);
+            if (res == 2) {
+                uint8_t* ptr = (uint8_t*)addr;
+                dprintf("[%lx:%d]=", addr, len);
+                switch (len) {
+                    case 1: dprintf("%02x\n", *ptr); break;
+                    case 2: dprintf("%04x\n", *(uint16_t*)ptr); break;
+                    case 4: dprintf("%08lx\n", *(uint32_t*)ptr); break;
+                    default: break;
+                }
+                if (len > 4) {
+                    dprintf("\n");
+                    dprintf_buf(ptr, len);
+                }
+            }
+        }
+        if (buf[1] == 'w') {
+
+        }
+    }
+
+#endif
+}
+
+//------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(macwin_mode) {
     extern void keyb_user_set_macwin_mode(int mode);
     int mode = buf[0];
@@ -144,6 +178,7 @@ enum config_id {
     CONFIG_ID_DEBUG_USER,
     CONFIG_ID_RGB_MATRIX,
     CONFIG_ID_KEYMAP,
+    CONFIG_ID_KEYMAP_LAYOUT, // only layer 0
     //CONFIG_ID_BACKLIGHT //backlight_config_t
     //CONFIG_ID_AUDIO //audio_config_t
     //CONFIG_ID_USER, // user_config_t
@@ -154,6 +189,8 @@ enum config_id {
 };
 
 extern uint8_t g_debounce;
+extern uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS];
+//const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS]
 
 static struct {
     uint8_t* ptr;
@@ -163,6 +200,7 @@ static struct {
     [CONFIG_ID_DEBUG_USER] =    { (uint8_t*)&debug_config_user, sizeof(debug_config_user) },
     [CONFIG_ID_RGB_MATRIX] =    { (uint8_t*)&rgb_matrix_config, sizeof(rgb_matrix_config) },
     [CONFIG_ID_KEYMAP] =        { (uint8_t*)&keymap_config,     sizeof(keymap_config) },
+    [CONFIG_ID_KEYMAP_LAYOUT] = { (uint8_t*)keymaps,            sizeof(keymaps[0][0][0])*MATRIX_ROWS*MATRIX_COLS },
     [CONFIG_ID_DEBOUNCE] =      { (uint8_t*)&g_debounce,        sizeof(g_debounce) },
     [CONFIG_ID_DEVEL] =         { (uint8_t*)&devel_config,      sizeof(devel_config) },
 };
@@ -183,7 +221,7 @@ _FRMT_HANDLE_CMD_GET(config) {
     if (config_id >= CONFIG_ID_MAX) return;
     if (s_config_table[config_id].ptr == NULL) return;
 
-    uint8_t resp[16];
+    uint8_t resp[2+s_config_table[config_id].size];
     resp[0] = FRMT_ID_CONFIG;
     resp[1] = config_id;
     memcpy(&resp[2], s_config_table[config_id].ptr, s_config_table[config_id].size);
@@ -236,6 +274,10 @@ enum config_keymap_field {
     CONFIG_FIELD_KEYMAP_AUTOCORRECT_ENABLE,
 };
 
+enum config_keymap_layout_field {
+    CONFIG_FIELD_KEYMAP_LAYOUT = 1
+};
+
 enum config_debounce_field {
     CONFIG_FIELD_DEBOUNCE = 1
 };
@@ -252,7 +294,7 @@ enum config_field_type {
     CONFIG_FIELD_TYPE_UINT32,
     CONFIG_FIELD_TYPE_UINT64,
     CONFIG_FIELD_TYPE_FLOAT,
-    CONFIG_FIELD_TYPE_ARRAY,
+    CONFIG_FIELD_TYPE_ARRAY = 0x80,
 };
 
 //<config id>:<size>:<field id>:<type>:<offset>:<size> // offset: byte or bit offset
@@ -283,6 +325,11 @@ _FRMT_HANDLE_CMD_GET(config_layout) {
             resp[n+1] = CONFIG_FIELD_TYPE_UINT8; \
             resp[n+2] = offset; \
             resp[n+3] = 1; n += 4;
+    #define ARRAYFIELD(id,type,offset,size) \
+            resp[n] = id; \
+            resp[n+1] = CONFIG_FIELD_TYPE_ARRAY | type; \
+            resp[n+2] = offset; \
+            resp[n+3] = size; n += 4;
 
     //--------------------------------
     CONFIG_LAYOUT(CONFIG_ID_DEBUG, sizeof(debug_config_t))
@@ -323,6 +370,11 @@ _FRMT_HANDLE_CMD_GET(config_layout) {
     BITFIELD(CONFIG_FIELD_KEYMAP_ONESHOT_ENABLE,            bp, 1, 16); bp++;
     BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_ESCAPE_CAPSLOCK,      bp, 1, 16); bp++;
     BITFIELD(CONFIG_FIELD_KEYMAP_AUTOCORRECT_ENABLE,        bp, 1, 16); bp++;
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
+    //--------------------------------
+    int keymap_size = sizeof(keymaps[0][0][0])*MATRIX_ROWS*MATRIX_COLS; // only layer 0
+    CONFIG_LAYOUT(CONFIG_ID_KEYMAP_LAYOUT, keymap_size);
+    ARRAYFIELD(CONFIG_FIELD_KEYMAP_LAYOUT, CONFIG_FIELD_TYPE_UINT16, 0, MATRIX_ROWS*MATRIX_COLS);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
     CONFIG_LAYOUT(CONFIG_ID_DEBOUNCE, sizeof(uint8_t));

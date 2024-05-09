@@ -31,7 +31,7 @@ enum {
     FRMT_ID_EXTENDED        = 0,
     FRMT_ID_RGB_MATRIX_BUF  = 1,
     FRMT_ID_DEFAULT_LAYER   = 2,
-    //FRMT_ID_DEBUG_MASK      = 3, // deprecated
+    FRMT_ID_CLI             = 3, // output to console
     FRMT_ID_BATTERY_STATUS  = 4,
     FRMT_ID_MACWIN_MODE     = 5,
     //FRMT_ID_RGB_MATRIX_MODE = 6, // deprecated
@@ -50,12 +50,10 @@ enum {
 #define _FRMT_HANDLE_CMD_SETGET(name)   _FRMT_HANDLE_CMD_SET(name); _FRMT_HANDLE_CMD_GET(name)
 
 _FRMT_HANDLE_CMD_SETGET(default_layer);
-_FRMT_HANDLE_CMD_SETGET(debug_mask);
+_FRMT_HANDLE_CMD_SET(cli);
 _FRMT_HANDLE_CMD_SETGET(macwin_mode);
 _FRMT_HANDLE_CMD_GET(battery_status);
 _FRMT_HANDLE_CMD_SET(rgb_matrix_buf);
-_FRMT_HANDLE_CMD_SETGET(rgb_matrix_mode);
-_FRMT_HANDLE_CMD_SETGET(rgb_matrix_hsv);
 _FRMT_HANDLE_CMD_GET(config_layout);
 _FRMT_HANDLE_CMD_SETGET(config);
 _FRMT_HANDLE_CMD_SET(dynld_function);
