@@ -7,6 +7,7 @@ extern "C" {
 #include "util.h"
 #include "timer.h"
 #include "debug_user.h"
+#include "version.h"
 }
 
 typedef uint16_t tx_buffer_index_t;
@@ -214,8 +215,8 @@ static void _send_console_string(uint8_t *data, uint16_t len) {
 #ifdef DEVEL_BUILD
     static bool build_date_sent = 0;
     if (!build_date_sent) {
-        extern const char* __BUILD_DATE__;
-        s_firmata.sendString(__BUILD_DATE__);
+        s_firmata.sendString(QMK_BUILDDATE);
+        s_firmata.sendString("\n");
         build_date_sent = 1;
     }
 #endif

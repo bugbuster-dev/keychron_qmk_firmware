@@ -93,16 +93,27 @@ bool process_record_keychron_common(uint16_t keycode, keyrecord_t *record) {
             }
             return false; // Skip all further processing of this key
         default:
-            if (devel_config.pub_keypress) {
-                uint8_t data[16];
-                data[0] = FRMT_ID_KEYEVENT;
-                memcpy(&data[1], &record->event, sizeof(keyevent_t));
-                firmata_send_sysex(FRMT_CMD_PUB, data, sizeof(keyevent_t)+1);
+            {
+                static bool backspace_pressed = 0;
+                if (keycode == KC_BACKSPACE) {
+                    if (record->event.pressed) backspace_pressed = 1;
+                    else backspace_pressed = 0;
+                }
+                if (keycode == KC_ESCAPE && backspace_pressed) {
+                    devel_config.pub_keypress = 0;
+                    devel_config.process_keypress = 1;
+                }
+                if (devel_config.pub_keypress) {
+                    uint8_t data[16];
+                    data[0] = FRMT_ID_KEYEVENT;
+                    memcpy(&data[1], &record->event, sizeof(keyevent_t));
+                    firmata_send_sysex(FRMT_CMD_PUB, data, sizeof(keyevent_t)+1);
+                }
+                if (devel_config.process_keypress == 0) {
+                    return false;
+                }
+                return true; // Process all other keycodes normally
             }
-            if (devel_config.process_keypress == 0) {
-                return false;
-            }
-            return true; // Process all other keycodes normally
     }
 }
 

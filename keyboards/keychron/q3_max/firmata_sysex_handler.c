@@ -132,22 +132,48 @@ _FRMT_HANDLE_CMD_SET(cli) {
                 uint8_t* ptr = (uint8_t*)addr;
                 dprintf("[%lx:%d]=", addr, len);
                 switch (len) {
-                    case 1: dprintf("%02x\n", *ptr); break;
-                    case 2: dprintf("%04x\n", *(uint16_t*)ptr); break;
-                    case 4: dprintf("%08lx\n", *(uint32_t*)ptr); break;
+                    case 1: dprintf("%02x\n", *ptr); return;
+                    case 2: dprintf("%04x\n", *(uint16_t*)ptr); return;
+                    case 4: dprintf("%08lx\n", *(uint32_t*)ptr); return;
                     default: break;
                 }
-                if (len > 4) {
+                if (len > 16) {
                     dprintf("\n");
-                    dprintf_buf(ptr, len);
                 }
+                dprintf_buf(ptr, len);
             }
         }
         if (buf[1] == 'w') {
-
+            int len = 0;
+            uint32_t addr = 0;
+            uint32_t val = 0;
+            int res = sscanf((char*)&buf[2], "%"SCNx32 " %d %lx", &addr, &len, &val);
+            if (res == 3) {
+                switch (len) {
+                    case 1: {
+                        uint8_t* ptr = (uint8_t*)addr;
+                        *ptr = val;
+                        dprintf("%02x\n", *ptr);
+                        break;
+                    }
+                    case 2: {
+                        uint16_t* ptr = (uint16_t*)addr;
+                        *ptr = val;
+                        dprintf("%04x\n", *ptr);
+                        break;
+                    }
+                    case 4: {
+                        uint32_t* ptr = (uint32_t*)addr;
+                        *ptr = val;
+                        dprintf("%08lx\n", *ptr);
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
         }
     }
-
 #endif
 }
 
@@ -224,6 +250,7 @@ _FRMT_HANDLE_CMD_GET(config) {
     uint8_t resp[2+s_config_table[config_id].size];
     resp[0] = FRMT_ID_CONFIG;
     resp[1] = config_id;
+    DBG_USR(firmata, "[FA]","config[%d]:%lx\n", config_id, (uint32_t)s_config_table[config_id].ptr);
     memcpy(&resp[2], s_config_table[config_id].ptr, s_config_table[config_id].size);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+s_config_table[config_id].size);
 }
