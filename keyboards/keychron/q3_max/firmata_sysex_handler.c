@@ -2,6 +2,9 @@
 #include "action_layer.h"
 #include "rgb_matrix.h"
 #include "keycode_config.h"
+#include "eeconfig.h"
+#include "eeprom.h"
+#include "dynamic_keymap.h"
 #include "debug.h"
 #include "debug_user.h"
 
@@ -123,14 +126,15 @@ _FRMT_HANDLE_CMD_GET(default_layer) {
 _FRMT_HANDLE_CMD_SET(cli) {
 #ifdef DEVEL_BUILD
     DBG_USR(firmata, "[FA]","cli:%s\n", &buf[0]);
-    if (buf[0] == 'm') {
+    if (buf[0] == 'm') { // memory read/write
+        int len = 0;
+        uint32_t addr = 0;
+        uint32_t val = 0;
+
         if (buf[1] == 'r') {
-            int len = 0;
-            uint32_t addr = 0;
-            int res = sscanf((char*)&buf[2], "%"SCNx32 " %d", &addr, &len);
-            if (res == 2) {
+            if (2 == sscanf((char*)&buf[2], "%"SCNx32 " %d", &addr, &len)) {
                 uint8_t* ptr = (uint8_t*)addr;
-                dprintf("[%lx:%d]=", addr, len);
+                dprintf("m[%lx:%d]=", addr, len);
                 switch (len) {
                     case 1: dprintf("%02x\n", *ptr); return;
                     case 2: dprintf("%04x\n", *(uint16_t*)ptr); return;
@@ -142,30 +146,84 @@ _FRMT_HANDLE_CMD_SET(cli) {
                 }
                 dprintf_buf(ptr, len);
             }
-        }
+        } else
         if (buf[1] == 'w') {
-            int len = 0;
-            uint32_t addr = 0;
-            uint32_t val = 0;
-            int res = sscanf((char*)&buf[2], "%"SCNx32 " %d %lx", &addr, &len, &val);
-            if (res == 3) {
+            if (3 == sscanf((char*)&buf[2], "%"SCNx32 " %d %lx", &addr, &len, &val)) {
                 switch (len) {
                     case 1: {
-                        uint8_t* ptr = (uint8_t*)addr;
-                        *ptr = val;
+                        volatile uint8_t* ptr = (volatile uint8_t*)addr; *ptr = val;
                         dprintf("%02x\n", *ptr);
                         break;
                     }
                     case 2: {
-                        uint16_t* ptr = (uint16_t*)addr;
-                        *ptr = val;
+                        volatile uint16_t* ptr = (volatile uint16_t*)addr; *ptr = val;
                         dprintf("%04x\n", *ptr);
                         break;
                     }
                     case 4: {
-                        uint32_t* ptr = (uint32_t*)addr;
-                        *ptr = val;
+                        volatile uint32_t* ptr = (volatile uint32_t*)addr; *ptr = val;
                         dprintf("%08lx\n", *ptr);
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+    if (buf[0] == 'e') { // eeprom (flash) read/write
+        if (buf[1] == 'l') {
+            dprintf("eeprom:dynamic keymap:%lx:%d\n", (uint32_t)dynamic_keymap_key_to_eeprom_address(0,0,0), DYNAMIC_KEYMAP_LAYER_COUNT*MATRIX_ROWS*MATRIX_COLS*2);
+            dprintf("eeprom:eeconfig user:%lx:%d\n", (uint32_t)EECONFIG_USER, EECONFIG_USER_DATA_SIZE);
+        }
+        else
+        if (buf[1] == 'r') {
+            int len = 0;
+            uint32_t addr = 0;
+            if (2 == sscanf((char*)&buf[2], "%"SCNx32 " %d", &addr, &len)) {
+                dprintf("e[%lx:%d]=", addr, len);
+                switch (len) {
+                    case 1: {
+                        uint8_t val = eeprom_read_byte((const uint8_t*)addr);
+                        dprintf("%02x\n", val);
+                        return;
+                    }
+                    case 2: {
+                        uint16_t val = eeprom_read_word((const uint16_t*)addr);
+                        dprintf("%04x\n", val);
+                        return;
+                    }
+                    case 4: {
+                        uint32_t val = eeprom_read_dword((const uint32_t*)addr);
+                        dprintf("%08lx\n", val);
+                        return;
+                    }
+                    default: break;
+                }
+            }
+        } else
+        if (buf[1] == 'w') {
+            int len = 0;
+            uint32_t addr = 0;
+            uint32_t val = 0;
+            if (3 == sscanf((char*)&buf[2], "%"SCNx32 " %d %lx", &addr, &len, &val)) {
+                switch (len) {
+                    case 1: {
+                        eeprom_update_byte((uint8_t*)addr, val);
+                        val = eeprom_read_byte((const uint8_t*)addr);
+                        dprintf("%02x\n", (uint8_t)val);
+                        break;
+                    }
+                    case 2: {
+                        eeprom_update_word((uint16_t*)addr, val);
+                        val = eeprom_read_word((const uint16_t*)addr);
+                        dprintf("%04x\n", (uint16_t)val);
+                        break;
+                    }
+                    case 4: {
+                        eeprom_update_dword((uint32_t*)addr, val);
+                        val = eeprom_read_dword((const uint32_t*)addr);
+                        dprintf("%08lx\n", val);
                         break;
                     }
                     default:
@@ -218,17 +276,21 @@ extern uint8_t g_debounce;
 extern uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS];
 //const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS]
 
-static struct {
+#define CONFIG_FLAG_FLASH       0x1
+#define CONFIG_FLAG_READ_ONLY   0x2
+
+static const struct {
     uint8_t* ptr;
     uint8_t size;
+    uint8_t flags;
 } s_config_table[CONFIG_ID_MAX] = {
-    [CONFIG_ID_DEBUG] =         { (uint8_t*)&debug_config,      sizeof(debug_config) },
-    [CONFIG_ID_DEBUG_USER] =    { (uint8_t*)&debug_config_user, sizeof(debug_config_user) },
-    [CONFIG_ID_RGB_MATRIX] =    { (uint8_t*)&rgb_matrix_config, sizeof(rgb_matrix_config) },
-    [CONFIG_ID_KEYMAP] =        { (uint8_t*)&keymap_config,     sizeof(keymap_config) },
-    [CONFIG_ID_KEYMAP_LAYOUT] = { (uint8_t*)keymaps,            sizeof(keymaps[0][0][0])*MATRIX_ROWS*MATRIX_COLS },
-    [CONFIG_ID_DEBOUNCE] =      { (uint8_t*)&g_debounce,        sizeof(g_debounce) },
-    [CONFIG_ID_DEVEL] =         { (uint8_t*)&devel_config,      sizeof(devel_config) },
+    [CONFIG_ID_DEBUG] =         { (uint8_t*)&debug_config,      sizeof(debug_config)        , 0},
+    [CONFIG_ID_DEBUG_USER] =    { (uint8_t*)&debug_config_user, sizeof(debug_config_user)   , 0},
+    [CONFIG_ID_RGB_MATRIX] =    { (uint8_t*)&rgb_matrix_config, sizeof(rgb_matrix_config)   , 0},
+    [CONFIG_ID_KEYMAP] =        { (uint8_t*)&keymap_config,     sizeof(keymap_config)       , 0},
+    [CONFIG_ID_KEYMAP_LAYOUT] = { (uint8_t*)keymaps,            sizeof(keymaps[0][0][0])*MATRIX_ROWS*MATRIX_COLS, CONFIG_FLAG_FLASH | CONFIG_FLAG_READ_ONLY},
+    [CONFIG_ID_DEBOUNCE] =      { (uint8_t*)&g_debounce,        sizeof(g_debounce)          , 0},
+    [CONFIG_ID_DEVEL] =         { (uint8_t*)&devel_config,      sizeof(devel_config)        , 0},
 };
 
 _FRMT_HANDLE_CMD_SET(config) {
@@ -336,12 +398,13 @@ _FRMT_HANDLE_CMD_GET(config_layout) {
     uint8_t resp[60];
     int n = 0;
     #define LSB_FIRST (_bit_order == 0)
-    #define BITPOS(b,n) LSB_FIRST? b : n-1-b
-    #define CONFIG_LAYOUT(id, size) \
+    #define BITPOS(b,ws) LSB_FIRST? b : ws-1-b
+    #define CONFIG_LAYOUT(id, size, flags) \
             resp[0] = FRMT_ID_CONFIG_LAYOUT; \
             resp[1] = id; \
             resp[2] = size; \
-            n = 3;
+            resp[3] = flags; \
+            n = 4;
     #define BITFIELD(id,index,nbits,size) \
             resp[n] = id; \
             resp[n+1] = CONFIG_FIELD_TYPE_BIT; \
@@ -359,20 +422,20 @@ _FRMT_HANDLE_CMD_GET(config_layout) {
             resp[n+3] = size; n += 4;
 
     //--------------------------------
-    CONFIG_LAYOUT(CONFIG_ID_DEBUG, sizeof(debug_config_t))
+    CONFIG_LAYOUT(CONFIG_ID_DEBUG, sizeof(debug_config_t), 0)
     BITFIELD(CONFIG_FIELD_DEBUG_ENABLE,     0, 1, 8);
     BITFIELD(CONFIG_FIELD_DEBUG_MATRIX,     1, 1, 8);
     BITFIELD(CONFIG_FIELD_DEBUG_KEYBOARD,   2, 1, 8);
     BITFIELD(CONFIG_FIELD_DEBUG_MOUSE,      3, 1, 8);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
-    CONFIG_LAYOUT(CONFIG_ID_DEBUG_USER, sizeof(debug_config_user_t))
+    CONFIG_LAYOUT(CONFIG_ID_DEBUG_USER, sizeof(debug_config_user_t), 0 )
     BITFIELD(CONFIG_FIELD_DEBUG_USER_FIRMATA,   0, 1, 8);
     BITFIELD(CONFIG_FIELD_DEBUG_USER_STATS,     1, 1, 8);
     BITFIELD(CONFIG_FIELD_DEBUG_USER_USER_ANIM, 2, 1, 8);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
-    CONFIG_LAYOUT(CONFIG_ID_RGB_MATRIX, sizeof(rgb_config_t));
+    CONFIG_LAYOUT(CONFIG_ID_RGB_MATRIX, sizeof(rgb_config_t), 0);
     BITFIELD(CONFIG_FIELD_RGB_ENABLE,   0, 2, 8);
     BITFIELD(CONFIG_FIELD_RGB_MODE,     2, 6, 8);
     BYTEFIELD(CONFIG_FIELD_RGB_HSV_H,   offsetof(rgb_config_t, hsv) + offsetof(HSV, h));
@@ -383,7 +446,7 @@ _FRMT_HANDLE_CMD_GET(config_layout) {
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
     int bp = 0;
-    CONFIG_LAYOUT(CONFIG_ID_KEYMAP, sizeof(keymap_config_t));
+    CONFIG_LAYOUT(CONFIG_ID_KEYMAP, sizeof(keymap_config_t), 0);
     BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_CONTROL_CAPSLOCK,     bp, 1, 16); bp++;
     BITFIELD(CONFIG_FIELD_KEYMAP_CAPSLOCK_TO_CONTROL,       bp, 1, 16); bp++;
     BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_LALT_LGUI,            bp, 1, 16); bp++;
@@ -400,15 +463,15 @@ _FRMT_HANDLE_CMD_GET(config_layout) {
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
     int keymap_size = sizeof(keymaps[0][0][0])*MATRIX_ROWS*MATRIX_COLS; // only layer 0
-    CONFIG_LAYOUT(CONFIG_ID_KEYMAP_LAYOUT, keymap_size);
+    CONFIG_LAYOUT(CONFIG_ID_KEYMAP_LAYOUT, keymap_size, CONFIG_FLAG_FLASH | CONFIG_FLAG_READ_ONLY);
     ARRAYFIELD(CONFIG_FIELD_KEYMAP_LAYOUT, CONFIG_FIELD_TYPE_UINT16, 0, MATRIX_ROWS*MATRIX_COLS);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
-    CONFIG_LAYOUT(CONFIG_ID_DEBOUNCE, sizeof(uint8_t));
+    CONFIG_LAYOUT(CONFIG_ID_DEBOUNCE, sizeof(uint8_t), 0);
     BYTEFIELD(CONFIG_FIELD_DEBOUNCE, 0);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
-    CONFIG_LAYOUT(CONFIG_ID_DEVEL, sizeof(devel_config_t));
+    CONFIG_LAYOUT(CONFIG_ID_DEVEL, sizeof(devel_config_t), 0);
     BITFIELD(CONFIG_FIELD_DEVEL_PUB_KEYPRESS,       0, 1, 8);
     BITFIELD(CONFIG_FIELD_DEVEL_PROCESS_KEYPRESS,   1, 1, 8);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
