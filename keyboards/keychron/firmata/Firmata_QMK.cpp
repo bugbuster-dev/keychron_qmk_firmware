@@ -241,7 +241,7 @@ extern "C" {
 
 void debug_led_on(int li)
 {
-#ifdef DEBUG_LED_ENABLE
+#ifdef DEVEL_BUILD
     extern rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
     static uint8_t s_li = 0;
     if (li == -1) li = s_li;
