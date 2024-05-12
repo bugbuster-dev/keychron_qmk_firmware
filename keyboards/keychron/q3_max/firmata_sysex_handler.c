@@ -12,6 +12,7 @@
 #include "dynld_func.h"
 
 //------------------------------------------------------------------------------
+extern void debug_led_on(int led);
 
 static void dprintf_buf(uint8_t *buf, uint8_t len) {
 #ifdef CONSOLE_ENABLE
@@ -125,30 +126,56 @@ _FRMT_HANDLE_CMD_GET(default_layer) {
 //------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(cli) {
 #ifdef DEVEL_BUILD
-    DBG_USR(firmata, "[FA]","cli:%s\n", &buf[0]);
-    if (buf[0] == 'm') { // memory read/write
+    int off = 0;
+    uint8_t cli_seq = buf[off]; off++;
+    uint8_t cli_cmd = buf[off]; off++;
+    DBG_USR(firmata, "[FA]","cli[%d]:%s\n", cli_seq, &buf[1]);
+
+    if (cli_cmd == 'm') { // memory read/write
+        uint8_t xs = buf[off]; off++;
         int len = 0;
         uint32_t addr = 0;
         uint32_t val = 0;
 
-        if (buf[1] == 'r') {
-            if (2 == sscanf((char*)&buf[2], "%"SCNx32 " %d", &addr, &len)) {
+        if (xs == 'r') {
+            int rc = sscanf((char*)&buf[off], "%lx %d", &addr, &len);
+            if (rc != 2) {
+                char *addr_ptr = strstr((char*)&buf[off], "0x");
+                if (addr_ptr) rc = sscanf(addr_ptr+2, "%lx %d", &addr, &len);
+            }
+            if (2 == rc) {
                 uint8_t* ptr = (uint8_t*)addr;
-                dprintf("m[%lx:%d]=", addr, len);
-                switch (len) {
-                    case 1: dprintf("%02x\n", *ptr); return;
-                    case 2: dprintf("%04x\n", *(uint16_t*)ptr); return;
-                    case 4: dprintf("%08lx\n", *(uint32_t*)ptr); return;
-                    default: break;
+                if (len > 64) {
+                    dprintf("len too large\n");
+                    return;
                 }
-                if (len > 16) {
-                    dprintf("\n");
+                dprintf("m[0x%lx:%d]=", addr, len);
+                if (len == 1) dprintf("%02x\n", *ptr);
+                else if (len == 2) dprintf("%04x\n", *(uint16_t*)ptr);
+                else if (len == 4) dprintf("%08lx\n", *(uint32_t*)ptr);
+                else {
+                    if (len > 16) {
+                        dprintf("\n");
+                    }
+                    dprintf_buf(ptr, len);
                 }
-                dprintf_buf(ptr, len);
+                {
+                    uint8_t resp_len = 2+len;
+                    uint8_t resp[resp_len];
+                    resp[0] = FRMT_ID_CLI;
+                    resp[1] = cli_seq;
+                    memcpy(&resp[2], ptr, len);
+                    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, resp_len);
+                }
             }
         } else
-        if (buf[1] == 'w') {
-            if (3 == sscanf((char*)&buf[2], "%"SCNx32 " %d %lx", &addr, &len, &val)) {
+        if (xs == 'w') {
+            int rc = sscanf((char*)&buf[off], "%lx %d %lx", &addr, &len, &val);
+            if (rc != 3) {
+                char *addr_ptr = strstr((char*)&buf[off], "0x");
+                if (addr_ptr) rc = sscanf(addr_ptr+2, "%lx %d %lx", &addr, &len, &val);
+            }
+            if (3 == rc) {
                 switch (len) {
                     case 1: {
                         volatile uint8_t* ptr = (volatile uint8_t*)addr; *ptr = val;
@@ -171,42 +198,69 @@ _FRMT_HANDLE_CMD_SET(cli) {
             }
         }
     }
-    if (buf[0] == 'e') { // eeprom (flash) read/write
-        if (buf[1] == 'l') {
-            dprintf("eeprom:dynamic keymap:%lx:%d\n", (uint32_t)dynamic_keymap_key_to_eeprom_address(0,0,0), DYNAMIC_KEYMAP_LAYER_COUNT*MATRIX_ROWS*MATRIX_COLS*2);
-            dprintf("eeprom:eeconfig user:%lx:%d\n", (uint32_t)EECONFIG_USER, EECONFIG_USER_DATA_SIZE);
+    if (cli_cmd == 'e') { // eeprom (flash) read/write
+        uint8_t xs = buf[off]; off++;
+        if (xs == 'l') {
+            dprintf("eeprom:dynamic keymap:0x%lx:%d\n", (uint32_t)dynamic_keymap_key_to_eeprom_address(0,0,0), DYNAMIC_KEYMAP_LAYER_COUNT*MATRIX_ROWS*MATRIX_COLS*2);
+            dprintf("eeprom:eeconfig user:0x%lx:%d\n", (uint32_t)EECONFIG_USER, EECONFIG_USER_DATA_SIZE);
         }
         else
-        if (buf[1] == 'r') {
+        if (xs == 'r') {
             int len = 0;
             uint32_t addr = 0;
-            if (2 == sscanf((char*)&buf[2], "%"SCNx32 " %d", &addr, &len)) {
-                dprintf("e[%lx:%d]=", addr, len);
+
+            int rc = sscanf((char*)&buf[off], "%lx %d", &addr, &len);
+            if (rc != 2) {
+                char *addr_ptr = strstr((char*)&buf[off], "0x");
+                if (addr_ptr) rc = sscanf(addr_ptr+2, "%lx %d", &addr, &len);
+            }
+            if (2 == rc) {
+                dprintf("e[0x%lx:%d]=", addr, len);
+                uint8_t resp[1+4];
+                uint8_t* ptr = 0;
                 switch (len) {
                     case 1: {
                         uint8_t val = eeprom_read_byte((const uint8_t*)addr);
+                        ptr = resp+1;
+                        memcpy(&val, ptr, len);
                         dprintf("%02x\n", val);
                         return;
                     }
                     case 2: {
                         uint16_t val = eeprom_read_word((const uint16_t*)addr);
+                        ptr = resp+1;
+                        memcpy(&val, ptr, len);
                         dprintf("%04x\n", val);
                         return;
                     }
                     case 4: {
                         uint32_t val = eeprom_read_dword((const uint32_t*)addr);
+                        ptr = resp+1;
+                        memcpy(&val, ptr, len);
                         dprintf("%08lx\n", val);
                         return;
                     }
                     default: break;
                 }
+                if (ptr) {
+                    uint8_t resp_len = 2+len;
+                    uint8_t resp[resp_len];
+                    resp[0] = FRMT_ID_CLI;
+                    resp[1] = cli_seq;
+                    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, resp_len);
+                }
             }
         } else
-        if (buf[1] == 'w') {
+        if (xs == 'w') {
             int len = 0;
             uint32_t addr = 0;
             uint32_t val = 0;
-            if (3 == sscanf((char*)&buf[2], "%"SCNx32 " %d %lx", &addr, &len, &val)) {
+            int rc = sscanf((char*)&buf[off], "%lx %d %lx", &addr, &len, &val);
+            if (rc != 3) {
+                char *addr_ptr = strstr((char*)&buf[off], "0x");
+                if (addr_ptr) rc = sscanf(addr_ptr+2, "%lx %d %lx", &addr, &len, &val);
+            }
+            if (3 == rc) {
                 switch (len) {
                     case 1: {
                         eeprom_update_byte((uint8_t*)addr, val);
@@ -230,6 +284,19 @@ _FRMT_HANDLE_CMD_SET(cli) {
                         break;
                 }
             }
+        }
+    }
+    if (cli_cmd == 'c') { // call function
+        uint32_t fun_addr = 0;
+        // todo bb: args and return value
+        if (1 == sscanf((char*)&buf[off+2], "%lx", &fun_addr)) {
+            void (*fun)(int) = (void (*)(int))thumb_fun_addr((void*)fun_addr);
+            if (fun) {
+                dprintf("call:0x%lx\n", (uint32_t)fun);
+                fun(-1);
+            }
+        } else {
+            debug_led_on(0);
         }
     }
 #endif

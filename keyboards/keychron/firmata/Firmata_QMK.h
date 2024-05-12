@@ -8,6 +8,8 @@ extern "C" {
 #define FIRMATA_QMK_MAJOR_VERSION   0
 #define FIRMATA_QMK_MINOR_VERSION   2
 
+// set/get/add/del pub/sub commands should cover all the scenarios
+// extension by adding more "ids" to set/get/...
 enum {
     FRMT_CMD_EXTENDED = 0,
     FRMT_CMD_SET = 1,
@@ -20,18 +22,10 @@ enum {
 };
 
 enum {
-    FRMT_ID_CONFIG_EXTENDED = 0,
-    FRMT_ID_CONFIG_DEBUG,
-    FRMT_ID_CONFIG_DEBUG_USER,
-    FRMT_ID_CONFIG_RGB,
-    FRMT_ID_CONFIG_KEYMAP,
-};
-
-enum {
-    FRMT_ID_EXTENDED        = 0,
+    FRMT_ID_EXTENDED        = 0, // next byte is the extended id (not used yet)
     FRMT_ID_RGB_MATRIX_BUF  = 1,
     FRMT_ID_DEFAULT_LAYER   = 2,
-    FRMT_ID_CLI             = 3, // output to console
+    FRMT_ID_CLI             = 3,
     FRMT_ID_BATTERY_STATUS  = 4,
     FRMT_ID_MACWIN_MODE     = 5,
     //FRMT_ID_RGB_MATRIX_MODE = 6, // deprecated
