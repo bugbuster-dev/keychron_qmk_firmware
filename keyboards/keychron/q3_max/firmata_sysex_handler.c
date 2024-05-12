@@ -126,6 +126,7 @@ _FRMT_HANDLE_CMD_GET(default_layer) {
 //------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(cli) {
 #ifdef DEVEL_BUILD
+#define MAX_READ_LEN 64
     int off = 0;
     uint8_t cli_seq = buf[off]; off++;
     uint8_t cli_cmd = buf[off]; off++;
@@ -145,7 +146,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
             }
             if (2 == rc) {
                 uint8_t* ptr = (uint8_t*)addr;
-                if (len > 64) {
+                if (len > MAX_READ_LEN) {
                     dprintf("len too large\n");
                     return;
                 }
@@ -216,39 +217,44 @@ _FRMT_HANDLE_CMD_SET(cli) {
             }
             if (2 == rc) {
                 dprintf("e[0x%lx:%d]=", addr, len);
-                uint8_t resp[1+4];
-                uint8_t* ptr = 0;
+                if (len > MAX_READ_LEN) {
+                    dprintf("len too large\n");
+                    return;
+                }
+                uint8_t resp_len = 2+len;
+                uint8_t resp[resp_len];
+                resp[0] = FRMT_ID_CLI;
+                resp[1] = cli_seq;
+                bool read = false;
                 switch (len) {
                     case 1: {
-                        uint8_t val = eeprom_read_byte((const uint8_t*)addr);
-                        ptr = resp+1;
-                        memcpy(&val, ptr, len);
+                        uint8_t val = eeprom_read_byte((const uint8_t*)addr); read = true;
+                        memcpy(&resp[2], &val, len);
                         dprintf("%02x\n", val);
-                        return;
+                        break;
                     }
                     case 2: {
-                        uint16_t val = eeprom_read_word((const uint16_t*)addr);
-                        ptr = resp+1;
-                        memcpy(&val, ptr, len);
+                        uint16_t val = eeprom_read_word((const uint16_t*)addr); read = true;
+                        memcpy(&resp[2], &val, len);
                         dprintf("%04x\n", val);
-                        return;
+                        break;
                     }
                     case 4: {
-                        uint32_t val = eeprom_read_dword((const uint32_t*)addr);
-                        ptr = resp+1;
-                        memcpy(&val, ptr, len);
+                        uint32_t val = eeprom_read_dword((const uint32_t*)addr); read = true;
+                        memcpy(&resp[2], &val, len);
                         dprintf("%08lx\n", val);
-                        return;
+                        break;
                     }
                     default: break;
                 }
-                if (ptr) {
-                    uint8_t resp_len = 2+len;
-                    uint8_t resp[resp_len];
-                    resp[0] = FRMT_ID_CLI;
-                    resp[1] = cli_seq;
-                    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, resp_len);
+                if (!read && len > 0) {
+                    int i = 0;
+                    while (len-- > 0) {
+                        uint8_t val = eeprom_read_byte((const uint8_t*)addr+i);
+                        resp[2+i] = val; i++;
+                    }
                 }
+                firmata_send_sysex(FRMT_CMD_RESPONSE, resp, resp_len);
             }
         } else
         if (xs == 'w') {
