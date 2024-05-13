@@ -94,14 +94,21 @@ bool process_record_keychron_common(uint16_t keycode, keyrecord_t *record) {
             return false; // Skip all further processing of this key
         default:
             {
-                static bool backspace_pressed = 0;
+#ifdef DEVEL_BUILD
+                static keyevent_t backspace_press_event;
+                static keyevent_t enter_press_event;
                 if (keycode == KC_BACKSPACE) {
-                    if (record->event.pressed) backspace_pressed = 1;
-                    else backspace_pressed = 0;
+                    backspace_press_event = record->event;
                 }
-                if (keycode == KC_ESCAPE && backspace_pressed) {
+                if (keycode == KC_ESCAPE && backspace_press_event.pressed) {
                     devel_config.pub_keypress = 0;
                     devel_config.process_keypress = 1;
+
+                    uint8_t data[16]; // stop publishing keypress events, send the backspace release event as last
+                    data[0] = FRMT_ID_KEYEVENT;
+                    backspace_press_event.pressed = false;
+                    memcpy(&data[1], &backspace_press_event, sizeof(keyevent_t));
+                    firmata_send_sysex(FRMT_CMD_PUB, data, sizeof(keyevent_t)+1);
                 }
                 if (devel_config.pub_keypress) {
                     uint8_t data[16];
@@ -110,8 +117,20 @@ bool process_record_keychron_common(uint16_t keycode, keyrecord_t *record) {
                     firmata_send_sysex(FRMT_CMD_PUB, data, sizeof(keyevent_t)+1);
                 }
                 if (devel_config.process_keypress == 0) {
+                    if (keycode == KC_ENTER) {
+                        // enter pressed when disabling processing keypress, process the enter release event
+                        if (enter_press_event.pressed && record->event.pressed == 0) {
+                            enter_press_event = record->event;
+                            return true;
+                        }
+                    }
                     return false;
                 }
+
+                if (keycode == KC_ENTER) {
+                    enter_press_event = record->event;
+                }
+#endif
                 return true; // Process all other keycodes normally
             }
     }
