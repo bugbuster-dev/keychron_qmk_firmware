@@ -215,8 +215,7 @@ static void _send_console_string(uint8_t *data, uint16_t len) {
 #ifdef DEVEL_BUILD
     static bool build_date_sent = 0;
     if (!build_date_sent) {
-        s_firmata.sendString(QMK_BUILDDATE);
-        s_firmata.sendString("\n");
+        s_firmata.sendString(QMK_BUILDDATE "\n");
         build_date_sent = 1;
     }
 #endif

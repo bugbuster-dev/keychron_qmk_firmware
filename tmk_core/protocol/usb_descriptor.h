@@ -316,7 +316,7 @@ enum usb_endpoints {
 #undef RAW_EPSIZE
 #define RAW_EPSIZE RAW_EPSIZE_FIRMATA
 #if RAW_EPSIZE > 64
-#error "RAW_EPSIZE too large, check first if chibios supports it"
+#error "RAW_EPSIZE too large"
 #endif
 #endif
 
