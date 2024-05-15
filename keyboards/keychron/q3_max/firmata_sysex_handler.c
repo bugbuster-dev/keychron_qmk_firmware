@@ -135,6 +135,11 @@ enum cli_cmd {
     CLI_CMD_WRITE       = 0x80,
 };
 
+enum eeprom_layout_id {
+    EEPROM_LAYOUT_DYNAMIC_KEYMAP = 1,
+    EEPROM_LAYOUT_EECONFIG_USER,
+};
+
 static void _return_cli_error(uint8_t cli_seq, uint8_t err) {
     uint8_t resp[3];
     resp[0] = FRMT_ID_CLI;
@@ -219,8 +224,27 @@ _FRMT_HANDLE_CMD_SET(cli) {
     }
     if (cli_cmd == CLI_CMD_EEPROM) { // eeprom (flash) read/write
         if (lo) {
-            dprintf("eeprom:dynamic keymap:0x%lx:%d\n", (uint32_t)dynamic_keymap_key_to_eeprom_address(0,0,0), DYNAMIC_KEYMAP_LAYER_COUNT*MATRIX_ROWS*MATRIX_COLS*2);
-            dprintf("eeprom:eeconfig user:0x%lx:%d\n", (uint32_t)EECONFIG_USER, EECONFIG_USER_DATA_SIZE);
+            struct {
+                uint32_t addr;
+                uint32_t size;
+            } eeprom_layout[] = {
+                {(uint32_t)dynamic_keymap_key_to_eeprom_address(0,0,0), DYNAMIC_KEYMAP_LAYER_COUNT*MATRIX_ROWS*MATRIX_COLS*2},
+                {(uint32_t)EECONFIG_USER, EECONFIG_USER_DATA_SIZE},
+            }; (void) eeprom_layout;
+
+            //todo bb: return eeprom layout info and test
+            uint8_t resp_len = 32;
+            uint8_t resp[resp_len];
+            int off = 0;
+            resp[off] = FRMT_ID_CLI; off++;
+            resp[off] = cli_seq; off++;
+            for (int i = 0; i < sizeof(eeprom_layout)/sizeof(eeprom_layout[0]); i++) {
+                dprintf("eeprom[%d]:0x%lx:%ld\n", i, eeprom_layout[i].addr, eeprom_layout[i].size);
+                resp[off] = i+1; off++;
+                memcpy(&resp[off], &eeprom_layout[i].addr, sizeof(eeprom_layout[i].addr)); off += sizeof(eeprom_layout[i].addr);
+                memcpy(&resp[off], &eeprom_layout[i].size, sizeof(eeprom_layout[i].size)); off += sizeof(eeprom_layout[i].size);
+            }
+            firmata_send_sysex(FRMT_CMD_RESPONSE, resp, off);
             return;
         }
         uint8_t len = 0;
