@@ -140,6 +140,7 @@ enum eeprom_layout_id {
     EEPROM_LAYOUT_EECONFIG_USER,
 };
 
+#ifdef DEVEL_BUILD
 static void _return_cli_error(uint8_t cli_seq, uint8_t err) {
     uint8_t resp[3];
     resp[0] = FRMT_ID_CLI;
@@ -147,6 +148,7 @@ static void _return_cli_error(uint8_t cli_seq, uint8_t err) {
     resp[2] = err; // todo bb: error codes
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, sizeof(resp));
 }
+#endif
 
 _FRMT_HANDLE_CMD_SET(cli) {
 #ifdef DEVEL_BUILD
@@ -232,7 +234,6 @@ _FRMT_HANDLE_CMD_SET(cli) {
                 {(uint32_t)EECONFIG_USER, EECONFIG_USER_DATA_SIZE},
             }; (void) eeprom_layout;
 
-            //todo bb: return eeprom layout info and test
             uint8_t resp_len = 32;
             uint8_t resp[resp_len];
             int off = 0;
@@ -420,7 +421,7 @@ _FRMT_HANDLE_CMD_GET(config) {
 //------------------------------------------------------------------------------
 // todo bb:
 // - config changes monitoring
-// - generic state machine to handle commands which needs multiple "task steps"
+// - mechanism to hook enable/disable dynamic loaded functions
 // ...
 
 //------------------------------------------------------------------------------
