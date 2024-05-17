@@ -23,7 +23,10 @@
 
 void keyboard_post_init_user(void) {
 #ifdef FIRMATA_ENABLE
+#ifdef DEVEL_BUILD
     //debug_config.enable = 1;
+    //debug_config_user.firmata = 1;
+#endif
     firmata_initialize("Keychron Firmata");
 #endif
 }

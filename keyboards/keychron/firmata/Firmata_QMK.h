@@ -6,9 +6,9 @@ extern "C" {
 #endif
 
 #define FIRMATA_QMK_MAJOR_VERSION   0
-#define FIRMATA_QMK_MINOR_VERSION   2
+#define FIRMATA_QMK_MINOR_VERSION   3
 
-// set/get/add/del pub/sub commands should cover all the scenarios
+// set/get/add/del pub/sub commands should cover all the scenarios for now
 // extension by adding more "ids" to set/get/...
 enum {
     FRMT_CMD_EXTENDED = 0,
@@ -21,20 +21,23 @@ enum {
     FRMT_CMD_RESPONSE = 0x0f,
 };
 
+// todo bb: group by config/status/control/...
 enum {
-    FRMT_ID_EXTENDED        = 0, // next byte is the extended id (not used yet)
-    FRMT_ID_RGB_MATRIX_BUF  = 1,
+    FRMT_ID_EXTENDED        = 0,
+    FRMT_ID_CONTROL         = 0xff, // todo bb:
+    FRMT_ID_RGB_MATRIX_BUF  = 1,    // todo bb: move to CONTROL_...
     FRMT_ID_DEFAULT_LAYER   = 2,
     FRMT_ID_CLI             = 3,
-    FRMT_ID_BATTERY_STATUS  = 4,
+    //FRMT_ID_BATTERY_STATUS  = 4, // deprecated
+    FRMT_ID_STATUS          = 4, // todo bb: add status ids for battery, macwin switch, matrix,
     FRMT_ID_MACWIN_MODE     = 5,
     //FRMT_ID_RGB_MATRIX_MODE = 6, // deprecated
     //FRMT_ID_RGB_MATRIX_HSV  = 7, // deprecated
-    FRMT_ID_CONFIG_LAYOUT   = 8,
+    FRMT_ID_STRUCT_LAYOUT   = 8,
     FRMT_ID_CONFIG          = 9,
-    FRMT_ID_KEYEVENT        = 10,
-    FRMT_ID_DYNLD_FUNCTION  = 250, // dynamic load function into ram
-    FRMT_ID_DYNLD_FUNEXEC   = 251, // exec "dynamic loaded function"
+    FRMT_ID_KEYEVENT        = 10,   // todo bb: ID_EVENT and add EVENT_ID_KEYPRESS, EVENT_ID_...
+    FRMT_ID_DYNLD_FUNCTION  = 250,  // dynamic load function into ram (todo bb: move to CLI or CONTROL_...)
+    FRMT_ID_DYNLD_FUNEXEC   = 251,  // exec "dynamic loaded function"
 };
 
 #define _FRMT_HANDLE_CMD_SET_FN(name)   _frmt_handle_cmd_set_##name
@@ -46,9 +49,9 @@ enum {
 _FRMT_HANDLE_CMD_SETGET(default_layer);
 _FRMT_HANDLE_CMD_SET(cli);
 _FRMT_HANDLE_CMD_SETGET(macwin_mode);
-_FRMT_HANDLE_CMD_GET(battery_status);
+_FRMT_HANDLE_CMD_GET(status);
 _FRMT_HANDLE_CMD_SET(rgb_matrix_buf);
-_FRMT_HANDLE_CMD_GET(config_layout);
+_FRMT_HANDLE_CMD_GET(struct_layout);
 _FRMT_HANDLE_CMD_SETGET(config);
 _FRMT_HANDLE_CMD_SET(dynld_function);
 _FRMT_HANDLE_CMD_SET(dynld_funexec);
