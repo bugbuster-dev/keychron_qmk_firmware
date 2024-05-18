@@ -29,7 +29,7 @@ enum {
     FRMT_ID_DEFAULT_LAYER   = 2,
     FRMT_ID_CLI             = 3,
     //FRMT_ID_BATTERY_STATUS  = 4, // deprecated
-    FRMT_ID_STATUS          = 4, // todo bb: add status ids for battery, macwin switch, matrix,
+    FRMT_ID_STATUS          = 4,
     FRMT_ID_MACWIN_MODE     = 5,
     //FRMT_ID_RGB_MATRIX_MODE = 6, // deprecated
     //FRMT_ID_RGB_MATRIX_HSV  = 7, // deprecated

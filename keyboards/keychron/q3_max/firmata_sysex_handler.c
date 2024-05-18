@@ -18,11 +18,11 @@
 //------------------------------------------------------------------------------
 // adjusting the function pointer for thumb mode
 uint32_t thumb_fun_addr(void* funptr) {
-    uint8_t thumb_bit = 0;
+    uint32_t fun_addr = (uint32_t)funptr;
 #ifdef THUMB_PRESENT
-    thumb_bit = 1;
+    fun_addr |= 1;
 #endif
-    return (((uint32_t)funptr) | thumb_bit);
+    return fun_addr;
 }
 
 static int get_bit_order(void) {
@@ -103,6 +103,16 @@ static void dprintf_buf(uint8_t *buf, uint8_t len) {
 rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
 
 void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
+    int decoded_bytes = 0;
+    DBG_USR(firmata, "[FA]","cmd:%d,len:%u\n", cmd, len);
+    for (int i = 0; i < len; i++) {
+        buf[decoded_bytes] = buf[i++];
+        buf[decoded_bytes] |= (uint8_t)(buf[i] << 7);
+        decoded_bytes++;
+    }
+    len = decoded_bytes;
+    if (len == 0) return;
+
     if (cmd == FRMT_CMD_SET) {
         uint8_t id = buf[0];
         buf++; len--;
@@ -127,7 +137,7 @@ void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
 
 //------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(rgb_matrix_buf) {
-    for (uint16_t i = 0; i < len;) {
+    for (int i = 0; i < len;) {
         //DBG_USR(firmata, "rgb:","%d(%d):%d,%d,%d\n", (int)buf[i], (int)buf[i+1], (int)buf[i+2], (int)buf[i+3], (int)buf[i+4]);
         uint8_t li = buf[i++];
         if (li < RGB_MATRIX_LED_COUNT) {
@@ -190,8 +200,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
     uint8_t lo = cli_cmd & CLI_CMD_LAYOUT;
     cli_cmd &= CLI_CMD_MASK;
 
-    DBG_USR(firmata, "[FA]","cli[%d]:%u\n", cli_seq, cli_cmd);
-
+    DBG_USR(firmata, "[FA]","cli[%d]:%u, len=%u\n", cli_seq, cli_cmd, len);
     if (cli_cmd == CLI_CMD_MEMORY) { // memory read/write
         uint8_t len = 0;
         uint32_t addr = 0;
@@ -358,7 +367,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
         memcpy(&fun_addr, &buf[off], sizeof(fun_addr)); off += sizeof(fun_addr);
         if (fun_addr) {
             void (*fun)(int) = (void (*)(int))thumb_fun_addr((void*)fun_addr);
-            dprintf("call:0x%lx\n", (uint32_t)fun);
+            dprintf("call:0x%lx (0x%lx)\n", (uint32_t)fun, (uint32_t)fun_addr);
             fun(-1);
         } else {
             debug_led_on(0);
@@ -407,7 +416,7 @@ static const struct {
     uint8_t size;
 } s_status_table[STATUS_ID_MAX] = {
     [STATUS_ID_BATTERY] = { (uint8_t*)&g_status_battery, sizeof(g_status_battery) },
-    [STATUS_ID_DIP_SWITCH] = { (uint8_t*)dip_switch_state, NUMBER_OF_DIP_SWITCHES }, // todo bb: dip switch size
+    [STATUS_ID_DIP_SWITCH] = { (uint8_t*)dip_switch_state, NUMBER_OF_DIP_SWITCHES },
     [STATUS_ID_MATRIX] = { (uint8_t*)raw_matrix, sizeof(raw_matrix)},
 };
 
