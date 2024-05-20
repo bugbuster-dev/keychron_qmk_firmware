@@ -36,10 +36,17 @@ extern devel_config_t devel_config;
 
 STATIC_ASSERT_SIZEOF_STRUCT_RAW(debug_config_user_t, "debug_config_t out of size spec.");
 
-#ifdef DEVEL_BUILD
-#define DBG_USR(m, p, ...) do { if (debug_config_user.m) { dprintf(p); dprintf(__VA_ARGS__); } } while (0)
+#ifdef CONSOLE_ENABLE
+#define DBG_USR(m, ...) do { \
+    if (debug_config_user.m) { \
+        debug_config_user_t dcu = {.m = 1}; \
+        if (dcu.firmata) xprintf("FA:"); \
+        if (dcu.stats) xprintf("STS:"); \
+        if (dcu.user_anim) xprintf("UAN:"); \
+        xprintf(__VA_ARGS__); \
+    } } while (0)
 #else
-#define DBG_USR(m, p, ...)
+#define DBG_USR(m, ...)
 #endif
 
 #ifdef __cplusplus

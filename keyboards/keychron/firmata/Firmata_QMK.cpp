@@ -210,12 +210,19 @@ static void _rawhid_send_data(uint8_t *data, uint16_t len) {
     }
 }
 
+#ifdef DEVEL_BUILD
+char __QMK_BUILDDATE__[strlen(QMK_BUILDDATE)+2] = {0}; // variable so it gets in the map file for print test from host
+#endif
+
 static void _send_console_string(uint8_t *data, uint16_t len) {
     if (!s_firmata.started()) return;
 #ifdef DEVEL_BUILD
     static bool build_date_sent = 0;
     if (!build_date_sent) {
-        s_firmata.sendString(QMK_BUILDDATE "\n");
+        int len = strlen(QMK_BUILDDATE);
+        memcpy(__QMK_BUILDDATE__, QMK_BUILDDATE, len);
+        __QMK_BUILDDATE__[len] = '\n';
+        s_firmata.sendString(__QMK_BUILDDATE__);
         build_date_sent = 1;
     }
 #endif

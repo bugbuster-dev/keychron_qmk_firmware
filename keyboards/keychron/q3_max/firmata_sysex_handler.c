@@ -87,15 +87,13 @@ enum struct_flags {
 
 extern void debug_led_on(int led);
 
-static void dprintf_buf(uint8_t *buf, uint8_t len) {
+static void xprintf_buf(uint8_t *buf, uint8_t len) {
 #ifdef CONSOLE_ENABLE
-    if (debug_config.enable) {
-        for (int i = 0; i < len; i++) {
-            dprintf("%02x ", buf[i]);
-            if (((i+1)%16) == 0) dprintf("\n");
-        }
-        dprintf("\n");
+    for (int i = 0; i < len; i++) {
+        xprintf("%02x ", buf[i]);
+        if (((i+1)%16) == 0) xprintf("\n");
     }
+    xprintf("\n");
 #endif
 }
 
@@ -104,7 +102,7 @@ rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
 
 void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
     int decoded_bytes = 0;
-    DBG_USR(firmata, "[FA]","cmd:%d,len:%u\n", cmd, len);
+    DBG_USR(firmata, "cmd:%d,len:%u\n", cmd, len);
     for (int i = 0; i < len; i++) {
         buf[decoded_bytes] = buf[i++];
         buf[decoded_bytes] |= (uint8_t)(buf[i] << 7);
@@ -138,7 +136,7 @@ void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
 //------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(rgb_matrix_buf) {
     for (int i = 0; i < len;) {
-        //DBG_USR(firmata, "rgb:","%d(%d):%d,%d,%d\n", (int)buf[i], (int)buf[i+1], (int)buf[i+2], (int)buf[i+3], (int)buf[i+4]);
+        //DBG_USR(firmata, "%d(%d):%d,%d,%d\n", (int)buf[i], (int)buf[i+1], (int)buf[i+2], (int)buf[i+3], (int)buf[i+4]);
         uint8_t li = buf[i++];
         if (li < RGB_MATRIX_LED_COUNT) {
             g_rgb_matrix_host_buf.led[li].duration = buf[i++];
@@ -155,7 +153,7 @@ _FRMT_HANDLE_CMD_SET(rgb_matrix_buf) {
 
 //------------------------------------------------------------------------------
 _FRMT_HANDLE_CMD_SET(default_layer) {
-    DBG_USR(firmata, "[FA]","layer:%d\n", (int)buf[0]);
+    DBG_USR(firmata, "layer:%d\n", (int)buf[0]);
     layer_state_t state = 1 << buf[0];
     default_layer_set(state);
 }
@@ -200,14 +198,14 @@ _FRMT_HANDLE_CMD_SET(cli) {
     uint8_t lo = cli_cmd & CLI_CMD_LAYOUT;
     cli_cmd &= CLI_CMD_MASK;
 
-    DBG_USR(firmata, "[FA]","cli[%d]:%u, len=%u\n", cli_seq, cli_cmd, len);
+    DBG_USR(firmata, "cli[%d]:%u, len=%u\n", cli_seq, cli_cmd, len);
     if (cli_cmd == CLI_CMD_MEMORY) { // memory read/write
         uint8_t len = 0;
         uint32_t addr = 0;
         uint32_t val = 0;
 
         if (lo) {
-            dprintf("unsupported\n");
+            DBG_USR(firmata, "unsupported\n");
             _return_cli_error(cli_seq, 'u');
             return;
         }
@@ -215,20 +213,22 @@ _FRMT_HANDLE_CMD_SET(cli) {
         memcpy(&len, &buf[off], sizeof(len)); off += sizeof(len);
         if (!wr) {
             if (len > MAX_READ_LEN) {
-                dprintf("len too large\n");
+                DBG_USR(firmata, "len too large\n");
                 _return_cli_error(cli_seq, 'i');
                 return;
             }
             uint8_t* ptr = (uint8_t*)addr;
-            dprintf("m[0x%lx:%d]=", addr, len);
-            if (len == 1) dprintf("%02x\n", *ptr);
-            else if (len == 2) dprintf("%04x\n", *(uint16_t*)ptr);
-            else if (len == 4) dprintf("%08lx\n", *(uint32_t*)ptr);
+            DBG_USR(firmata, "m[0x%lx:%d]=", addr, len);
+            if (len == 1) DBG_USR(firmata, "%02x\n", *ptr);
+            else if (len == 2) DBG_USR(firmata, "%04x\n", *(uint16_t*)ptr);
+            else if (len == 4) DBG_USR(firmata, "%08lx\n", *(uint32_t*)ptr);
             else {
-                if (len > 16) {
-                    dprintf("\n");
+                if (debug_config_user.firmata) {
+                    if (len > 16) {
+                        xprintf("\n");
+                    }
+                    xprintf_buf(ptr, len);
                 }
-                dprintf_buf(ptr, len);
             }
             {
                 uint8_t resp_len = 2+len;
@@ -243,24 +243,25 @@ _FRMT_HANDLE_CMD_SET(cli) {
             switch (len) {
                 case 1: {
                     volatile uint8_t* ptr = (volatile uint8_t*)addr; *ptr = val;
-                    dprintf("%02x\n", *ptr);
+                    DBG_USR(firmata, "%02x\n", *ptr);
                     break;
                 }
                 case 2: {
                     volatile uint16_t* ptr = (volatile uint16_t*)addr; *ptr = val;
-                    dprintf("%04x\n", *ptr);
+                    DBG_USR(firmata, "%04x\n", *ptr);
                     break;
                 }
                 case 4: {
                     volatile uint32_t* ptr = (volatile uint32_t*)addr; *ptr = val;
-                    dprintf("%08lx\n", *ptr);
+                    DBG_USR(firmata, "%08lx\n", *ptr);
                     break;
                 }
                 default:
-                    dprintf("invalid size\n");
+                    DBG_USR(firmata, "invalid size\n");
                     _return_cli_error(cli_seq, 'i');
                     break;
             }
+            _return_cli_error(cli_seq, 0); // no error
         }
     }
     if (cli_cmd == CLI_CMD_EEPROM) { // eeprom (flash) read/write
@@ -279,7 +280,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
             resp[off] = FRMT_ID_CLI; off++;
             resp[off] = cli_seq; off++;
             for (int i = 0; i < sizeof(eeprom_layout)/sizeof(eeprom_layout[0]); i++) {
-                dprintf("eeprom[%d]:0x%lx:%ld\n", i, eeprom_layout[i].addr, eeprom_layout[i].size);
+                DBG_USR(firmata, "eeprom[%d]:0x%lx:%ld\n", i, eeprom_layout[i].addr, eeprom_layout[i].size);
                 resp[off] = i+1; off++;
                 memcpy(&resp[off], &eeprom_layout[i].addr, sizeof(eeprom_layout[i].addr)); off += sizeof(eeprom_layout[i].addr);
                 memcpy(&resp[off], &eeprom_layout[i].size, sizeof(eeprom_layout[i].size)); off += sizeof(eeprom_layout[i].size);
@@ -294,9 +295,9 @@ _FRMT_HANDLE_CMD_SET(cli) {
         memcpy(&addr, &buf[off], sizeof(addr)); off += sizeof(addr);
         memcpy(&len, &buf[off], sizeof(len)); off += sizeof(len);
         if (!wr) {
-            dprintf("e[0x%lx:%d]=", addr, len);
+            DBG_USR(firmata, "e[0x%lx:%d]=", addr, len);
             if (len > MAX_READ_LEN) {
-                dprintf("len too large\n");
+                DBG_USR(firmata, "len too large\n");
                 _return_cli_error(cli_seq, 'i');
                 return;
             }
@@ -309,19 +310,19 @@ _FRMT_HANDLE_CMD_SET(cli) {
                 case 1: {
                     uint8_t val = eeprom_read_byte((const uint8_t*)addr); read = true;
                     memcpy(&resp[2], &val, len);
-                    dprintf("%02x\n", val);
+                    DBG_USR(firmata, "%02x\n", val);
                     break;
                 }
                 case 2: {
                     uint16_t val = eeprom_read_word((const uint16_t*)addr); read = true;
                     memcpy(&resp[2], &val, len);
-                    dprintf("%04x\n", val);
+                    DBG_USR(firmata, "%04x\n", val);
                     break;
                 }
                 case 4: {
                     uint32_t val = eeprom_read_dword((const uint32_t*)addr); read = true;
                     memcpy(&resp[2], &val, len);
-                    dprintf("%08lx\n", val);
+                    DBG_USR(firmata, "%08lx\n", val);
                     break;
                 }
                 default: break;
@@ -336,29 +337,32 @@ _FRMT_HANDLE_CMD_SET(cli) {
             firmata_send_sysex(FRMT_CMD_RESPONSE, resp, resp_len);
         } else {
             memcpy(&val, &buf[off], sizeof(val)); off += sizeof(val);
-
             switch (len) {
                 case 1: {
                     eeprom_update_byte((uint8_t*)addr, val);
                     val = eeprom_read_byte((const uint8_t*)addr);
-                    dprintf("%02x\n", (uint8_t)val);
+                    DBG_USR(firmata, "%02x\n", (uint8_t)val);
                     break;
                 }
                 case 2: {
                     eeprom_update_word((uint16_t*)addr, val);
                     val = eeprom_read_word((const uint16_t*)addr);
-                    dprintf("%04x\n", (uint16_t)val);
+                    DBG_USR(firmata, "%04x\n", (uint16_t)val);
                     break;
                 }
                 case 4: {
                     eeprom_update_dword((uint32_t*)addr, val);
                     val = eeprom_read_dword((const uint32_t*)addr);
-                    dprintf("%08lx\n", val);
+                    DBG_USR(firmata, "%08lx\n", val);
                     break;
                 }
-                default:
+                default: {
+                    DBG_USR(firmata, "invalid size\n");
+                    _return_cli_error(cli_seq, 'i');
                     break;
+                }
             }
+            _return_cli_error(cli_seq, 0); // no error
         }
     }
     if (cli_cmd == CLI_CMD_CALL) { // call function
@@ -367,12 +371,14 @@ _FRMT_HANDLE_CMD_SET(cli) {
         memcpy(&fun_addr, &buf[off], sizeof(fun_addr)); off += sizeof(fun_addr);
         if (fun_addr) {
             void (*fun)(int) = (void (*)(int))thumb_fun_addr((void*)fun_addr);
-            dprintf("call:0x%lx (0x%lx)\n", (uint32_t)fun, (uint32_t)fun_addr);
+            DBG_USR(firmata, "call:0x%lx (0x%lx)\n", (uint32_t)fun, (uint32_t)fun_addr);
             fun(-1);
         } else {
             debug_led_on(0);
         }
+        _return_cli_error(cli_seq, 0); // no error
     }
+    _return_cli_error(cli_seq, 'u'); // unsupported
 #endif
 }
 
@@ -380,7 +386,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
 _FRMT_HANDLE_CMD_SET(macwin_mode) {
     extern void keyb_user_set_macwin_mode(int mode);
     int mode = buf[0];
-    DBG_USR(firmata, "[FA]","macwin:%c\n", buf[0]);
+    DBG_USR(firmata, "macwin:%c\n", buf[0]);
     if (buf[0] == '-') mode = -1;
     keyb_user_set_macwin_mode(mode);
 }
@@ -444,7 +450,7 @@ static void _frmt_send_struct_layout_status(void) {
 
 _FRMT_HANDLE_CMD_GET(status) {
     uint8_t status_id = buf[0];
-    DBG_USR(firmata, "[FA]","status:get:%u\n", status_id);
+    DBG_USR(firmata, "status:get:%u\n", status_id);
     if (status_id == 0) return;
     if (status_id >= STATUS_ID_MAX) return;
     if (s_status_table[status_id].ptr == NULL) return;
@@ -458,7 +464,7 @@ _FRMT_HANDLE_CMD_GET(status) {
     uint8_t resp[2+s_status_table[status_id].size];
     resp[0] = FRMT_ID_STATUS;
     resp[1] = status_id;
-    DBG_USR(firmata, "[FA]","status[%d]:%lx\n", status_id, (uint32_t)s_status_table[status_id].ptr);
+    DBG_USR(firmata, "status[%d]:%lx\n", status_id, (uint32_t)s_status_table[status_id].ptr);
     memcpy(&resp[2], s_status_table[status_id].ptr, s_status_table[status_id].size);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+s_status_table[status_id].size);
 }
@@ -497,7 +503,7 @@ static const struct {
 
 _FRMT_HANDLE_CMD_SET(config) {
     uint8_t config_id = buf[0];
-    DBG_USR(firmata, "[FA]","config:set:%u\n", config_id);
+    DBG_USR(firmata, "config:set:%u\n", config_id);
     if (config_id == 0) return; // no extended config id
     if (config_id >= CONFIG_ID_MAX) return;
     if (s_config_table[config_id].ptr == NULL) return;
@@ -506,7 +512,7 @@ _FRMT_HANDLE_CMD_SET(config) {
 
 _FRMT_HANDLE_CMD_GET(config) {
     uint8_t config_id = buf[0];
-    DBG_USR(firmata, "[FA]","config:get:%u\n", config_id);
+    DBG_USR(firmata, "config:get:%u\n", config_id);
     if (config_id == 0) return; // no extended config id
     if (config_id >= CONFIG_ID_MAX) return;
     if (s_config_table[config_id].ptr == NULL) return;
@@ -514,7 +520,7 @@ _FRMT_HANDLE_CMD_GET(config) {
     uint8_t resp[2+s_config_table[config_id].size];
     resp[0] = FRMT_ID_CONFIG;
     resp[1] = config_id;
-    DBG_USR(firmata, "[FA]","config[%d]:%lx\n", config_id, (uint32_t)s_config_table[config_id].ptr);
+    DBG_USR(firmata, "config[%d]:%lx\n", config_id, (uint32_t)s_config_table[config_id].ptr);
     memcpy(&resp[2], s_config_table[config_id].ptr, s_config_table[config_id].size);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+s_config_table[config_id].size);
 }
@@ -650,25 +656,25 @@ void load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, si
     if (offset == 0xffff) {
         if (memcmp(dynld_func_buf[fun_id], "\0\0", 2) != 0) {
             g_dynld_funcs.func[fun_id] = (void*)thumb_fun_addr((uint8_t*)dynld_func_buf[fun_id]);
-            DBG_USR(firmata, "[FA]dynld", " fun[%d]:%p\n", (int)fun_id, g_dynld_funcs.func[fun_id]);
+            DBG_USR(firmata, " fun[%d]:%p\n", (int)fun_id, g_dynld_funcs.func[fun_id]);
         }
         return;
     }
     if (offset + size > DYNLD_FUNC_SIZE) {
         memset((void*)&dynld_func_buf[fun_id][offset], 0, DYNLD_FUNC_SIZE);
         g_dynld_funcs.func[fun_id] = NULL;
-        DBG_USR(firmata, "[FA]dynld", " fun too large\n");
+        DBG_USR(firmata, " fun too large\n");
         return;
     }
     if (fun_id >= DYNLD_FUN_ID_MAX) {
-        DBG_USR(firmata, "[FA]dynld", " fun id too large\n");
+        DBG_USR(firmata, " fun id too large\n");
         return;
     }
     if (offset == 0) {
         g_dynld_funcs.func[fun_id] = NULL;
         memset((void*)dynld_func_buf[fun_id], 0, DYNLD_FUNC_SIZE);
         if (size >= 2 && memcmp(data, "\0\0", 2) == 0) {
-            DBG_USR(firmata, "[FA]dynld", " fun[%d]:0\n", (int)fun_id);
+            DBG_USR(firmata, " fun[%d]:0\n", (int)fun_id);
             return;
         }
     }
@@ -692,31 +698,47 @@ _FRMT_HANDLE_CMD_SET(dynld_function) {
     uint16_t fun_id = buf[0] | buf[1] << 8;
     uint16_t offset = buf[2] | buf[3] << 8;
     len -= 4;
-    DBG_USR(firmata, "[FA]dynld", " id=%d,off=%d,len=%d\n", (int)fun_id, (int)offset, (int)len);
+    DBG_USR(firmata, " id=%d,off=%d,len=%d\n", (int)fun_id, (int)offset, (int)len);
     load_function(fun_id, &buf[4], offset, len);
 }
 
 _FRMT_HANDLE_CMD_SET(dynld_funexec) {
     uint16_t fun_id = buf[0] | buf[1] << 8;
     len -= 2;
-    DBG_USR(firmata, "[FA]dynld", " exec id=%d\n", (int)fun_id);
+    int rc = -1;
+    DBG_USR(firmata, " exec id=%d\n", (int)fun_id);
 
-    if (fun_id == DYNLD_FUN_ID_TEST) {
-        funptr_test_t fun_test = (funptr_test_t)g_dynld_funcs.func[DYNLD_FUN_ID_TEST];
-        int ret = fun_test(&s_dynld_test_env); (void) ret;
-
-        if (debug_config_user.firmata) {
-            DBG_USR(firmata, "[FA]dynld", " exec ret=%d\n", ret);
-            dprintf_buf(s_dynld_test_env.buf, 32);
+    if (fun_id == DYNLD_FUN_ID_EXEC) {
+        typedef int (*funptr_exec_t)(uint8_t* buf, int len);
+        funptr_exec_t fun_exec = (funptr_exec_t)g_dynld_funcs.func[DYNLD_FUN_ID_EXEC];
+        if (fun_exec) {
+            rc = fun_exec(0, 0); // todo bb: pass buffer and length
+            if (debug_config_user.firmata) {
+                DBG_USR(firmata, " exec rc=%d\n", rc);
+            }
         }
     }
+    if (fun_id == DYNLD_FUN_ID_TEST) {
+        funptr_test_t fun_test = (funptr_test_t)g_dynld_funcs.func[DYNLD_FUN_ID_TEST];
+        rc = fun_test(&s_dynld_test_env); (void) rc;
+
+        if (debug_config_user.firmata) {
+            DBG_USR(firmata, " exec rc=%d\n", rc);
+            xprintf_buf(s_dynld_test_env.buf, 32);
+        }
+    }
+
+    uint8_t resp[1+sizeof(rc)];
+    resp[0] = FRMT_ID_DYNLD_FUNEXEC;
+    memcpy(&resp[1], &rc, sizeof(rc));
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, sizeof(resp));
 }
 
 //------------------------------------------------------------------------------
 
 _FRMT_HANDLE_CMD_GET(struct_layout) {
     uint8_t struct_layout_id = buf[0];
-    DBG_USR(firmata, "[FA]","struct_layout:get:%u\n", struct_layout_id);
+    DBG_USR(firmata, "struct_layout:get:%u\n", struct_layout_id);
 
     if (struct_layout_id == FRMT_ID_STATUS) {
         _frmt_send_struct_layout_status();

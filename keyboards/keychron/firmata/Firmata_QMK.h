@@ -70,9 +70,10 @@ typedef struct rgb_matrix_host_buffer {
 
 enum DYNLD_FUNC_ID {
     DYNLD_FUN_ID_ANIMATION = 0,
+    DYNLD_FUN_ID_EXEC,
 
-    DYNLD_FUN_ID_TEST = 1,
-    DYNLD_FUN_ID_MAX = 2
+    DYNLD_FUN_ID_TEST,
+    DYNLD_FUN_ID_MAX
 };
 
 typedef struct dynld_funcs {

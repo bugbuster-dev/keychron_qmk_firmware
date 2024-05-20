@@ -47,7 +47,7 @@ static stats_time_t stats_firmata_task;
 
 static inline void _stats_print(stats_time_t *stats, const char *name) {
     if (debug_config_user.stats == 0) return;
-    dprintf("[STS]%s:%ldx,%ldms,%ld/%ld\n",
+    DBG_USR(stats, "%s:%ldx,%ldms,%ld/%ld\n",
             name, stats->counter, stats->total_time, stats->max_time, stats->min_time);
 }
 

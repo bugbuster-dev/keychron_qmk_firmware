@@ -81,7 +81,7 @@ bool dynld_rgb_animation_run(effect_params_t* params) {
     if (func_animation) {
         s_custom_animation_env.time = g_rgb_timer;
         bool ret = func_animation(&s_custom_animation_env, params);
-        DBG_USR(user_anim, "[USANI]", "iter=%d,time=%ld,envbuf:%d %d %d %d\n", params->iter, s_custom_animation_env.time,
+        DBG_USR(user_anim, "iter=%d,time=%ld,envbuf:%d %d %d %d\n", params->iter, s_custom_animation_env.time,
                             s_custom_animation_env.buf[0], s_custom_animation_env.buf[1],
                             s_custom_animation_env.buf[2], s_custom_animation_env.buf[3]);
         return ret;
