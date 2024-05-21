@@ -263,6 +263,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
             }
             _return_cli_error(cli_seq, 0); // no error
         }
+        return;
     }
     if (cli_cmd == CLI_CMD_EEPROM) { // eeprom (flash) read/write
         if (lo) {
@@ -364,6 +365,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
             }
             _return_cli_error(cli_seq, 0); // no error
         }
+        return;
     }
     if (cli_cmd == CLI_CMD_CALL) { // call function
         uint32_t fun_addr = 0;
@@ -377,6 +379,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
             debug_led_on(0);
         }
         _return_cli_error(cli_seq, 0); // no error
+        return;
     }
     _return_cli_error(cli_seq, 'u'); // unsupported
 #endif
