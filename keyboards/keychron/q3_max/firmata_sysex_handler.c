@@ -205,7 +205,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
         uint32_t val = 0;
 
         if (lo) {
-            DBG_USR(firmata, "unsupported\n");
+            if (debug_config_user.firmata) xprintf("unsupported\n");
             _return_cli_error(cli_seq, 'u');
             return;
         }
@@ -213,17 +213,17 @@ _FRMT_HANDLE_CMD_SET(cli) {
         memcpy(&len, &buf[off], sizeof(len)); off += sizeof(len);
         if (!wr) {
             if (len > MAX_READ_LEN) {
-                DBG_USR(firmata, "len too large\n");
+                if (debug_config_user.firmata) xprintf("len too large\n");
                 _return_cli_error(cli_seq, 'i');
                 return;
             }
             uint8_t* ptr = (uint8_t*)addr;
-            DBG_USR(firmata, "m[0x%lx:%d]=", addr, len);
-            if (len == 1) DBG_USR(firmata, "%02x\n", *ptr);
-            else if (len == 2) DBG_USR(firmata, "%04x\n", *(uint16_t*)ptr);
-            else if (len == 4) DBG_USR(firmata, "%08lx\n", *(uint32_t*)ptr);
-            else {
-                if (debug_config_user.firmata) {
+            if (debug_config_user.firmata) {
+                xprintf("m[0x%lx:%d]=", addr, len);
+                if (len == 1) xprintf("%02x\n", *ptr);
+                else if (len == 2) xprintf("%04x\n", *(uint16_t*)ptr);
+                else if (len == 4) xprintf("%08lx\n", *(uint32_t*)ptr);
+                else {
                     if (len > 16) {
                         xprintf("\n");
                     }
@@ -243,21 +243,21 @@ _FRMT_HANDLE_CMD_SET(cli) {
             switch (len) {
                 case 1: {
                     volatile uint8_t* ptr = (volatile uint8_t*)addr; *ptr = val;
-                    DBG_USR(firmata, "%02x\n", *ptr);
+                    if (debug_config_user.firmata) xprintf("%02x\n", *ptr);
                     break;
                 }
                 case 2: {
                     volatile uint16_t* ptr = (volatile uint16_t*)addr; *ptr = val;
-                    DBG_USR(firmata, "%04x\n", *ptr);
+                    if (debug_config_user.firmata) xprintf("%04x\n", *ptr);
                     break;
                 }
                 case 4: {
                     volatile uint32_t* ptr = (volatile uint32_t*)addr; *ptr = val;
-                    DBG_USR(firmata, "%08lx\n", *ptr);
+                    if (debug_config_user.firmata) xprintf("%08lx\n", *ptr);
                     break;
                 }
                 default:
-                    DBG_USR(firmata, "invalid size\n");
+                    if (debug_config_user.firmata) xprintf("invalid size\n");
                     _return_cli_error(cli_seq, 'i');
                     break;
             }
@@ -280,7 +280,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
             resp[off] = FRMT_ID_CLI; off++;
             resp[off] = cli_seq; off++;
             for (int i = 0; i < sizeof(eeprom_layout)/sizeof(eeprom_layout[0]); i++) {
-                DBG_USR(firmata, "eeprom[%d]:0x%lx:%ld\n", i, eeprom_layout[i].addr, eeprom_layout[i].size);
+                if (debug_config_user.firmata) xprintf("eeprom[%d]:0x%lx:%ld\n", i, eeprom_layout[i].addr, eeprom_layout[i].size);
                 resp[off] = i+1; off++;
                 memcpy(&resp[off], &eeprom_layout[i].addr, sizeof(eeprom_layout[i].addr)); off += sizeof(eeprom_layout[i].addr);
                 memcpy(&resp[off], &eeprom_layout[i].size, sizeof(eeprom_layout[i].size)); off += sizeof(eeprom_layout[i].size);
@@ -295,9 +295,9 @@ _FRMT_HANDLE_CMD_SET(cli) {
         memcpy(&addr, &buf[off], sizeof(addr)); off += sizeof(addr);
         memcpy(&len, &buf[off], sizeof(len)); off += sizeof(len);
         if (!wr) {
-            DBG_USR(firmata, "e[0x%lx:%d]=", addr, len);
+            if (debug_config_user.firmata) xprintf("e[0x%lx:%d]=", addr, len);
             if (len > MAX_READ_LEN) {
-                DBG_USR(firmata, "len too large\n");
+                if (debug_config_user.firmata) xprintf("len too large\n");
                 _return_cli_error(cli_seq, 'i');
                 return;
             }
@@ -310,19 +310,19 @@ _FRMT_HANDLE_CMD_SET(cli) {
                 case 1: {
                     uint8_t val = eeprom_read_byte((const uint8_t*)addr); read = true;
                     memcpy(&resp[2], &val, len);
-                    DBG_USR(firmata, "%02x\n", val);
+                    if (debug_config_user.firmata) xprintf("%02x\n", val);
                     break;
                 }
                 case 2: {
                     uint16_t val = eeprom_read_word((const uint16_t*)addr); read = true;
                     memcpy(&resp[2], &val, len);
-                    DBG_USR(firmata, "%04x\n", val);
+                    if (debug_config_user.firmata) xprintf("%04x\n", val);
                     break;
                 }
                 case 4: {
                     uint32_t val = eeprom_read_dword((const uint32_t*)addr); read = true;
                     memcpy(&resp[2], &val, len);
-                    DBG_USR(firmata, "%08lx\n", val);
+                    if (debug_config_user.firmata) xprintf("%08lx\n", val);
                     break;
                 }
                 default: break;
@@ -341,23 +341,23 @@ _FRMT_HANDLE_CMD_SET(cli) {
                 case 1: {
                     eeprom_update_byte((uint8_t*)addr, val);
                     val = eeprom_read_byte((const uint8_t*)addr);
-                    DBG_USR(firmata, "%02x\n", (uint8_t)val);
+                    if (debug_config_user.firmata) xprintf("%02x\n", (uint8_t)val);
                     break;
                 }
                 case 2: {
                     eeprom_update_word((uint16_t*)addr, val);
                     val = eeprom_read_word((const uint16_t*)addr);
-                    DBG_USR(firmata, "%04x\n", (uint16_t)val);
+                    if (debug_config_user.firmata) xprintf("%04x\n", (uint16_t)val);
                     break;
                 }
                 case 4: {
                     eeprom_update_dword((uint32_t*)addr, val);
                     val = eeprom_read_dword((const uint32_t*)addr);
-                    DBG_USR(firmata, "%08lx\n", val);
+                    if (debug_config_user.firmata) xprintf("%08lx\n", val);
                     break;
                 }
                 default: {
-                    DBG_USR(firmata, "invalid size\n");
+                    if (debug_config_user.firmata) xprintf("invalid size\n");
                     _return_cli_error(cli_seq, 'i');
                     break;
                 }
@@ -371,7 +371,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
         memcpy(&fun_addr, &buf[off], sizeof(fun_addr)); off += sizeof(fun_addr);
         if (fun_addr) {
             void (*fun)(int) = (void (*)(int))thumb_fun_addr((void*)fun_addr);
-            DBG_USR(firmata, "call:0x%lx (0x%lx)\n", (uint32_t)fun, (uint32_t)fun_addr);
+            if (debug_config_user.firmata) xprintf("call:0x%lx (0x%lx)\n", (uint32_t)fun, (uint32_t)fun_addr);
             fun(-1);
         } else {
             debug_led_on(0);
