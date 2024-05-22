@@ -305,26 +305,30 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
     if (!s_firmata.started()) {
         firmata_start();
     }
-    data++; len--; // skip RAWHID_FIRMATA_MSG byte
-    if (data[0] == 0xF1) { // qmk firmata sysex start, no 2x7 bits encoding
+    // skip RAWHID_FIRMATA_MSG byte
+    data++; len--;
+    // qmk firmata sysex start without 2x7 bits encoding, call handler directly
+    if (data[0] == 0xF1) {
         data++; len--;
         firmata_sysex_handler(data[0], len, data+1);
         return 0;
     }
-
-    // firmata sysex start 0xf0, 2x7 bits encoding, sysex handler should decode it
-    s_rawhid_stream.rx_buffer_set(data, len);
-    const uint8_t max_iterations = len+1;
-    uint8_t n = 0;
-    while (s_firmata.available()) {
-        s_firmata.processInput();
-        if (n++ >= max_iterations) break;
+    // firmata sysex start 0xf0, with 2x7 bits encoding, sysex handler should decode it
+    if (data[0] == START_SYSEX) {
+        s_rawhid_stream.rx_buffer_set(data, len);
+        const uint8_t max_iterations = len+1;
+        uint8_t n = 0;
+        while (s_firmata.available()) {
+            s_firmata.processInput();
+            if (n++ >= max_iterations) break;
+        }
+        if (n > len) {
+            xprintf("FA:internal error\n");
+            return -1;
+        }
+        return 0;
     }
-    if (n > len) {
-        xprintf("FA:internal error\n");
-        return -1;
-    }
-    return 0;
+    return -1;
 }
 
 void firmata_task() {
