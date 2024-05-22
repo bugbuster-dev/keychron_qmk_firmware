@@ -16,9 +16,10 @@ typedef uint16_t rx_buffer_index_t;
 typedef void (*send_data_fn)(uint8_t *data, uint16_t len);
 typedef void (*send_char_fn)(uint8_t ch);
 
-// BufferStream is a "Firmata Stream" implementation that uses a buffer for "streaming" by
-// receiving with received() into rx buffer and transmitting with write() to tx buffer and flush() to send it.
-// sending is done in flush() by calling send_data() or send_char()
+// BufferStream is the "Firmata Stream" implementation, external rx buffer can be set
+// to process directly from it or put in its own rx buffer with received().
+// Firmata calls write() to write to tx buffer and flush() to send it.
+// sending is done in flush() by calling send_data() or send_char() function hooks.
 class BufferStream : public Stream
 {
 uint8_t *_rx_buffer;
@@ -36,8 +37,8 @@ bool _tx_written;
 bool _tx_flush; // flag to flush it
 uint16_t _tx_last_flush = 0;
 
-send_data_fn    _send_data; // send data buf function
-send_char_fn    _send_char; // send char function
+send_data_fn    _send_data; // send data buf
+send_char_fn    _send_char; // send one char
 
 public:
 
@@ -71,8 +72,20 @@ public:
         _rx_buffer_head = _rx_buffer_tail = 0;
     }
 
+    // set external "rx buffer" and process directly from it if possible
+    // otherwise copy to rx buffer with received()
+    int rx_buffer_set(uint8_t* buf, uint16_t len) {
+        _rx_buffer = buf;
+        _rx_buffer_size = len;
+        _rx_buffer_tail = 0;
+        _rx_buffer_head = len;
+        return 0;
+    }
+
     // received byte insert at head
     int received(uint8_t c) {
+        if (!_rx_buffer) return -1;
+
         rx_buffer_index_t i = (_rx_buffer_head + 1) % _rx_buffer_size;
         _rx_buffer[_rx_buffer_head] = c;
         _rx_buffer_head = i;
@@ -81,7 +94,6 @@ public:
             _rx_buffer_head = _rx_buffer_tail = 0;
             return -1;
         }
-
         return 1;
     }
 
@@ -100,13 +112,14 @@ public:
         if (_rx_buffer_head == _rx_buffer_tail) {
             return -1;
         } else {
-            unsigned char c = _rx_buffer[_rx_buffer_tail];
-            _rx_buffer_tail = (rx_buffer_index_t)(_rx_buffer_tail + 1) % _rx_buffer_size;
+            uint8_t ch = _rx_buffer[_rx_buffer_tail];
+            _rx_buffer_tail = (rx_buffer_index_t)_rx_buffer_tail + 1;
             if (_rx_buffer_tail == _rx_buffer_head) {
                 _rx_buffer_head = 0;
                 _rx_buffer_tail = 0;
             }
-            return c;
+            _rx_buffer_tail %= _rx_buffer_size;
+            return ch;
         }
     }
 
@@ -232,11 +245,10 @@ static void _send_console_string(uint8_t *data, uint16_t len) {
 
 //------------------------------------------------------------------------------
 #define TX_BUF_RESERVE 4 // reserve bytes before tx buffer for RAWHID_FIRMATA_MSG
-static uint8_t _qmk_firmata_rx_buf[256] = {};
 static uint8_t _qmk_firmata_tx_buf[512+TX_BUF_RESERVE] = {};
 static uint8_t _qmk_firmata_console_buf[240] = {}; // adjust size as needed to hold console output until "firmata task" is called
 
-static BufferStream s_rawhid_stream(_qmk_firmata_rx_buf, sizeof(_qmk_firmata_rx_buf),
+static BufferStream s_rawhid_stream(0, 0,
                                     _qmk_firmata_tx_buf+TX_BUF_RESERVE, sizeof(_qmk_firmata_tx_buf)-TX_BUF_RESERVE,
                                     _rawhid_send_data, nullptr);
 static BufferStream s_console_stream(nullptr, 0,
@@ -284,19 +296,25 @@ void firmata_send_sysex(uint8_t cmd, uint8_t* data, int len) {
 }
 
 int firmata_recv(uint8_t c) {
-    if (!s_firmata.started()) {
-        firmata_start();
-    }
-    return s_rawhid_stream.received(c);
+    return -1;
 }
 
 int firmata_recv_data(uint8_t *data, uint8_t len) {
-    int i = 0;
-    while (len--) {
-        if (firmata_recv(data[i++]) < 0) {
-            xprintf("FA:recv error\n"); // buffer overflow
-            return -1;
-        }
+    //xprintf("FA:recv_data %p:%u\n", data, len);
+    if (!s_firmata.started()) {
+        firmata_start();
+    }
+    data++; len--; // skip RAWHID_FIRMATA_MSG byte
+    s_rawhid_stream.rx_buffer_set(data, len);
+    const uint8_t max_iterations = len+1;
+    uint8_t n = 0;
+    while (s_firmata.available()) {
+        s_firmata.processInput();
+        if (n++ >= max_iterations) break;
+    }
+    if (n > len) {
+        xprintf("FA:internal error\n");
+        return -1;
     }
     //debug_led_on(-1);
     return 0;
@@ -304,13 +322,6 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
 
 void firmata_task() {
     if (!s_firmata.started()) return;
-
-    const uint8_t max_iterations = 64;
-    uint8_t n = 0;
-    while (s_firmata.available()) {
-        s_firmata.processInput();
-        if (n++ >= max_iterations) break;
-    }
 
     if (s_console_stream.need_flush()) {
         s_console_stream.flush();

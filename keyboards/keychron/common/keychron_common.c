@@ -239,7 +239,7 @@ bool via_command_kb(uint8_t *data, uint8_t length) {
 
 #ifdef FIRMATA_ENABLE
         case RAWHID_FIRMATA_MSG:
-            firmata_recv_data(&data[1], length-1);
+            firmata_recv_data(data, length);
             break;
 #endif
         default:
