@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #define FIRMATA_QMK_MAJOR_VERSION   0
-#define FIRMATA_QMK_MINOR_VERSION   3
+#define FIRMATA_QMK_MINOR_VERSION   4
 
 // set/get/add/del pub/sub commands should cover all the scenarios for now
 // extension by adding more "ids" to set/get/...

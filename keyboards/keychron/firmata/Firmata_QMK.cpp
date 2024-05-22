@@ -278,8 +278,6 @@ int8_t sendchar(uint8_t c) {
     return 0;
 }
 
-extern void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf);
-
 void firmata_initialize(const char* firmware) {
     s_firmata.setFirmwareNameAndVersion(firmware, FIRMATA_QMK_MAJOR_VERSION, FIRMATA_QMK_MINOR_VERSION);
     //s_firmata.attach(0, firmata_sysex_handler);
@@ -309,11 +307,13 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
     data++; len--;
     // qmk firmata sysex start without 2x7 bits encoding, call handler directly
     if (data[0] == 0xF1) {
+        extern void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf);
         data++; len--;
         firmata_sysex_handler(data[0], len, data+1);
         return 0;
     }
     // firmata sysex start 0xf0, with 2x7 bits encoding, sysex handler should decode it
+#ifdef FIRMATA_7BIT_SYSEX_ENABLE
     if (data[0] == START_SYSEX) {
         s_rawhid_stream.rx_buffer_set(data, len);
         const uint8_t max_iterations = len+1;
@@ -328,14 +328,19 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
         }
         return 0;
     }
+#endif
     return -1;
 }
 
 void firmata_task() {
     if (!s_firmata.started()) return;
 
+    if (s_rawhid_stream.availableForWrite()) {
+        s_rawhid_stream.flush();
+    }
     if (s_console_stream.need_flush()) {
         s_console_stream.flush();
+        s_rawhid_stream.flush();
     }
 }
 
