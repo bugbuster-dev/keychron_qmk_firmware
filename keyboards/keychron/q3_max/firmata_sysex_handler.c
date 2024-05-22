@@ -101,16 +101,8 @@ static void xprintf_buf(uint8_t *buf, uint8_t len) {
 rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
 
 void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
-    int decoded_bytes = 0;
     DBG_USR(firmata, "cmd:%d,len:%u\n", cmd, len);
-    for (int i = 0; i < len; i++) {
-        buf[decoded_bytes] = buf[i++];
-        buf[decoded_bytes] |= (uint8_t)(buf[i] << 7);
-        decoded_bytes++;
-    }
-    len = decoded_bytes;
     if (len == 0) return;
-
     if (cmd == FRMT_CMD_SET) {
         uint8_t id = buf[0];
         buf++; len--;

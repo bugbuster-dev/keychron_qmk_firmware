@@ -201,14 +201,13 @@ static QmkFirmata s_firmata;
 
 //------------------------------------------------------------------------------
 static void _rawhid_send_data(uint8_t *data, uint16_t len) {
-    uint8_t buf[RAW_EPSIZE_FIRMATA] = {0};
     uint8_t *hdr = data - 1;
     *hdr = RAWHID_FIRMATA_MSG; // firmata
 
     while (len) {
         uint8_t send_len = MIN(RAW_EPSIZE_FIRMATA, len+1);
         if (send_len < RAW_EPSIZE_FIRMATA) {
-            memset(buf, 0, sizeof(buf));
+            uint8_t buf[RAW_EPSIZE_FIRMATA] = {0};
             memcpy(buf, hdr, send_len);
             raw_hid_send(buf, RAW_EPSIZE_FIRMATA);
             return;
@@ -279,10 +278,11 @@ int8_t sendchar(uint8_t c) {
     return 0;
 }
 
+extern void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf);
+
 void firmata_initialize(const char* firmware) {
-    extern void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf);
     s_firmata.setFirmwareNameAndVersion(firmware, FIRMATA_QMK_MAJOR_VERSION, FIRMATA_QMK_MINOR_VERSION);
-    s_firmata.attach(0, firmata_sysex_handler);
+    //s_firmata.attach(0, firmata_sysex_handler);
 }
 
 void firmata_start() {
@@ -301,10 +301,18 @@ int firmata_recv(uint8_t c) {
 
 int firmata_recv_data(uint8_t *data, uint8_t len) {
     //xprintf("FA:recv_data %p:%u\n", data, len);
+    //debug_led_on(-1);
     if (!s_firmata.started()) {
         firmata_start();
     }
     data++; len--; // skip RAWHID_FIRMATA_MSG byte
+    if (data[0] == 0xF1) { // qmk firmata sysex start, no 2x7 bits encoding
+        data++; len--;
+        firmata_sysex_handler(data[0], len, data+1);
+        return 0;
+    }
+
+    // firmata sysex start 0xf0, 2x7 bits encoding, sysex handler should decode it
     s_rawhid_stream.rx_buffer_set(data, len);
     const uint8_t max_iterations = len+1;
     uint8_t n = 0;
@@ -316,7 +324,6 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
         xprintf("FA:internal error\n");
         return -1;
     }
-    //debug_led_on(-1);
     return 0;
 }
 
