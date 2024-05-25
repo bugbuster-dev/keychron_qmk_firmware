@@ -53,12 +53,12 @@ enum struct_flags {
 #define LSB_FIRST (get_bit_order() == 0)
 #define BITPOS(b,ws) LSB_FIRST? b : ws-1-b
 #define STRUCT_LAYOUT(lid, sid, size, flags) \
-        resp[0] = FRMT_ID_STRUCT_LAYOUT; \
-        resp[1] = lid; \
-        resp[2] = sid; \
-        resp[3] = size; \
-        resp[4] = flags; \
-        n = 5;
+        resp[n] = FRMT_ID_STRUCT_LAYOUT; \
+        resp[n+1] = lid; \
+        resp[n+2] = sid; \
+        resp[n+3] = size; \
+        resp[n+4] = flags; \
+        n += 5;
 #define BITFIELD(id,index,nbits,size) \
         resp[n] = id; \
         resp[n+1] = STRUCT_FIELD_TYPE_BIT; \
@@ -101,27 +101,34 @@ static void xprintf_buf(uint8_t *buf, uint8_t len) {
 rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
 
 void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
-    DBG_USR(firmata, "cmd:%d,len:%u\n", cmd, len);
-    if (len == 0) return;
+    if (cmd == 0x79) { //REPORT_FIRMWARE
+        //todo bb: send firmware version
+        return;
+    }
+    if (len < 2) return;
+
+    uint8_t off = 0;
+    uint8_t seqnum = buf[off];
+    off++; len--;
+    uint8_t id = buf[off];
+    off++; len--;
+    buf += off;
+    DBG_USR(firmata, "cmd:%d,len:%u,seqnum=%u\n", cmd, len, seqnum);
     if (cmd == FRMT_CMD_SET) {
-        uint8_t id = buf[0];
-        buf++; len--;
-        if (id == FRMT_ID_CLI)              _FRMT_HANDLE_CMD_SET_FN(cli)(cmd, len, buf);
-        if (id == FRMT_ID_RGB_MATRIX_BUF)   _FRMT_HANDLE_CMD_SET_FN(rgb_matrix_buf)(cmd, len, buf);
-        if (id == FRMT_ID_DEFAULT_LAYER)    _FRMT_HANDLE_CMD_SET_FN(default_layer)(cmd, len, buf);
-        if (id == FRMT_ID_MACWIN_MODE)      _FRMT_HANDLE_CMD_SET_FN(macwin_mode)(cmd, len, buf);
-        if (id == FRMT_ID_DYNLD_FUNCTION)   _FRMT_HANDLE_CMD_SET_FN(dynld_function)(cmd, len, buf);
-        if (id == FRMT_ID_DYNLD_FUNEXEC)    _FRMT_HANDLE_CMD_SET_FN(dynld_funexec)(cmd, len, buf);
-        if (id == FRMT_ID_CONFIG)           _FRMT_HANDLE_CMD_SET_FN(config)(cmd, len, buf);
+        if (id == FRMT_ID_CLI)              _FRMT_HANDLE_CMD_SET_FN(cli)            (cmd, seqnum, len, buf);
+        if (id == FRMT_ID_RGB_MATRIX_BUF)   _FRMT_HANDLE_CMD_SET_FN(rgb_matrix_buf) (cmd, seqnum, len, buf);
+        if (id == FRMT_ID_DEFAULT_LAYER)    _FRMT_HANDLE_CMD_SET_FN(default_layer)  (cmd, seqnum, len, buf);
+        if (id == FRMT_ID_MACWIN_MODE)      _FRMT_HANDLE_CMD_SET_FN(macwin_mode)    (cmd, seqnum, len, buf);
+        if (id == FRMT_ID_DYNLD_FUNCTION)   _FRMT_HANDLE_CMD_SET_FN(dynld_function) (cmd, seqnum, len, buf);
+        if (id == FRMT_ID_DYNLD_FUNEXEC)    _FRMT_HANDLE_CMD_SET_FN(dynld_funexec)  (cmd, seqnum, len, buf);
+        if (id == FRMT_ID_CONFIG)           _FRMT_HANDLE_CMD_SET_FN(config)         (cmd, seqnum, len, buf);
     }
     if (cmd == FRMT_CMD_GET) {
-        uint8_t id = buf[0];
-        buf++; len--;
-        if (id == FRMT_ID_DEFAULT_LAYER)    _FRMT_HANDLE_CMD_GET_FN(default_layer)(cmd, len, buf);
-        if (id == FRMT_ID_MACWIN_MODE)      _FRMT_HANDLE_CMD_GET_FN(macwin_mode)(cmd, len, buf);
-        if (id == FRMT_ID_STATUS)           _FRMT_HANDLE_CMD_GET_FN(status)(cmd, len, buf);
-        if (id == FRMT_ID_STRUCT_LAYOUT)    _FRMT_HANDLE_CMD_GET_FN(struct_layout)(cmd, len, buf);
-        if (id == FRMT_ID_CONFIG)           _FRMT_HANDLE_CMD_GET_FN(config)(cmd, len, buf);
+        if (id == FRMT_ID_DEFAULT_LAYER)    _FRMT_HANDLE_CMD_GET_FN(default_layer)  (cmd, seqnum, len, buf);
+        if (id == FRMT_ID_MACWIN_MODE)      _FRMT_HANDLE_CMD_GET_FN(macwin_mode)    (cmd, seqnum, len, buf);
+        if (id == FRMT_ID_STATUS)           _FRMT_HANDLE_CMD_GET_FN(status)         (cmd, seqnum, len, buf);
+        if (id == FRMT_ID_STRUCT_LAYOUT)    _FRMT_HANDLE_CMD_GET_FN(struct_layout)  (cmd, seqnum, len, buf);
+        if (id == FRMT_ID_CONFIG)           _FRMT_HANDLE_CMD_GET_FN(config)         (cmd, seqnum, len, buf);
     }
 }
 
@@ -171,11 +178,12 @@ enum eeprom_layout_id {
 };
 
 #ifdef DEVEL_BUILD
-static void _return_cli_error(uint8_t cli_seq, uint8_t err) {
-    uint8_t resp[3];
-    resp[0] = FRMT_ID_CLI;
-    resp[1] = cli_seq;
-    resp[2] = err; // todo bb: error codes
+static void _return_cli_error(uint8_t seqnum, uint8_t cli_seq, uint8_t err) {
+    uint8_t resp[4];
+    resp[0] = seqnum;
+    resp[1] = FRMT_ID_CLI;
+    resp[2] = cli_seq; // todo bb: cli_seq can be removed when using seqnum
+    resp[3] = err; // todo bb: error codes
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, sizeof(resp));
 }
 #endif
@@ -198,7 +206,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
 
         if (lo) {
             if (debug_config_user.firmata) xprintf("unsupported\n");
-            _return_cli_error(cli_seq, 'u');
+            _return_cli_error(seqnum, cli_seq, 'u');
             return;
         }
         memcpy(&addr, &buf[off], sizeof(addr)); off += sizeof(addr);
@@ -206,7 +214,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
         if (!wr) {
             if (len > MAX_READ_LEN) {
                 if (debug_config_user.firmata) xprintf("len too large\n");
-                _return_cli_error(cli_seq, 'i');
+                _return_cli_error(seqnum, cli_seq, 'i');
                 return;
             }
             uint8_t* ptr = (uint8_t*)addr;
@@ -223,11 +231,13 @@ _FRMT_HANDLE_CMD_SET(cli) {
                 }
             }
             {
-                uint8_t resp_len = 2+len;
-                uint8_t resp[resp_len];
-                resp[0] = FRMT_ID_CLI;
-                resp[1] = cli_seq;
-                memcpy(&resp[2], ptr, len);
+                uint8_t resp[len+3];
+                uint8_t off = 0;
+                resp[off] = seqnum; off++;
+                resp[off] = FRMT_ID_CLI; off++;
+                resp[off] = cli_seq; off++;
+                memcpy(&resp[off], ptr, len);
+                uint8_t resp_len = len + off;
                 firmata_send_sysex(FRMT_CMD_RESPONSE, resp, resp_len);
             }
         } else {
@@ -250,10 +260,10 @@ _FRMT_HANDLE_CMD_SET(cli) {
                 }
                 default:
                     if (debug_config_user.firmata) xprintf("invalid size\n");
-                    _return_cli_error(cli_seq, 'i');
+                    _return_cli_error(seqnum, cli_seq, 'i');
                     break;
             }
-            _return_cli_error(cli_seq, 0); // no error
+            _return_cli_error(seqnum, cli_seq, 0); // no error
         }
         return;
     }
@@ -269,7 +279,8 @@ _FRMT_HANDLE_CMD_SET(cli) {
 
             uint8_t resp_len = 32;
             uint8_t resp[resp_len];
-            int off = 0;
+            uint8_t off = 0;
+            resp[off] = seqnum; off++;
             resp[off] = FRMT_ID_CLI; off++;
             resp[off] = cli_seq; off++;
             for (int i = 0; i < sizeof(eeprom_layout)/sizeof(eeprom_layout[0]); i++) {
@@ -291,30 +302,33 @@ _FRMT_HANDLE_CMD_SET(cli) {
             if (debug_config_user.firmata) xprintf("e[0x%lx:%d]=", addr, len);
             if (len > MAX_READ_LEN) {
                 if (debug_config_user.firmata) xprintf("len too large\n");
-                _return_cli_error(cli_seq, 'i');
+                _return_cli_error(seqnum, cli_seq, 'i');
                 return;
             }
-            uint8_t resp_len = 2+len;
-            uint8_t resp[resp_len];
-            resp[0] = FRMT_ID_CLI;
-            resp[1] = cli_seq;
+            uint8_t resp[len+3];
+            uint8_t off = 0;
+            resp[off] = seqnum; off++;
+            resp[off] = FRMT_ID_CLI; off++;
+            resp[off] = cli_seq; off++;
+            uint8_t resp_len = len+off;
+
             bool read = false;
             switch (len) {
                 case 1: {
                     uint8_t val = eeprom_read_byte((const uint8_t*)addr); read = true;
-                    memcpy(&resp[2], &val, len);
+                    memcpy(&resp[off], &val, len);
                     if (debug_config_user.firmata) xprintf("%02x\n", val);
                     break;
                 }
                 case 2: {
                     uint16_t val = eeprom_read_word((const uint16_t*)addr); read = true;
-                    memcpy(&resp[2], &val, len);
+                    memcpy(&resp[off], &val, len);
                     if (debug_config_user.firmata) xprintf("%04x\n", val);
                     break;
                 }
                 case 4: {
                     uint32_t val = eeprom_read_dword((const uint32_t*)addr); read = true;
-                    memcpy(&resp[2], &val, len);
+                    memcpy(&resp[off], &val, len);
                     if (debug_config_user.firmata) xprintf("%08lx\n", val);
                     break;
                 }
@@ -324,7 +338,7 @@ _FRMT_HANDLE_CMD_SET(cli) {
                 int i = 0;
                 while (len-- > 0) {
                     uint8_t val = eeprom_read_byte((const uint8_t*)addr+i);
-                    resp[2+i] = val; i++;
+                    resp[off+i] = val; i++;
                 }
             }
             firmata_send_sysex(FRMT_CMD_RESPONSE, resp, resp_len);
@@ -351,11 +365,11 @@ _FRMT_HANDLE_CMD_SET(cli) {
                 }
                 default: {
                     if (debug_config_user.firmata) xprintf("invalid size\n");
-                    _return_cli_error(cli_seq, 'i');
+                    _return_cli_error(seqnum, cli_seq, 'i');
                     break;
                 }
             }
-            _return_cli_error(cli_seq, 0); // no error
+            _return_cli_error(seqnum, cli_seq, 0); // no error
         }
         return;
     }
@@ -370,10 +384,10 @@ _FRMT_HANDLE_CMD_SET(cli) {
         } else {
             debug_led_on(0);
         }
-        _return_cli_error(cli_seq, 0); // no error
+        _return_cli_error(seqnum, cli_seq, 0); // no error
         return;
     }
-    _return_cli_error(cli_seq, 'u'); // unsupported
+    _return_cli_error(seqnum, cli_seq, 'u'); // unsupported
 #endif
 }
 
@@ -388,9 +402,10 @@ _FRMT_HANDLE_CMD_SET(macwin_mode) {
 
 _FRMT_HANDLE_CMD_GET(macwin_mode) {
     extern int keyb_user_get_macwin_mode(void);
-    uint8_t response[2];
-    response[0] = FRMT_ID_MACWIN_MODE;
-    response[1] = keyb_user_get_macwin_mode();
+    uint8_t response[3];
+    response[0] = seqnum;
+    response[1] = FRMT_ID_MACWIN_MODE;
+    response[2] = keyb_user_get_macwin_mode();
     firmata_send_sysex(FRMT_CMD_RESPONSE, response, sizeof(response));
 }
 
@@ -421,20 +436,23 @@ static const struct {
     [STATUS_ID_MATRIX] = { (uint8_t*)raw_matrix, sizeof(raw_matrix)},
 };
 
-static void _frmt_send_struct_layout_status(void) {
+static void _frmt_send_struct_layout_status(uint8_t seqnum) {
     uint8_t resp[60];
     int n = 0;
     //--------------------------------
+    resp[0] = seqnum; n = 1;
     STRUCT_LAYOUT(FRMT_ID_STATUS, STATUS_ID_BATTERY, sizeof(struct battery_status), STRUCT_FLAG_READ_ONLY)
     BYTEFIELD(1, offsetof(struct battery_status, level));
     U16FIELD(2, offsetof(struct battery_status, voltage));
     BYTEFIELD(3, offsetof(struct battery_status, charging));
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
+    resp[0] = seqnum; n = 1;
     STRUCT_LAYOUT(FRMT_ID_STATUS, STATUS_ID_DIP_SWITCH, NUMBER_OF_DIP_SWITCHES, STRUCT_FLAG_READ_ONLY)
     BYTEFIELD(1, 0);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
+    resp[0] = seqnum; n = 1;
     STRUCT_LAYOUT(FRMT_ID_STATUS, STATUS_ID_MATRIX, sizeof(raw_matrix), STRUCT_FLAG_READ_ONLY)
     uint8_t matrix_row_type = STRUCT_FIELD_TYPE_UINT8;
     if (sizeof(matrix_row_t) == 2) matrix_row_type = STRUCT_FIELD_TYPE_UINT16;
@@ -456,12 +474,14 @@ _FRMT_HANDLE_CMD_GET(status) {
         g_status_battery.charging = 1; // firmata only over usb so charging or full
     }
 
-    uint8_t resp[2+s_status_table[status_id].size];
-    resp[0] = FRMT_ID_STATUS;
-    resp[1] = status_id;
+    uint8_t resp[3+s_status_table[status_id].size];
+    uint8_t off = 0;
+    resp[off] = seqnum; off++;
+    resp[off] = FRMT_ID_STATUS; off++;
+    resp[off] = status_id; off++;
     DBG_USR(firmata, "status[%d]:%lx\n", status_id, (uint32_t)s_status_table[status_id].ptr);
-    memcpy(&resp[2], s_status_table[status_id].ptr, s_status_table[status_id].size);
-    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+s_status_table[status_id].size);
+    memcpy(&resp[off], s_status_table[status_id].ptr, s_status_table[status_id].size);
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, off+s_status_table[status_id].size);
 }
 
 //------------------------------------------------------------------------------
@@ -512,12 +532,14 @@ _FRMT_HANDLE_CMD_GET(config) {
     if (config_id >= CONFIG_ID_MAX) return;
     if (s_config_table[config_id].ptr == NULL) return;
 
-    uint8_t resp[2+s_config_table[config_id].size];
-    resp[0] = FRMT_ID_CONFIG;
-    resp[1] = config_id;
+    uint8_t resp[3+s_config_table[config_id].size];
+    uint8_t off = 0;
+    resp[off] = seqnum; off++;
+    resp[off] = FRMT_ID_CONFIG; off++;
+    resp[off] = config_id; off++;
     DBG_USR(firmata, "config[%d]:%lx\n", config_id, (uint32_t)s_config_table[config_id].ptr);
-    memcpy(&resp[2], s_config_table[config_id].ptr, s_config_table[config_id].size);
-    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, 2+s_config_table[config_id].size);
+    memcpy(&resp[off], s_config_table[config_id].ptr, s_config_table[config_id].size);
+    firmata_send_sysex(FRMT_CMD_RESPONSE, resp, off+s_config_table[config_id].size);
 }
 
 //------------------------------------------------------------------------------
@@ -581,10 +603,11 @@ enum config_devel_field {
 
 //<config id>:<size>:<field id>:<type>:<offset>:<size> // offset: byte or bit offset
 //_FRMT_HANDLE_CMD_GET(config_layout) {
-static void _frmt_send_struct_layout_config(void) {
+static void _frmt_send_struct_layout_config(uint8_t seqnum) {
     uint8_t resp[60];
     int n = 0;
     //--------------------------------
+    resp[0] = seqnum; n = 1;
     STRUCT_LAYOUT(FRMT_ID_CONFIG, CONFIG_ID_DEBUG, sizeof(debug_config_t), 0)
     BITFIELD(CONFIG_FIELD_DEBUG_ENABLE,     0, 1, 8);
     BITFIELD(CONFIG_FIELD_DEBUG_MATRIX,     1, 1, 8);
@@ -592,12 +615,14 @@ static void _frmt_send_struct_layout_config(void) {
     BITFIELD(CONFIG_FIELD_DEBUG_MOUSE,      3, 1, 8);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
+    resp[0] = seqnum; n = 1;
     STRUCT_LAYOUT(FRMT_ID_CONFIG, CONFIG_ID_DEBUG_USER, sizeof(debug_config_user_t), 0 )
     BITFIELD(CONFIG_FIELD_DEBUG_USER_FIRMATA,   0, 1, 8);
     BITFIELD(CONFIG_FIELD_DEBUG_USER_STATS,     1, 1, 8);
     BITFIELD(CONFIG_FIELD_DEBUG_USER_USER_ANIM, 2, 1, 8);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
+    resp[0] = seqnum; n = 1;
     STRUCT_LAYOUT(FRMT_ID_CONFIG, CONFIG_ID_RGB_MATRIX, sizeof(rgb_config_t), 0);
     BITFIELD(CONFIG_FIELD_RGB_ENABLE,   0, 2, 8);
     BITFIELD(CONFIG_FIELD_RGB_MODE,     2, 6, 8);
@@ -609,6 +634,7 @@ static void _frmt_send_struct_layout_config(void) {
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
     int bp = 0;
+    resp[0] = seqnum; n = 1;
     STRUCT_LAYOUT(FRMT_ID_CONFIG, CONFIG_ID_KEYMAP, sizeof(keymap_config_t), 0);
     BITFIELD(CONFIG_FIELD_KEYMAP_SWAP_CONTROL_CAPSLOCK,     bp, 1, 16); bp++;
     BITFIELD(CONFIG_FIELD_KEYMAP_CAPSLOCK_TO_CONTROL,       bp, 1, 16); bp++;
@@ -626,14 +652,17 @@ static void _frmt_send_struct_layout_config(void) {
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
     int keymap_size = sizeof(keymaps[0][0][0])*MATRIX_ROWS*MATRIX_COLS; // only layer 0
+    resp[0] = seqnum; n = 1;
     STRUCT_LAYOUT(FRMT_ID_CONFIG, CONFIG_ID_KEYMAP_LAYOUT, keymap_size, STRUCT_FLAG_READ_ONLY);
     ARRAYFIELD(CONFIG_FIELD_KEYMAP_LAYOUT, STRUCT_FIELD_TYPE_UINT16, 0, MATRIX_ROWS*MATRIX_COLS);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
+    resp[0] = seqnum; n = 1;
     STRUCT_LAYOUT(FRMT_ID_CONFIG, CONFIG_ID_DEBOUNCE, sizeof(uint8_t), 0);
     BYTEFIELD(CONFIG_FIELD_DEBOUNCE, 0);
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, n);
     //--------------------------------
+    resp[0] = seqnum; n = 1;
     STRUCT_LAYOUT(FRMT_ID_CONFIG, CONFIG_ID_DEVEL, sizeof(devel_config_t), 0);
     BITFIELD(CONFIG_FIELD_DEVEL_PUB_KEYPRESS,       0, 1, 8);
     BITFIELD(CONFIG_FIELD_DEVEL_PROCESS_KEYPRESS,   1, 1, 8);
@@ -646,42 +675,44 @@ static void _frmt_send_struct_layout_config(void) {
 static uint8_t dynld_func_buf[DYNLD_FUN_ID_MAX][DYNLD_FUNC_SIZE] __attribute__((aligned(4)));
 dynld_funcs_t g_dynld_funcs = { 0 };
 
-void load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, size_t size) {
+int load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, size_t len) {
     // set function pointer after fully loaded
     if (offset == 0xffff) {
         if (memcmp(dynld_func_buf[fun_id], "\0\0", 2) != 0) {
             g_dynld_funcs.func[fun_id] = (void*)thumb_fun_addr((uint8_t*)dynld_func_buf[fun_id]);
             DBG_USR(firmata, " fun[%d]:%p\n", (int)fun_id, g_dynld_funcs.func[fun_id]);
+            if (debug_config_user.firmata) {
+                xprintf_buf(&dynld_func_buf[fun_id][0], 16);
+                xprintf_buf(&dynld_func_buf[fun_id][50], 16);
+                xprintf_buf(&dynld_func_buf[fun_id][100], 16);
+            }
         }
-        return;
+        return 0;
     }
-    if (offset + size > DYNLD_FUNC_SIZE) {
-        memset((void*)&dynld_func_buf[fun_id][offset], 0, DYNLD_FUNC_SIZE);
+    if (offset + len > DYNLD_FUNC_SIZE) {
+        memset((void*)&dynld_func_buf[fun_id][0], 0, DYNLD_FUNC_SIZE);
         g_dynld_funcs.func[fun_id] = NULL;
         DBG_USR(firmata, " fun too large\n");
-        return;
+        return -1;
     }
     if (fun_id >= DYNLD_FUN_ID_MAX) {
         DBG_USR(firmata, " fun id too large\n");
-        return;
+        return -1;
     }
     if (offset == 0) {
         g_dynld_funcs.func[fun_id] = NULL;
         memset((void*)dynld_func_buf[fun_id], 0, DYNLD_FUNC_SIZE);
-        if (size >= 2 && memcmp(data, "\0\0", 2) == 0) {
+        if (len >= 2 && memcmp(data, "\0\0", 2) == 0) {
             DBG_USR(firmata, " fun[%d]:0\n", (int)fun_id);
-            return;
+            return 0;
         }
     }
-    memcpy((void*)&dynld_func_buf[fun_id][offset], data, size);
+    memcpy((void*)&dynld_func_buf[fun_id][offset], data, len);
+    return 0;
 }
 
 static int dynld_env_printf(const char* fmt, ...) {
-/*
-    if (debug_config.enable) {
-        xprintf(...);
-    }
-*/
+    //xprintf(fmt, ...);
     return -1;
 }
 
@@ -693,15 +724,22 @@ _FRMT_HANDLE_CMD_SET(dynld_function) {
     uint16_t fun_id = buf[0] | buf[1] << 8;
     uint16_t offset = buf[2] | buf[3] << 8;
     len -= 4;
-    DBG_USR(firmata, " id=%d,off=%d,len=%d\n", (int)fun_id, (int)offset, (int)len);
-    load_function(fun_id, &buf[4], offset, len);
+    int rc = load_function(fun_id, &buf[4], offset, len);
+    DBG_USR(firmata, "dynld load id=%d,off=%d,len=%d,rc=%d\n", (int)fun_id, (int)offset, (int)len, rc);
+    {
+        uint8_t resp[3]; // todo bb: error code
+        resp[0] = seqnum;
+        resp[1] = FRMT_ID_DYNLD_FUNCTION;
+        resp[2] = rc;
+        firmata_send_sysex(FRMT_CMD_RESPONSE, resp, sizeof(resp));
+    }
 }
 
 _FRMT_HANDLE_CMD_SET(dynld_funexec) {
     uint16_t fun_id = buf[0] | buf[1] << 8;
     len -= 2;
     int rc = -1;
-    DBG_USR(firmata, " exec id=%d\n", (int)fun_id);
+    DBG_USR(firmata, "dynld exec id=%d\n", (int)fun_id);
 
     if (fun_id == DYNLD_FUN_ID_EXEC) {
         typedef int (*funptr_exec_t)(uint8_t* buf, int len);
@@ -723,9 +761,11 @@ _FRMT_HANDLE_CMD_SET(dynld_funexec) {
         }
     }
 
-    uint8_t resp[1+sizeof(rc)];
-    resp[0] = FRMT_ID_DYNLD_FUNEXEC;
-    memcpy(&resp[1], &rc, sizeof(rc));
+    uint8_t resp[2+sizeof(rc)];
+    uint8_t off = 0;
+    resp[off] = seqnum; off++;
+    resp[off] = FRMT_ID_DYNLD_FUNEXEC; off++;
+    memcpy(&resp[off], &rc, sizeof(rc));
     firmata_send_sysex(FRMT_CMD_RESPONSE, resp, sizeof(resp));
 }
 
@@ -736,7 +776,7 @@ _FRMT_HANDLE_CMD_GET(struct_layout) {
     DBG_USR(firmata, "struct_layout:get:%u\n", struct_layout_id);
 
     if (struct_layout_id == FRMT_ID_STATUS) {
-        _frmt_send_struct_layout_status();
+        _frmt_send_struct_layout_status(seqnum);
         return;
     }
     if (struct_layout_id == FRMT_ID_CONTROL) {
@@ -745,7 +785,7 @@ _FRMT_HANDLE_CMD_GET(struct_layout) {
         return;
     }
     if (struct_layout_id == FRMT_ID_CONFIG) {
-        _frmt_send_struct_layout_config();
+        _frmt_send_struct_layout_config(seqnum);
         return;
     }
 }

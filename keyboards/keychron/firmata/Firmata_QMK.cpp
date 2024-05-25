@@ -308,7 +308,7 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
     // qmk firmata sysex start without 2x7 bits encoding, call handler directly
     if (data[0] == 0xF1) {
         extern void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf);
-        data++; len--;
+        data++; len--; // skip sysex start
         firmata_sysex_handler(data[0], len, data+1);
         return 0;
     }

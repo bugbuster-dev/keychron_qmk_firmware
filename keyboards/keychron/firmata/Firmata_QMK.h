@@ -42,8 +42,8 @@ enum {
 
 #define _FRMT_HANDLE_CMD_SET_FN(name)   _frmt_handle_cmd_set_##name
 #define _FRMT_HANDLE_CMD_GET_FN(name)   _frmt_handle_cmd_get_##name
-#define _FRMT_HANDLE_CMD_SET(name)      void _FRMT_HANDLE_CMD_SET_FN(name)(uint8_t cmd, uint8_t len, uint8_t *buf)
-#define _FRMT_HANDLE_CMD_GET(name)      void _FRMT_HANDLE_CMD_GET_FN(name)(uint8_t cmd, uint8_t len, uint8_t *buf)
+#define _FRMT_HANDLE_CMD_SET(name)      void _FRMT_HANDLE_CMD_SET_FN(name)(uint8_t cmd, uint8_t seqnum, uint8_t len, uint8_t *buf)
+#define _FRMT_HANDLE_CMD_GET(name)      void _FRMT_HANDLE_CMD_GET_FN(name)(uint8_t cmd, uint8_t seqnum, uint8_t len, uint8_t *buf)
 #define _FRMT_HANDLE_CMD_SETGET(name)   _FRMT_HANDLE_CMD_SET(name); _FRMT_HANDLE_CMD_GET(name)
 
 _FRMT_HANDLE_CMD_SETGET(default_layer);
