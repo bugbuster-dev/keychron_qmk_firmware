@@ -238,7 +238,7 @@ static void _rawhid_send_data(uint8_t *data, uint16_t len) {
             return;
         }
 
-        xprintf("RS:%u\n", send_len);
+        //xprintf("RS:%u\n", send_len);
         raw_hid_send(hdr, RAW_EPSIZE_FIRMATA);
         len -= send_len - 1;
         if (len) {
