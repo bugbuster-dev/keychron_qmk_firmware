@@ -1,17 +1,32 @@
-// todo bb: add license
+/* Copyright 2024 bugbuster
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <inttypes.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define FIRMATA_QMK_MAJOR_VERSION   0
-#define FIRMATA_QMK_MINOR_VERSION   4
+#define QMKATA_MAJOR_VERSION   0
+#define QMKATA_MINOR_VERSION   4
 
 // set/get/add/del pub/sub commands should cover all the scenarios for now
 // extension by adding more "ids" to set/get/...
 enum {
-    FRMT_CMD_EXTENDED = 0,
+    FRMT_CMD_EXTENDED = 0, // todo bb: rename to QMKATA_CMD_...
     FRMT_CMD_SET = 1,
     FRMT_CMD_GET = 2,
     FRMT_CMD_ADD = 3,

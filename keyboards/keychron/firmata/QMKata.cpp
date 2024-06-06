@@ -1,4 +1,20 @@
-#include "Firmata_QMK.h"
+/* Copyright 2024 bugbuster
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "QMKata.h"
 #include "Firmata.h"
 
 extern "C" {
@@ -8,6 +24,8 @@ extern "C" {
 #include "timer.h"
 #include "debug_user.h"
 #include "version.h"
+
+void debug_led_on(int li);
 }
 
 typedef uint16_t tx_buffer_index_t;
@@ -151,14 +169,21 @@ public:
     }
 
     virtual size_t write(uint8_t c) {
-        tx_buffer_index_t i = (_tx_buffer_head + 1) % _tx_buffer_size;
         _tx_buffer[_tx_buffer_head] = c;
-        _tx_buffer_head = i;
+        _tx_buffer_head++;
         _tx_written = 1;
+        tx_buffer_index_t next_head = _tx_buffer_head % _tx_buffer_size;
 
-        // flush when eol or buffer is getting full
-        if (c == '\n') _tx_flush = 1;
-        if (i >= _tx_buffer_size/2) _tx_flush = 1;
+        // todo bb: handle buffer full
+        if (next_head == 0) {
+            debug_led_on(0);
+            // buffer full
+            flush();
+            return 1;
+        }
+
+        _tx_buffer_head = next_head;
+        if (next_head >= _tx_buffer_size/2) _tx_flush = 1;
         return 1;
     }
 
@@ -170,12 +195,12 @@ public:
     }
 };
 
-class QmkFirmata : public firmata::FirmataClass
+class QMKata : public firmata::FirmataClass
 {
     bool _started = 0;
     bool _paused  = 0;
 public:
-    QmkFirmata() : FirmataClass() {}
+    QMKata() : FirmataClass() {}
 
     void begin(Stream &s) {
         FirmataClass::begin(s);
@@ -197,7 +222,7 @@ public:
 
     bool started() { return _started; }
 };
-static QmkFirmata s_firmata;
+static QMKata s_firmata;
 
 //------------------------------------------------------------------------------
 static void _rawhid_send_data(uint8_t *data, uint16_t len) {
@@ -213,6 +238,7 @@ static void _rawhid_send_data(uint8_t *data, uint16_t len) {
             return;
         }
 
+        xprintf("RS:%u\n", send_len);
         raw_hid_send(hdr, RAW_EPSIZE_FIRMATA);
         len -= send_len - 1;
         if (len) {
@@ -244,14 +270,14 @@ static void _send_console_string(uint8_t *data, uint16_t len) {
 
 //------------------------------------------------------------------------------
 #define TX_BUF_RESERVE 4 // reserve bytes before tx buffer for RAWHID_FIRMATA_MSG
-static uint8_t _qmk_firmata_tx_buf[512+TX_BUF_RESERVE] = {};
-static uint8_t _qmk_firmata_console_buf[240] = {}; // adjust size as needed to hold console output until "firmata task" is called
+static uint8_t _qmkata_tx_buf[512+TX_BUF_RESERVE] = {};
+static uint8_t _qmkata_console_buf[240] = {}; // adjust size as needed to hold console output until "firmata task" is called
 
 static BufferStream s_rawhid_stream(0, 0,
-                                    _qmk_firmata_tx_buf+TX_BUF_RESERVE, sizeof(_qmk_firmata_tx_buf)-TX_BUF_RESERVE,
+                                    _qmkata_tx_buf+TX_BUF_RESERVE, sizeof(_qmkata_tx_buf)-TX_BUF_RESERVE,
                                     _rawhid_send_data, nullptr);
 static BufferStream s_console_stream(nullptr, 0,
-                                     _qmk_firmata_console_buf, sizeof(_qmk_firmata_console_buf)-1,
+                                     _qmkata_console_buf, sizeof(_qmkata_console_buf)-1,
                                      _send_console_string, nullptr);
 
 extern "C" {
@@ -279,7 +305,7 @@ int8_t sendchar(uint8_t c) {
 }
 
 void firmata_initialize(const char* firmware) {
-    s_firmata.setFirmwareNameAndVersion(firmware, FIRMATA_QMK_MAJOR_VERSION, FIRMATA_QMK_MINOR_VERSION);
+    s_firmata.setFirmwareNameAndVersion(firmware, QMKATA_MAJOR_VERSION, QMKATA_MINOR_VERSION);
     //s_firmata.attach(0, firmata_sysex_handler);
 }
 
@@ -305,7 +331,7 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
     }
     // skip RAWHID_FIRMATA_MSG byte
     data++; len--;
-    // qmk firmata sysex start without 2x7 bits encoding, call handler directly
+    // qmkata sysex start without 2x7 bits encoding, call handler directly
     if (data[0] == 0xF1) {
         extern void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf);
         data++; len--; // skip sysex start

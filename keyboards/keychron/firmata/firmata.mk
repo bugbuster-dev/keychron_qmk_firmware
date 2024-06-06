@@ -4,12 +4,12 @@ OPT_DEFS += -DFIRMATA_ENABLE -DRAW_EPSIZE_FIRMATA=64 -DDIP_SWITCH_STATE_STATIC=
 FIRMATA_DIR = firmata
 
 SRC += \
-firmata_sysex_handler.c \
-firmata_rgb_matrix_user.c \
+qmkata_sysex_handler.c \
+qmkata_rgb_matrix_user.c \
 $(FIRMATA_DIR)/FirmataParser.cpp \
 $(FIRMATA_DIR)/FirmataMarshaller.cpp \
 $(FIRMATA_DIR)/Firmata.cpp \
-$(FIRMATA_DIR)/Firmata_QMK.cpp \
+$(FIRMATA_DIR)/QMKata.cpp \
 $(FIRMATA_DIR)/Print.cpp \
 #empty line
 

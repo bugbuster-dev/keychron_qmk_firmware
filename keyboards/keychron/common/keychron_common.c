@@ -29,7 +29,7 @@
 #endif
 
 #ifdef FIRMATA_ENABLE
-#include "firmata/Firmata_QMK.h"
+#include "firmata/QMKata.h"
 #include "debug_user.h"
 #endif
 

@@ -1,3 +1,19 @@
+/* Copyright 2024 bugbuster
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <stdio.h>
 #include "action_layer.h"
 #include "matrix.h"
@@ -12,7 +28,7 @@
 #include "debug.h"
 #include "debug_user.h"
 
-#include "firmata/Firmata_QMK.h"
+#include "firmata/QMKata.h"
 #include "dynld_func.h"
 
 //------------------------------------------------------------------------------
@@ -166,9 +182,9 @@ enum cli_cmd {
     CLI_CMD_MEMORY      = 0x01,
     CLI_CMD_EEPROM      = 0x02,
     CLI_CMD_CALL        = 0x03,
-    CLI_CMD_EXEC        = 0x04, // todo bb: execute code from buffer
+    CLI_CMD_EXEC        = 0x04,
     CLI_CMD_MASK        = 0x3f,
-    CLI_CMD_LAYOUT      = 0x40, // todo bb: memory/eeprom/flash layout info
+    CLI_CMD_LAYOUT      = 0x40,
     CLI_CMD_WRITE       = 0x80,
 };
 
@@ -727,10 +743,10 @@ _FRMT_HANDLE_CMD_SET(dynld_function) {
     int rc = load_function(fun_id, &buf[4], offset, len);
     DBG_USR(firmata, "dynld load id=%d,off=%d,len=%d,rc=%d\n", (int)fun_id, (int)offset, (int)len, rc);
     {
-        uint8_t resp[3]; // todo bb: error code
+        uint8_t resp[3];
         resp[0] = seqnum;
         resp[1] = FRMT_ID_DYNLD_FUNCTION;
-        resp[2] = rc;
+        resp[2] = rc; // todo bb: error code
         firmata_send_sysex(FRMT_CMD_RESPONSE, resp, sizeof(resp));
     }
 }
