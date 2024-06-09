@@ -324,7 +324,7 @@ int qmkata_recv(uint8_t c) {
 }
 
 int qmkata_recv_data(uint8_t *data, uint8_t len) {
-    //xprintf("FA:recv_data %p:%u\n", data, len);
+    //xprintf("QA:recv_data %p:%u\n", data, len);
     //debug_led_on(-1);
     if (!s_qmkata.started()) {
         qmkata_start();
@@ -349,7 +349,7 @@ int qmkata_recv_data(uint8_t *data, uint8_t len) {
             if (n++ >= max_iterations) break;
         }
         if (n > len) {
-            xprintf("FA:internal error\n");
+            xprintf("QA:internal error\n");
             return -1;
         }
         return 0;

@@ -40,7 +40,7 @@ STATIC_ASSERT_SIZEOF_STRUCT_RAW(debug_config_user_t, "debug_config_t out of size
 #define DBG_USR(m, ...) do { \
     if (debug_config_user.m) { \
         debug_config_user_t dcu = {.m = 1}; \
-        if (dcu.qmkata) xprintf("FA:"); \
+        if (dcu.qmkata) xprintf("QA:"); \
         if (dcu.stats) xprintf("STS:"); \
         if (dcu.user_anim) xprintf("UAN:"); \
         xprintf(__VA_ARGS__); \
