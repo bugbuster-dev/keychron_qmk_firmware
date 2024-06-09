@@ -207,6 +207,12 @@ public:
         _started = 1;
     }
 
+    void sendVersion() {
+        if (_paused) return;
+        FirmataClass::printVersion();
+        FirmataClass::printFirmwareVersion();
+    }
+
     void pause() {  // todo bb: pause/resume could be used to prevent sending qmkata messages when via is active
         _paused = 1;
     }
@@ -335,6 +341,10 @@ int qmkata_recv_data(uint8_t *data, uint8_t len) {
     if (data[0] == 0xF1) {
         extern void qmkata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf);
         data++; len--; // skip sysex start
+        if (data[0] == 0x79) { //REPORT_FIRMWARE
+            s_qmkata.sendVersion();
+            return 0;
+        }
         qmkata_sysex_handler(data[0], len, data+1);
         return 0;
     }

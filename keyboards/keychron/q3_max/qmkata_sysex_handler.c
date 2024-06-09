@@ -117,10 +117,6 @@ static void xprintf_buf(uint8_t *buf, uint8_t len) {
 rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
 
 void qmkata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t *buf) {
-    if (cmd == 0x79) { //REPORT_FIRMWARE
-        //todo bb: send firmware version
-        return;
-    }
     if (len < 2) return;
 
     uint8_t off = 0;
