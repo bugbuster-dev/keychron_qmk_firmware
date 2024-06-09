@@ -64,7 +64,7 @@ bool rgb_matrix_indicators_keychron(void) {
     factory_test_indicator();
 #    endif
 
-#ifdef FIRMATA_ENABLE
+#ifdef QMKATA_ENABLE
     {
         extern void rgb_matrix_host_buf_render(void);
         rgb_matrix_host_buf_render();

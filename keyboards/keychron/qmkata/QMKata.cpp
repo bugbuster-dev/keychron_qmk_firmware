@@ -207,7 +207,7 @@ public:
         _started = 1;
     }
 
-    void pause() {  // todo bb: pause/resume could be used to prevent sending firmata messages when via is active
+    void pause() {  // todo bb: pause/resume could be used to prevent sending qmkata messages when via is active
         _paused = 1;
     }
 
@@ -222,28 +222,28 @@ public:
 
     bool started() { return _started; }
 };
-static QMKata s_firmata;
+static QMKata s_qmkata;
 
 //------------------------------------------------------------------------------
 static void _rawhid_send_data(uint8_t *data, uint16_t len) {
     uint8_t *hdr = data - 1;
-    *hdr = RAWHID_FIRMATA_MSG; // firmata
+    *hdr = RAWHID_QMKATA_MSG; // qmkata
 
     while (len) {
-        uint8_t send_len = MIN(RAW_EPSIZE_FIRMATA, len+1);
-        if (send_len < RAW_EPSIZE_FIRMATA) {
-            uint8_t buf[RAW_EPSIZE_FIRMATA] = {0};
+        uint8_t send_len = MIN(RAW_EPSIZE_QMKATA, len+1);
+        if (send_len < RAW_EPSIZE_QMKATA) {
+            uint8_t buf[RAW_EPSIZE_QMKATA] = {0};
             memcpy(buf, hdr, send_len);
-            raw_hid_send(buf, RAW_EPSIZE_FIRMATA);
+            raw_hid_send(buf, RAW_EPSIZE_QMKATA);
             return;
         }
 
         //xprintf("RS:%u\n", send_len);
-        raw_hid_send(hdr, RAW_EPSIZE_FIRMATA);
+        raw_hid_send(hdr, RAW_EPSIZE_QMKATA);
         len -= send_len - 1;
         if (len) {
             hdr += send_len - 1;
-            *hdr = RAWHID_FIRMATA_MSG;
+            *hdr = RAWHID_QMKATA_MSG;
         }
     }
 }
@@ -253,25 +253,25 @@ char __QMK_BUILDDATE__[strlen(QMK_BUILDDATE)+2] = {0}; // variable so it gets in
 #endif
 
 static void _send_console_string(uint8_t *data, uint16_t len) {
-    if (!s_firmata.started()) return;
+    if (!s_qmkata.started()) return;
 #ifdef DEVEL_BUILD
     static bool build_date_sent = 0;
     if (!build_date_sent) {
         int len = strlen(QMK_BUILDDATE);
         memcpy(__QMK_BUILDDATE__, QMK_BUILDDATE, len);
         __QMK_BUILDDATE__[len] = '\n';
-        s_firmata.sendString(__QMK_BUILDDATE__);
+        s_qmkata.sendString(__QMK_BUILDDATE__);
         build_date_sent = 1;
     }
 #endif
     data[len] = 0;
-    s_firmata.sendString((char*)data);
+    s_qmkata.sendString((char*)data);
 }
 
 //------------------------------------------------------------------------------
-#define TX_BUF_RESERVE 4 // reserve bytes before tx buffer for RAWHID_FIRMATA_MSG
+#define TX_BUF_RESERVE 4 // reserve bytes before tx buffer for RAWHID_QMKATA_MSG
 static uint8_t _qmkata_tx_buf[512+TX_BUF_RESERVE] = {};
-static uint8_t _qmkata_console_buf[240] = {}; // adjust size as needed to hold console output until "firmata task" is called
+static uint8_t _qmkata_console_buf[240] = {}; // adjust size as needed to hold console output until "qmkata task" is called
 
 static BufferStream s_rawhid_stream(0, 0,
                                     _qmkata_tx_buf+TX_BUF_RESERVE, sizeof(_qmkata_tx_buf)-TX_BUF_RESERVE,
@@ -304,48 +304,48 @@ int8_t sendchar(uint8_t c) {
     return 0;
 }
 
-void firmata_initialize(const char* firmware) {
-    s_firmata.setFirmwareNameAndVersion(firmware, QMKATA_MAJOR_VERSION, QMKATA_MINOR_VERSION);
-    //s_firmata.attach(0, firmata_sysex_handler);
+void qmkata_init(const char* firmware) {
+    s_qmkata.setFirmwareNameAndVersion(firmware, QMKATA_MAJOR_VERSION, QMKATA_MINOR_VERSION);
+    //s_qmkata.attach(0, qmkata_sysex_handler);
 }
 
-void firmata_start() {
-    s_firmata.begin(s_rawhid_stream);
+void qmkata_start() {
+    s_qmkata.begin(s_rawhid_stream);
 }
 
-void firmata_send_sysex(uint8_t cmd, uint8_t* data, int len) {
-    if (!s_firmata.started()) return;
+void qmkata_send_sysex(uint8_t cmd, uint8_t* data, int len) {
+    if (!s_qmkata.started()) return;
 
-    s_firmata.sendSysex(cmd, len, data);
+    s_qmkata.sendSysex(cmd, len, data);
 }
 
-int firmata_recv(uint8_t c) {
+int qmkata_recv(uint8_t c) {
     return -1;
 }
 
-int firmata_recv_data(uint8_t *data, uint8_t len) {
+int qmkata_recv_data(uint8_t *data, uint8_t len) {
     //xprintf("FA:recv_data %p:%u\n", data, len);
     //debug_led_on(-1);
-    if (!s_firmata.started()) {
-        firmata_start();
+    if (!s_qmkata.started()) {
+        qmkata_start();
     }
-    // skip RAWHID_FIRMATA_MSG byte
+    // skip RAWHID_QMKATA_MSG byte
     data++; len--;
     // qmkata sysex start without 2x7 bits encoding, call handler directly
     if (data[0] == 0xF1) {
-        extern void firmata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf);
+        extern void qmkata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf);
         data++; len--; // skip sysex start
-        firmata_sysex_handler(data[0], len, data+1);
+        qmkata_sysex_handler(data[0], len, data+1);
         return 0;
     }
     // firmata sysex start 0xf0, with 2x7 bits encoding, sysex handler should decode it
-#ifdef FIRMATA_7BIT_SYSEX_ENABLE
+#ifdef QMKATA_7BIT_SYSEX_ENABLE
     if (data[0] == START_SYSEX) {
         s_rawhid_stream.rx_buffer_set(data, len);
         const uint8_t max_iterations = len+1;
         uint8_t n = 0;
-        while (s_firmata.available()) {
-            s_firmata.processInput();
+        while (s_qmkata.available()) {
+            s_qmkata.processInput();
             if (n++ >= max_iterations) break;
         }
         if (n > len) {
@@ -358,8 +358,8 @@ int firmata_recv_data(uint8_t *data, uint8_t len) {
     return -1;
 }
 
-void firmata_task() {
-    if (!s_firmata.started()) return;
+void qmkata_task() {
+    if (!s_qmkata.started()) return;
 
     if (s_rawhid_stream.availableForWrite()) {
         s_rawhid_stream.flush();

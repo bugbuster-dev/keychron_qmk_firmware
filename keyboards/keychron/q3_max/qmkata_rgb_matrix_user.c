@@ -3,7 +3,7 @@
 #include "debug.h"
 #include "debug_user.h"
 
-#include "firmata/QMKata.h"
+#include "qmkata/QMKata.h"
 #include "dynld_func.h"
 
 extern dynld_funcs_t g_dynld_funcs;

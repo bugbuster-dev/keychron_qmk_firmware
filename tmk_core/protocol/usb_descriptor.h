@@ -92,7 +92,7 @@ typedef struct {
     USB_Descriptor_Endpoint_t  Shared_INEndpoint;
 #endif
 
-#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_FIRMATA)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     // Console HID Interface
     USB_Descriptor_Interface_t Console_Interface;
     USB_HID_Descriptor_HID_t   Console_HID;
@@ -173,7 +173,7 @@ enum usb_interfaces {
     SHARED_INTERFACE,
 #endif
 
-#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_FIRMATA)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     CONSOLE_INTERFACE,
 #endif
 
@@ -230,7 +230,7 @@ enum usb_endpoints {
     SHARED_IN_EPNUM = NEXT_EPNUM,
 #endif
 
-#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_FIRMATA)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     CONSOLE_IN_EPNUM = NEXT_EPNUM,
 
 #    ifdef PROTOCOL_CHIBIOS
@@ -312,9 +312,9 @@ enum usb_endpoints {
 #define JOYSTICK_EPSIZE 8
 #define DIGITIZER_EPSIZE 8
 
-#ifdef RAW_EPSIZE_FIRMATA
+#ifdef RAW_EPSIZE_QMKATA
 #undef RAW_EPSIZE
-#define RAW_EPSIZE RAW_EPSIZE_FIRMATA
+#define RAW_EPSIZE RAW_EPSIZE_QMKATA
 #if RAW_EPSIZE > 64
 #error "RAW_EPSIZE too large"
 #endif

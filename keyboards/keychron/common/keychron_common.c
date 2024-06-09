@@ -28,8 +28,8 @@
 #    include "lkbt51.h"
 #endif
 
-#ifdef FIRMATA_ENABLE
-#include "firmata/QMKata.h"
+#ifdef QMKATA_ENABLE
+#include "qmkata/QMKata.h"
 #include "debug_user.h"
 #endif
 
@@ -105,16 +105,16 @@ bool process_record_keychron_common(uint16_t keycode, keyrecord_t *record) {
                     devel_config.process_keypress = 1;
 
                     uint8_t data[16]; // stop publishing keypress events, send the backspace release event as last
-                    data[0] = FRMT_ID_KEYEVENT;
+                    data[0] = QMKATA_ID_KEYEVENT;
                     backspace_press_event.pressed = false;
                     memcpy(&data[1], &backspace_press_event, sizeof(keyevent_t));
-                    firmata_send_sysex(FRMT_CMD_PUB, data, sizeof(keyevent_t)+1);
+                    qmkata_send_sysex(QMKATA_CMD_PUB, data, sizeof(keyevent_t)+1);
                 }
                 if (devel_config.pub_keypress) {
                     uint8_t data[16];
-                    data[0] = FRMT_ID_KEYEVENT;
+                    data[0] = QMKATA_ID_KEYEVENT;
                     memcpy(&data[1], &record->event, sizeof(keyevent_t));
-                    firmata_send_sysex(FRMT_CMD_PUB, data, sizeof(keyevent_t)+1);
+                    qmkata_send_sysex(QMKATA_CMD_PUB, data, sizeof(keyevent_t)+1);
                 }
                 if (devel_config.process_keypress == 0) {
                     if (keycode == KC_ENTER) {
@@ -237,9 +237,9 @@ bool via_command_kb(uint8_t *data, uint8_t length) {
             break;
 #endif
 
-#ifdef FIRMATA_ENABLE
-        case RAWHID_FIRMATA_MSG:
-            firmata_recv_data(data, length);
+#ifdef QMKATA_ENABLE
+        case RAWHID_QMKATA_MSG:
+            qmkata_recv_data(data, length);
             break;
 #endif
         default:

@@ -45,8 +45,8 @@ else
     OPT_DEFS += -DNO_DEBUG
 endif
 
-ifeq ($(strip $(CONSOLE_FIRMATA)), yes)
-    OPT_DEFS += -DCONSOLE_FIRMATA
+ifeq ($(strip $(CONSOLE_QMKATA)), yes)
+    OPT_DEFS += -DCONSOLE_QMKATA
 endif
 
 ifeq ($(strip $(NKRO_ENABLE)), yes)

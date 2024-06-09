@@ -16,22 +16,22 @@
 
 #include "quantum.h"
 #include "keychron_task.h"
-#ifdef FIRMATA_ENABLE
-#include "firmata/QMKata.h"
+#ifdef QMKATA_ENABLE
+#include "qmkata/QMKata.h"
 #include "debug_user.h"
 #endif
 
 void keyboard_post_init_user(void) {
-#ifdef FIRMATA_ENABLE
+#ifdef QMKATA_ENABLE
 #ifdef DEVEL_BUILD
     //debug_config.enable = 1;
-    //debug_config_user.firmata = 1;
+    //debug_config_user.qmkata = 1;
 #endif
-    firmata_initialize("Keychron Firmata");
+    qmkata_init("Keychron QMKata");
 #endif
 }
 
-#ifdef FIRMATA_ENABLE
+#ifdef QMKATA_ENABLE
 #ifdef DEVEL_BUILD
 typedef struct stats_time {
     uint32_t counter;
@@ -43,7 +43,7 @@ typedef struct stats_time {
 } stats_time_t;
 
 static stats_time_t stats_rgb_render;
-static stats_time_t stats_firmata_task;
+static stats_time_t stats_qmkata_task;
 
 static inline void _stats_print(stats_time_t *stats, const char *name) {
     if (debug_config_user.stats == 0) return;
@@ -139,9 +139,9 @@ bool dip_switch_update_user(uint8_t index, bool active) {
 }
 
 void keychron_task_user(void) {
-#ifdef FIRMATA_ENABLE
-    STATS_START(&stats_firmata_task, 10000);
-    firmata_task();
-    STATS_STOP(&stats_firmata_task, "firmata task");
+#ifdef QMKATA_ENABLE
+    STATS_START(&stats_qmkata_task, 10000);
+    qmkata_task();
+    STATS_STOP(&stats_qmkata_task, "qmkata task");
 #endif
 }
