@@ -84,7 +84,7 @@ static const USBDescriptor *usb_get_descriptor_cb(USBDriver *usbp, uint8_t dtype
 
     static USBDescriptor descriptor;
     descriptor.ud_string = NULL;
-    descriptor.ud_size   = get_usb_descriptor(setup->wValue.word, setup->wIndex, setup->wLength, (const void **const) & descriptor.ud_string);
+    descriptor.ud_size   = get_usb_descriptor(setup->wValue.word, setup->wIndex, setup->wLength, (const void **const)&descriptor.ud_string);
 
     if (descriptor.ud_string == NULL) {
         return NULL;
@@ -496,6 +496,12 @@ void send_digitizer(report_digitizer_t *report) {
 
 #ifdef CONSOLE_ENABLE
 
+#    ifdef CONSOLE_QMKATA
+
+void console_task(void) {}
+
+#    else
+
 int8_t sendchar(uint8_t c) {
     return (int8_t)send_report_buffered(USB_ENDPOINT_IN_CONSOLE, &c, sizeof(uint8_t));
 }
@@ -504,9 +510,12 @@ void console_task(void) {
     flush_report_buffered(USB_ENDPOINT_IN_CONSOLE, true);
 }
 
+#    endif
+
 #endif /* CONSOLE_ENABLE */
 
 #ifdef RAW_ENABLE
+
 void raw_hid_send(uint8_t *data, uint8_t length) {
     if (length != RAW_EPSIZE) {
         return;
@@ -585,6 +594,10 @@ void virtser_init(void) {}
 
 void virtser_send(const uint8_t byte) {
     send_report_buffered(USB_ENDPOINT_IN_CDC_DATA, (void *)&byte, sizeof(byte));
+}
+
+void virtser_send_nonblock(const uint8_t c) {
+    usb_endpoint_in_send(&usb_endpoints_in[USB_ENDPOINT_IN_CDC_DATA], &c, sizeof(c), TIME_IMMEDIATE, true);
 }
 
 __attribute__((weak)) void virtser_recv(uint8_t c) {

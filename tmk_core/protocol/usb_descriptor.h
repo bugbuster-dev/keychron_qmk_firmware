@@ -92,7 +92,7 @@ typedef struct {
     USB_Descriptor_Endpoint_t  Shared_INEndpoint;
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     // Console HID Interface
     USB_Descriptor_Interface_t Console_Interface;
     USB_HID_Descriptor_HID_t   Console_HID;
@@ -172,7 +172,7 @@ enum usb_interfaces {
     SHARED_INTERFACE,
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     CONSOLE_INTERFACE,
 #endif
 
@@ -231,7 +231,7 @@ enum usb_endpoints {
     SHARED_IN_EPNUM = NEXT_EPNUM,
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     CONSOLE_IN_EPNUM = NEXT_EPNUM,
 #endif
 
@@ -281,7 +281,11 @@ enum usb_endpoints {
 
 // TODO - ARM_ATSAM
 
+#define _XSTR(x) _STR(x)
+#define _STR(x) #x
+
 #if (NEXT_EPNUM - 1) > MAX_ENDPOINTS
+// #pragma message "MAX_ENDPOINTS too small: " _XSTR(MAX_ENDPOINTS)
 #    error There are not enough available endpoints to support all functions. Please disable one or more of the following: Mouse Keys, Extra Keys, Console, NKRO, MIDI, Serial, Steno
 #endif
 
@@ -295,5 +299,13 @@ enum usb_endpoints {
 #define CDC_EPSIZE 16
 #define JOYSTICK_EPSIZE 8
 #define DIGITIZER_EPSIZE 8
+
+#ifdef RAW_EPSIZE_QMKATA
+#undef RAW_EPSIZE
+#define RAW_EPSIZE RAW_EPSIZE_QMKATA
+#if RAW_EPSIZE > 64
+#error "RAW_EPSIZE too large"
+#endif
+#endif
 
 uint16_t get_usb_descriptor(const uint16_t wValue, const uint16_t wIndex, const uint16_t wLength, const void** const DescriptorAddress);

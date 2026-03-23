@@ -51,7 +51,10 @@ extern bool           peek_matrix(uint8_t row_index, uint8_t col_index, bool rea
 static uint16_t       scan_count;
 #endif /* DIP_SWITCH_MATRIX_GRID */
 
-static bool dip_switch_state[NUMBER_OF_DIP_SWITCHES]      = {0};
+#ifndef DIP_SWITCH_STATE_STATIC
+#   define DIP_SWITCH_STATE_STATIC static
+#endif
+DIP_SWITCH_STATE_STATIC bool dip_switch_state[NUMBER_OF_DIP_SWITCHES]      = {0};
 static bool last_dip_switch_state[NUMBER_OF_DIP_SWITCHES] = {0};
 
 __attribute__((weak)) bool dip_switch_update_user(uint8_t index, bool active) {

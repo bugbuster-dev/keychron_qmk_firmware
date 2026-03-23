@@ -82,7 +82,7 @@ typedef enum {
     USB_ENDPOINT_IN_DIGITIZER,
 #endif
 
-#if defined(CONSOLE_ENABLE)
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     USB_ENDPOINT_IN_CONSOLE,
 #endif
 

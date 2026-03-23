@@ -30,6 +30,11 @@
 #    include "led_matrix.h"
 #endif
 
+#ifdef QMKATA_ENABLE
+#    include "qmkata/QMKata.h"
+#    include "debug_user.h"
+#endif
+
 bool     is_siri_active = false;
 uint32_t siri_timer     = 0;
 
@@ -150,8 +155,45 @@ bool process_record_keychron_common(uint16_t keycode, keyrecord_t *record) {
             led_matrix_decrease_speed();
             break;
 #endif
-        default:
-            return true; // Process all other keycodes normally
+        default: {
+#ifdef DEVEL_BUILD
+            static keyevent_t backspace_press_event;
+            static keyevent_t enter_press_event;
+            if (keycode == KC_BACKSPACE) {
+                backspace_press_event = record->event;
+            }
+            if (keycode == KC_ESCAPE && backspace_press_event.pressed) {
+                devel_config.pub_keypress     = 0;
+                devel_config.process_keypress = 1;
+
+                uint8_t data[16];
+                data[0]                       = QMKATA_ID_KEYEVENT;
+                backspace_press_event.pressed = false;
+                memcpy(&data[1], &backspace_press_event, sizeof(keyevent_t));
+                qmkata_send_sysex(QMKATA_CMD_PUB, data, sizeof(keyevent_t) + 1);
+            }
+            if (devel_config.pub_keypress) {
+                uint8_t data[16];
+                data[0] = QMKATA_ID_KEYEVENT;
+                memcpy(&data[1], &record->event, sizeof(keyevent_t));
+                qmkata_send_sysex(QMKATA_CMD_PUB, data, sizeof(keyevent_t) + 1);
+            }
+            if (devel_config.process_keypress == 0) {
+                if (keycode == KC_ENTER) {
+                    if (enter_press_event.pressed && record->event.pressed == 0) {
+                        enter_press_event = record->event;
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            if (keycode == KC_ENTER) {
+                enter_press_event = record->event;
+            }
+#endif
+            return true;
+        }
     }
     return true;
 }
@@ -179,6 +221,104 @@ void encoder_cb_init(void) {
         palEnableLineEvent(encoders_pad_b[i], PAL_EVENT_MODE_BOTH_EDGES);
         palSetLineCallback(encoders_pad_a[i], encoder_pad_cb, (void *)i);
         palSetLineCallback(encoders_pad_b[i], encoder_pad_cb, (void *)i);
+    }
+}
+#endif
+
+//__attribute__((weak)) bool raw_hid_receive_keychron(uint8_t *data, uint8_t length) { return true; }
+#define PROTOCOL_VERSION 0x02
+
+enum { kc_get_protocol_version = 0xA0, kc_get_firmware_version = 0xA1, kc_get_support_feature = 0xA2, kc_get_default_layer = 0xA3 };
+
+enum {
+    FEATURE_DEFAULT_LAYER = 0x01 << 0,
+    FEATURE_BLUETOOTH     = 0x01 << 1,
+    FEATURE_P2P4G         = 0x01 << 2,
+    FEATURE_ANALOG_MATRIX = 0x01 << 3,
+};
+
+void get_support_feature(uint8_t *data) {
+    data[1] = FEATURE_DEFAULT_LAYER
+#ifdef KC_BLUETOOTH_ENABLE
+              | FEATURE_BLUETOOTH
+#endif
+#ifdef LK_WIRELESS_ENABLE
+              | FEATURE_BLUETOOTH | FEATURE_P2P4G
+#endif
+#ifdef ANANLOG_MATRIX
+              | FEATURE_ANALOG_MATRIX
+#endif
+        ;
+}
+
+bool via_command_kb(uint8_t *data, uint8_t length) {
+    // if (!raw_hid_receive_keychron(data, length))
+    //     return false;
+    switch (data[0]) {
+        case kc_get_protocol_version:
+            data[1] = PROTOCOL_VERSION;
+            raw_hid_send(data, length);
+            break;
+
+        case kc_get_firmware_version: {
+            uint8_t i = 1;
+            data[i++] = 'v';
+            if ((DEVICE_VER & 0xF000) != 0) itoa((DEVICE_VER >> 12), (char *)&data[i++], 16);
+            itoa((DEVICE_VER >> 8) & 0xF, (char *)&data[i++], 16);
+            data[i++] = '.';
+            itoa((DEVICE_VER >> 4) & 0xF, (char *)&data[i++], 16);
+            data[i++] = '.';
+            itoa(DEVICE_VER & 0xF, (char *)&data[i++], 16);
+            data[i++] = ' ';
+            memcpy(&data[i], QMK_BUILDDATE, sizeof(QMK_BUILDDATE));
+            i += sizeof(QMK_BUILDDATE);
+            raw_hid_send(data, length);
+        } break;
+
+        case kc_get_support_feature:
+            get_support_feature(&data[1]);
+            raw_hid_send(data, length);
+            break;
+
+        case kc_get_default_layer:
+            data[1] = get_highest_layer(default_layer_state);
+            raw_hid_send(data, length);
+            break;
+
+#ifdef ANANLOG_MATRIX
+        case 0xA9:
+            analog_matrix_rx(data, length);
+            break;
+#endif
+#ifdef LK_WIRELESS_ENABLE
+        case 0xAA:
+            lkbt51_dfu_rx(data, length);
+            break;
+#endif
+#ifdef FACTORY_TEST_ENABLE
+        case 0xAB:
+            factory_test_rx(data, length);
+            break;
+#endif
+
+#ifdef QMKATA_ENABLE
+        case RAWHID_QMKATA_MSG:
+            qmkata_recv_data(data, length);
+            break;
+#endif
+        default:
+            return false;
+    }
+
+    return true;
+}
+
+#if !defined(VIA_ENABLE)
+void raw_hid_receive(uint8_t *data, uint8_t length) {
+    switch (data[0]) {
+        case RAW_HID_CMD:
+            via_command_kb(data, length);
+            break;
     }
 }
 #endif
