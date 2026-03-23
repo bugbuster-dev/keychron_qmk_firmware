@@ -38,6 +38,9 @@
 #ifdef LK_WIRELESS_ENABLE
 #    include "wireless.h"
 #endif
+#ifdef QMKATA_ENABLE
+#    include "qmkata/QMKata.h"
+#endif
 
 extern void dfu_info_rx(uint8_t *data, uint8_t length);
 
@@ -82,7 +85,6 @@ void get_firmware_version(uint8_t *data) {
     i += sizeof(QMK_BUILDDATE);
 }
 
-
 __attribute__((weak)) void kc_rgb_matrix_rx(uint8_t *data, uint8_t length) {}
 
 bool kc_raw_hid_rx(uint8_t *data, uint8_t length) {
@@ -113,18 +115,18 @@ bool kc_raw_hid_rx(uint8_t *data, uint8_t length) {
                     data[4] = (MISC_PROTOCOL_VERSION >> 8) & 0xFF;
                     data[5] = MISC_DFU_INFO | MISC_LANGUAGE
 #ifdef DYNAMIC_DEBOUNCE_ENABLE
-                            | MISC_DEBOUNCE
+                              | MISC_DEBOUNCE
 #endif
 #ifdef SNAP_CLICK_ENABLE
-                            | MISC_SNAP_CLICK
+                              | MISC_SNAP_CLICK
 #endif
 #ifdef LK_WIRELESS_ENABLE
-                            | MISC_WIRELESS_LPM
+                              | MISC_WIRELESS_LPM
 #endif
 #ifdef HSUSB_8K_ENABLE
-                            | MISC_REPORT_REATE
+                              | MISC_REPORT_REATE
 #endif
-                            ;
+                        ;
                     break;
 
                 case DFU_INFO_GET:
@@ -183,6 +185,11 @@ bool kc_raw_hid_rx(uint8_t *data, uint8_t length) {
             factory_test_rx(data, length);
             return true;
 
+#endif
+#ifdef QMKATA_ENABLE
+        case RAWHID_QMKATA_MSG:
+            qmkata_recv_data(data, length);
+            return true;
 #endif
         default:
             return false;
