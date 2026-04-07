@@ -1,7 +1,7 @@
 {
     "usb": {
         "pid": "0x0830",
-        "device_version": "1.0.0"
+        "device_version": "1.1.1"
     },
     "layouts": {
         "LAYOUT_tkl_ansi": {

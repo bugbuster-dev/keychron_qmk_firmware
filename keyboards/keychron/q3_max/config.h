@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "eeconfig_kb.h"
+
 /* Encoder Configuration */
 #define ENCODER_DEFAULT_POS 0x3
 #define ENCODER_MAP_KEY_DELAY 2
@@ -84,4 +86,4 @@
 #define MATRIX_IO_DELAY 10
 
 #define RGB_MATRIX_DEFAULT_MODE     RGB_MATRIX_SOLID_REACTIVE_SIMPLE
-#define DYNAMIC_KEYMAP_LAYER_COUNT  8
+#define DYNAMIC_KEYMAP_LAYER_COUNT  6

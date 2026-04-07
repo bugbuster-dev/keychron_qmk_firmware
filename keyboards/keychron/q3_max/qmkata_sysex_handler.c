@@ -512,7 +512,8 @@ enum config_id {
     CONFIG_ID_MAX
 };
 
-extern uint8_t g_debounce;
+//extern uint8_t g_debounce; // todo bb: remove, keychron debounce enabled now
+uint8_t g_debounce; // todo bb: remove, keychron debounce enabled now
 extern uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS]; // todo bb: replace with "eeprom cache"
 
 static const struct {
