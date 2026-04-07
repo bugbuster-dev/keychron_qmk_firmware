@@ -43,19 +43,9 @@ bool dip_switch_update_kb(uint8_t index, bool active) {
 #endif
 
 void keyboard_post_init_kb(void) {
-#ifdef LK_WIRELESS_ENABLE
-    palSetLineMode(P2P4_MODE_SELECT_PIN, PAL_MODE_INPUT);
-    palSetLineMode(BT_MODE_SELECT_PIN, PAL_MODE_INPUT);
-
-    lkbt51_init(false);
-    wireless_init();
-#endif
+    keychron_common_init();
 
     power_on_indicator_timer = timer_read32();
-#ifdef ENCODER_ENABLE
-    encoder_cb_init();
-#endif
-
     keyboard_post_init_user();
 }
 
