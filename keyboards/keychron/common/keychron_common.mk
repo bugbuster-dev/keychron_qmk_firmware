@@ -28,6 +28,10 @@ ifeq ($(strip $(SNAP_CLICK_ENABLE)), yes)
 include $(TOP_DIR)/keyboards/keychron/$(KEYCHRON_COMMON_DIR)/snap_click/snap_click.mk
 endif
 
+ifeq ($(strip $(COMBO_ENABLE)), yes)
+include $(TOP_DIR)/keyboards/keychron/$(KEYCHRON_COMMON_DIR)/combo/combo_eeprom.mk
+endif
+
 ifeq ($(strip $(KEYCHRON_RGB_ENABLE)), yes)
 ifeq ($(strip $(RGB_MATRIX_ENABLE)), yes)
 include $(TOP_DIR)/keyboards/keychron/$(KEYCHRON_COMMON_DIR)/rgb/rgb.mk

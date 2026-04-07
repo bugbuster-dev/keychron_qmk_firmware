@@ -17,22 +17,26 @@
 #include "quantum.h"
 #include "keychron_task.h"
 #ifdef QMKATA_ENABLE
-#include "qmkata/QMKata.h"
-#include "debug_user.h"
+#    include "qmkata/QMKata.h"
+#    include "debug_user.h"
 #endif
 
 void keyboard_post_init_user(void) {
-#ifdef QMKATA_ENABLE
-#ifdef DEVEL_BUILD
-    //debug_config.enable = 1;
-    //debug_config_user.qmkata = 1;
+#if defined(DYNAMIC_COMBO_ENABLE) && defined(COMBO_ENABLE)
+    extern void combo_eeprom_init(void);
+    combo_eeprom_init();
 #endif
+#ifdef QMKATA_ENABLE
+#    ifdef DEVEL_BUILD
+    // debug_config.enable = 1;
+    // debug_config_user.qmkata = 1;
+#    endif
     qmkata_init("Keychron QMKata");
 #endif
 }
 
 #ifdef QMKATA_ENABLE
-#ifdef DEVEL_BUILD
+#    ifdef DEVEL_BUILD
 typedef struct stats_time {
     uint32_t counter;
     uint32_t print_interval;
@@ -47,13 +51,12 @@ static stats_time_t stats_qmkata_task;
 
 static inline void _stats_print(stats_time_t *stats, const char *name) {
     if (debug_config_user.stats == 0) return;
-    DBG_USR(stats, "%s:%ldx,%ldms,%ld/%ld\n",
-            name, stats->counter, stats->total_time, stats->max_time, stats->min_time);
+    DBG_USR(stats, "%s:%ldx,%ldms,%ld/%ld\n", name, stats->counter, stats->total_time, stats->max_time, stats->min_time);
 }
 
 static inline void _stats_start(stats_time_t *stats, uint32_t print_interval) {
     if (debug_config_user.stats == 0) return;
-    stats->start_time = timer_read32();
+    stats->start_time     = timer_read32();
     stats->print_interval = print_interval;
     if (stats->counter == 0) {
         stats->max_time = 0;
@@ -70,23 +73,22 @@ static inline void _stats_stop(stats_time_t *stats, const char *name) {
     stats->counter++;
     if (stats->counter % stats->print_interval == 0) {
         _stats_print(stats, name);
-        stats->counter = 0;
+        stats->counter    = 0;
         stats->total_time = 0;
     }
 }
 
-#define STATS_START(stats, interval)    _stats_start(stats, interval)
-#define STATS_STOP(stats, name)         _stats_stop(stats, name)
-#else
-#define STATS_START(stats, interval)
-#define STATS_STOP(stats, name)
-#endif
+#        define STATS_START(stats, interval) _stats_start(stats, interval)
+#        define STATS_STOP(stats, name) _stats_stop(stats, name)
+#    else
+#        define STATS_START(stats, interval)
+#        define STATS_STOP(stats, name)
+#    endif
 
 extern rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
 
 // render rgb matrix "host buffer" set by user from host
-void rgb_matrix_host_buf_render(void)
-{
+void rgb_matrix_host_buf_render(void) {
     if (!g_rgb_matrix_host_buf.written) return;
     STATS_START(&stats_rgb_render, 1000);
     bool matrix_set = 0;
@@ -103,8 +105,8 @@ void rgb_matrix_host_buf_render(void)
 #endif
 
 // user override of mac/win mode and keyboard mac/win switch state
-static int s_keyb_user_macwin_mode = -1;    // -1=use switch, 'm'=mac, 'w'=windows
-static int s_keyb_switch_macwin_mode = -1;  // 'm' or 'w'
+static int s_keyb_user_macwin_mode   = -1; // -1=use switch, 'm'=mac, 'w'=windows
+static int s_keyb_switch_macwin_mode = -1; // 'm' or 'w'
 
 void keyb_user_set_macwin_mode(int mode) {
     s_keyb_user_macwin_mode = mode;
@@ -112,16 +114,13 @@ void keyb_user_set_macwin_mode(int mode) {
         mode = s_keyb_switch_macwin_mode;
     }
     int layer = 0;
-    if (mode == 'm')
-        layer = 0;
-    if (mode == 'w')
-        layer = 2;
+    if (mode == 'm') layer = 0;
+    if (mode == 'w') layer = 2;
     default_layer_set(1UL << layer);
 }
 
 int keyb_user_get_macwin_mode(void) {
-    if (s_keyb_user_macwin_mode < 0)
-        return s_keyb_switch_macwin_mode;
+    if (s_keyb_user_macwin_mode < 0) return s_keyb_switch_macwin_mode;
     return s_keyb_user_macwin_mode;
 }
 

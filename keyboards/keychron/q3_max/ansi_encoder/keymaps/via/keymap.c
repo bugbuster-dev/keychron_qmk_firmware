@@ -23,9 +23,9 @@ enum {
     TD_ESC,
 };
 
-#define KC_TD_ESC TD(TD_ESC)
+#    define KC_TD_ESC TD(TD_ESC)
 #else
-#define KC_TD_ESC KC_ESC
+#    define KC_TD_ESC KC_ESC
 #endif
 
 enum layers {
@@ -87,21 +87,33 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // COMBO
 ////////////////////////////////////////////////////////////////////////////////
 #ifdef COMBO_ENABLE
-#define COMBO_MAX_KEYS 8
+#    ifdef DYNAMIC_COMBO_ENABLE
+#        include "combo_eeprom.h"
 
-const uint16_t PROGMEM combo1_keys[COMBO_MAX_KEYS] = {KC_A, KC_B, COMBO_END};
-const uint16_t PROGMEM combo2_keys[COMBO_MAX_KEYS] = {KC_C, KC_D, COMBO_END};
+// Fixed-size array — QMK's keymap_introspection.c uses sizeof(key_combos)
+combo_t key_combos[COMBO_DEF_MAX_SLOTS] = {};
 
-combo_t key_combos[] = {
-    COMBO(combo1_keys, KC_ESC),
-    COMBO(combo2_keys, LCTL(KC_Z)), // keycodes with modifiers are possible too!
+// Default combos loaded to EEPROM on first boot / factory reset
+const combo_def_t combo_default_defs[] = {
+    {.keys = {KC_A, KC_B, COMBO_END}, .keycode = KC_ESC},
+    {.keys = {KC_C, KC_D, COMBO_END}, .keycode = LCTL(KC_Z)},
 };
-#endif
+const uint8_t combo_default_count = sizeof(combo_default_defs) / sizeof(combo_def_t);
+
+#    else
+// Static combos (no EEPROM persistence)
+const uint16_t PROGMEM combo1_keys[] = {KC_A, KC_B, COMBO_END};
+const uint16_t PROGMEM combo2_keys[] = {KC_C, KC_D, COMBO_END};
+combo_t                key_combos[]  = {
+    COMBO(combo1_keys, KC_ESC),
+    COMBO(combo2_keys, LCTL(KC_Z)),
+};
+#    endif // DYNAMIC_COMBO_ENABLE
+#endif     // COMBO_ENABLE
 
 ////////////////////////////////////////////////////////////////////////////////
 // TAP DANCE

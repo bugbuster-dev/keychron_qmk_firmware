@@ -32,4 +32,8 @@ void eeconfig_init_kb_datablock(void) {
     extern void eeconfig_reset_custom_rgb(void);
     eeconfig_reset_custom_rgb();
 #endif
+#if defined(DYNAMIC_COMBO_ENABLE) && defined(COMBO_ENABLE)
+    extern void combo_eeprom_reset_defaults(void);
+    combo_eeprom_reset_defaults();
+#endif
 }
