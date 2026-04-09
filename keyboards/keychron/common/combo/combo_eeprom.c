@@ -63,6 +63,11 @@ void combo_eeprom_set(uint8_t slot, const uint16_t *keys, uint16_t keycode) {
     combo_eeprom_save();
 }
 
+void combo_eeprom_get(uint8_t slot, combo_def_t *out) {
+    if (slot >= COMBO_DEF_MAX_SLOTS || !out) return;
+    *out = combo_defs[slot];
+}
+
 void combo_eeprom_clear(uint8_t slot) {
     if (slot >= COMBO_DEF_MAX_SLOTS) return;
     memset(&combo_defs[slot], 0, sizeof(combo_def_t));

@@ -20,46 +20,49 @@
 extern "C" {
 #endif
 
-#define QMKATA_MAJOR_VERSION   0
-#define QMKATA_MINOR_VERSION   4
+#define QMKATA_MAJOR_VERSION 0
+#define QMKATA_MINOR_VERSION 4
 
 // set/get/add/del pub/sub commands should cover all the scenarios for now
 // extension by adding more "ids" to set/get/...
 enum {
     QMKATA_CMD_EXTENDED = 0, // todo bb: rename to QMKATA_CMD_...
-    QMKATA_CMD_SET = 1,
-    QMKATA_CMD_GET = 2,
-    QMKATA_CMD_ADD = 3,
-    QMKATA_CMD_DEL = 4,
-    QMKATA_CMD_PUB = 5,
-    QMKATA_CMD_SUB = 6,
+    QMKATA_CMD_SET      = 1,
+    QMKATA_CMD_GET      = 2,
+    QMKATA_CMD_ADD      = 3,
+    QMKATA_CMD_DEL      = 4,
+    QMKATA_CMD_PUB      = 5,
+    QMKATA_CMD_SUB      = 6,
     QMKATA_CMD_RESPONSE = 0x0f,
 };
 
 // todo bb: group by config/status/control/...
 enum {
-    QMKATA_ID_EXTENDED        = 0,
-    QMKATA_ID_CONTROL         = 0xff, // todo bb:
-    QMKATA_ID_RGB_MATRIX_BUF  = 1,    // todo bb: move to CONTROL_...
-    QMKATA_ID_DEFAULT_LAYER   = 2,
-    QMKATA_ID_CLI             = 3,
-    //QMKATA_ID_BATTERY_STATUS  = 4, // deprecated
-    QMKATA_ID_STATUS          = 4,
-    QMKATA_ID_MACWIN_MODE     = 5,
-    //QMKATA_ID_RGB_MATRIX_MODE = 6, // deprecated
-    //QMKATA_ID_RGB_MATRIX_HSV  = 7, // deprecated
-    QMKATA_ID_STRUCT_LAYOUT   = 8,
-    QMKATA_ID_CONFIG          = 9,
-    QMKATA_ID_KEYEVENT        = 10,   // todo bb: ID_EVENT and add EVENT_ID_KEYPRESS, EVENT_ID_...
-    QMKATA_ID_DYNLD_FUNCTION  = 250,  // dynamic load function into ram (todo bb: move to CLI or CONTROL_...)
-    QMKATA_ID_DYNLD_FUNEXEC   = 251,  // exec "dynamic loaded function"
+    QMKATA_ID_EXTENDED       = 0,
+    QMKATA_ID_CONTROL        = 0xff, // todo bb:
+    QMKATA_ID_RGB_MATRIX_BUF = 1,    // todo bb: move to CONTROL_...
+    QMKATA_ID_DEFAULT_LAYER  = 2,
+    QMKATA_ID_CLI            = 3,
+    // QMKATA_ID_BATTERY_STATUS  = 4, // deprecated
+    QMKATA_ID_STATUS      = 4,
+    QMKATA_ID_MACWIN_MODE = 5,
+    // QMKATA_ID_RGB_MATRIX_MODE = 6, // deprecated
+    // QMKATA_ID_RGB_MATRIX_HSV  = 7, // deprecated
+    QMKATA_ID_STRUCT_LAYOUT  = 8,
+    QMKATA_ID_CONFIG         = 9,
+    QMKATA_ID_KEYEVENT       = 10,  // todo bb: ID_EVENT and add EVENT_ID_KEYPRESS, EVENT_ID_...
+    QMKATA_ID_COMBO          = 11,  // EEPROM-backed combo definitions
+    QMKATA_ID_DYNLD_FUNCTION = 250, // dynamic load function into ram (todo bb: move to CLI or CONTROL_...)
+    QMKATA_ID_DYNLD_FUNEXEC  = 251, // exec "dynamic loaded function"
 };
 
-#define _QMKATA_HANDLE_CMD_SET_FN(name)   _qmkata_handle_cmd_set_##name
-#define _QMKATA_HANDLE_CMD_GET_FN(name)   _qmkata_handle_cmd_get_##name
-#define _QMKATA_HANDLE_CMD_SET(name)      void _QMKATA_HANDLE_CMD_SET_FN(name)(uint8_t cmd, uint8_t seqnum, uint8_t len, uint8_t *buf)
-#define _QMKATA_HANDLE_CMD_GET(name)      void _QMKATA_HANDLE_CMD_GET_FN(name)(uint8_t cmd, uint8_t seqnum, uint8_t len, uint8_t *buf)
-#define _QMKATA_HANDLE_CMD_SETGET(name)   _QMKATA_HANDLE_CMD_SET(name); _QMKATA_HANDLE_CMD_GET(name)
+#define _QMKATA_HANDLE_CMD_SET_FN(name) _qmkata_handle_cmd_set_##name
+#define _QMKATA_HANDLE_CMD_GET_FN(name) _qmkata_handle_cmd_get_##name
+#define _QMKATA_HANDLE_CMD_SET(name) void _QMKATA_HANDLE_CMD_SET_FN(name)(uint8_t cmd, uint8_t seqnum, uint8_t len, uint8_t * buf)
+#define _QMKATA_HANDLE_CMD_GET(name) void _QMKATA_HANDLE_CMD_GET_FN(name)(uint8_t cmd, uint8_t seqnum, uint8_t len, uint8_t * buf)
+#define _QMKATA_HANDLE_CMD_SETGET(name) \
+    _QMKATA_HANDLE_CMD_SET(name);       \
+    _QMKATA_HANDLE_CMD_GET(name)
 
 _QMKATA_HANDLE_CMD_SETGET(default_layer);
 _QMKATA_HANDLE_CMD_SET(cli);
@@ -70,6 +73,10 @@ _QMKATA_HANDLE_CMD_GET(struct_layout);
 _QMKATA_HANDLE_CMD_SETGET(config);
 _QMKATA_HANDLE_CMD_SET(dynld_function);
 _QMKATA_HANDLE_CMD_SET(dynld_funexec);
+
+#if defined(DYNAMIC_COMBO_ENABLE) && defined(COMBO_ENABLE)
+_QMKATA_HANDLE_CMD_SETGET(combo);
+#endif
 
 // rgb matrix buffer set from host
 typedef struct rgb_matrix_host_buffer {
@@ -95,17 +102,17 @@ typedef struct dynld_funcs {
     void* func[DYNLD_FUN_ID_MAX];
 } dynld_funcs_t;
 
-#define RAWHID_QMKATA_MSG  0xFA
+#define RAWHID_QMKATA_MSG 0xFA
 
 //------------------------------------------------------------------------------
-typedef void (*sysexCallbackFunction)(uint8_t command, uint8_t len, uint8_t *buf);
+typedef void (*sysexCallbackFunction)(uint8_t command, uint8_t len, uint8_t* buf);
 
 void qmkata_init(const char* firmware);
 void qmkata_start(void);
 void qmkata_task(void);
 
-int qmkata_recv(uint8_t c);
-int qmkata_recv_data(uint8_t *data, uint8_t len);
+int  qmkata_recv(uint8_t c);
+int  qmkata_recv_data(uint8_t* data, uint8_t len);
 void qmkata_send_sysex(uint8_t cmd, uint8_t* data, int len);
 
 #ifdef __cplusplus
