@@ -100,8 +100,9 @@ combo_t key_combos[COMBO_DEF_MAX_SLOTS] = {};
 
 // Default combos loaded to EEPROM on first boot / factory reset
 const combo_def_t combo_default_defs[] = {
-    {.keys = {KC_A, KC_B, COMBO_END}, .keycode = KC_ESC},
-    {.keys = {KC_C, KC_D, COMBO_END}, .keycode = LCTL(KC_Z)},
+    {.keys = {KC_C, KC_A, COMBO_END}, .keycode = LCTL(KC_A)},
+    {.keys = {KC_C, KC_D, COMBO_END}, .keycode = LCTL(KC_C)},
+    {.keys = {KC_C, KC_V, COMBO_END}, .keycode = LCTL(KC_V)},
 };
 const uint8_t combo_default_count = sizeof(combo_default_defs) / sizeof(combo_def_t);
 
