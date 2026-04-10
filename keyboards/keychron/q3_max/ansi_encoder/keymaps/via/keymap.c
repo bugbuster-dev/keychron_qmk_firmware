@@ -81,6 +81,15 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][2] = {
 #endif // ENCODER_MAP_ENABLE
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+#if defined(COMBO_ENABLE) && defined(LEADER_ENABLE)
+    // When a combo outputs QK_LEADER, process_record_quantum re-derives the
+    // keycode from position (0,0) so process_leader() never sees QK_LEADER.
+    // Intercept it here via record->keycode which preserves the combo output.
+    if (record->keycode == QK_LEADER && record->event.pressed) {
+        leader_start();
+        return false;
+    }
+#endif
     if (!process_record_keychron_common(keycode, record)) {
         return false;
     }

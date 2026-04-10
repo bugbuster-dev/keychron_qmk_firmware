@@ -53,7 +53,18 @@ static void _td_finished(tap_dance_state_t *state, void *user_data) {
     }
 
     td_last_kc[slot] = kc;
-    if (kc) register_code16(kc);
+    if (kc) {
+#    ifdef LEADER_ENABLE
+        // QK_LEADER is a quantum keycode handled by process_leader() in the
+        // processing chain -- register_code16() would truncate it to uint8_t
+        // and send a garbage HID code.  Activate leader mode directly instead.
+        if (kc == QK_LEADER) {
+            leader_start();
+            return;
+        }
+#    endif
+        register_code16(kc);
+    }
 }
 
 static void _td_reset(tap_dance_state_t *state, void *user_data) {
@@ -61,7 +72,11 @@ static void _td_reset(tap_dance_state_t *state, void *user_data) {
     tap_dance_def_t *def  = (tap_dance_def_t *)user_data;
     uint8_t          slot = (uint8_t)(def - td_defs);
     if (td_last_kc[slot]) {
-        unregister_code16(td_last_kc[slot]);
+#    ifdef LEADER_ENABLE
+        // QK_LEADER was handled via leader_start(), nothing to unregister
+        if (td_last_kc[slot] != QK_LEADER)
+#    endif
+            unregister_code16(td_last_kc[slot]);
         td_last_kc[slot] = KC_NO;
     }
 }
