@@ -915,8 +915,9 @@ _QMKATA_HANDLE_CMD_GET(combo) {
 // Short payload (len==1): clears slot (all keycodes 0 = slot disabled). Intentional.
 _QMKATA_HANDLE_CMD_SET(tap_dance) {
     if (len < 1) return;
-    uint8_t         slot = buf[0];
-    tap_dance_def_t def  = {};
+    uint8_t slot = buf[0];
+    if (slot >= TAP_DANCE_DEF_MAX_SLOTS) return;
+    tap_dance_def_t def = {};
     if (len >= 1 + sizeof(tap_dance_def_t)) {
         memcpy(&def, &buf[1], sizeof(tap_dance_def_t));
     }
@@ -928,6 +929,7 @@ _QMKATA_HANDLE_CMD_SET(tap_dance) {
 _QMKATA_HANDLE_CMD_GET(tap_dance) {
     if (len < 1) return;
     uint8_t slot = buf[0];
+    if (slot >= TAP_DANCE_DEF_MAX_SLOTS) return;
     DBG_USR(qmkata, "tap_dance:get slot=%u\n", slot);
     tap_dance_def_t def = {};
     tap_dance_eeprom_get(slot, &def);

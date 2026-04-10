@@ -13,7 +13,7 @@
 #    define TD_EEPROM_MAGIC_ADDR ((uint8_t *)EECONFIG_BASE_TAP_DANCE)
 #    define TD_EEPROM_DATA_ADDR ((uint8_t *)EECONFIG_BASE_TAP_DANCE + 1)
 
-// RAM mirror — tap_dance_actions[i].user_data points into this array
+// RAM mirror -- tap_dance_actions[i].user_data points into this array
 static tap_dance_def_t td_defs[TAP_DANCE_DEF_MAX_SLOTS];
 
 // Tracks the last keycode sent by _td_finished for each slot (needed by _td_reset)
@@ -72,6 +72,10 @@ static void _td_reset(tap_dance_state_t *state, void *user_data) {
 
 static void tap_dance_eeprom_apply(void) {
     for (uint8_t i = 0; i < TAP_DANCE_DEF_MAX_SLOTS; i++) {
+        // Unregister any currently held key before reassigning
+        if (td_last_kc[i]) {
+            unregister_code16(td_last_kc[i]);
+        }
         tap_dance_actions[i].fn.on_each_tap       = NULL;
         tap_dance_actions[i].fn.on_dance_finished = _td_finished;
         tap_dance_actions[i].fn.on_reset          = _td_reset;
@@ -85,7 +89,7 @@ static void tap_dance_eeprom_apply(void) {
 // Public API
 // ---------------------------------------------------------------------------
 
-static void tap_dance_eeprom_save(void) {
+void tap_dance_eeprom_save(void) {
     eeprom_update_byte(TD_EEPROM_MAGIC_ADDR, TD_EEPROM_MAGIC);
     eeprom_update_block(td_defs, TD_EEPROM_DATA_ADDR, sizeof(td_defs));
 }
@@ -124,7 +128,7 @@ void tap_dance_eeprom_reset_defaults(void) {
     memset(td_defs, 0, sizeof(td_defs));
     memset(td_last_kc, 0, sizeof(td_last_kc));
     // Seed slot 0 with the default TD_ESC behavior:
-    // tap×1 = KC_ESC, tap×2 = Ctrl+Alt+Home (matches static fallback)
+    // tap x1 = KC_ESC, tap x2 = Ctrl+Alt+Home (matches static fallback)
     td_defs[0].kc1 = KC_ESC;
     td_defs[0].kc2 = LCTL(LALT(KC_HOME));
     tap_dance_eeprom_apply();
