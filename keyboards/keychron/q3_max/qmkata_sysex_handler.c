@@ -35,6 +35,10 @@
 #    include "tap_dance_eeprom.h"
 #endif
 
+#if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
+#    include "leader_eeprom.h"
+#endif
+
 #include "qmkata/QMKata.h"
 #include "dynld_func.h"
 
@@ -154,6 +158,9 @@ void qmkata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf) {
 #if defined(DYNAMIC_TAP_DANCE_ENABLE) && defined(TAP_DANCE_ENABLE)
         if (id == QMKATA_ID_TAP_DANCE) _QMKATA_HANDLE_CMD_SET_FN(tap_dance)(cmd, seqnum, len, buf);
 #endif
+#if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
+        if (id == QMKATA_ID_LEADER) _QMKATA_HANDLE_CMD_SET_FN(leader)(cmd, seqnum, len, buf);
+#endif
     }
     if (cmd == QMKATA_CMD_GET) {
         if (id == QMKATA_ID_DEFAULT_LAYER) _QMKATA_HANDLE_CMD_GET_FN(default_layer)(cmd, seqnum, len, buf);
@@ -166,6 +173,9 @@ void qmkata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf) {
 #endif
 #if defined(DYNAMIC_TAP_DANCE_ENABLE) && defined(TAP_DANCE_ENABLE)
         if (id == QMKATA_ID_TAP_DANCE) _QMKATA_HANDLE_CMD_GET_FN(tap_dance)(cmd, seqnum, len, buf);
+#endif
+#if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
+        if (id == QMKATA_ID_LEADER) _QMKATA_HANDLE_CMD_GET_FN(leader)(cmd, seqnum, len, buf);
 #endif
     }
 }
@@ -942,3 +952,38 @@ _QMKATA_HANDLE_CMD_GET(tap_dance) {
 }
 
 #endif // DYNAMIC_TAP_DANCE_ENABLE && TAP_DANCE_ENABLE
+
+//------------------------------------------------------------------------------
+#if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
+
+// SET: buf[0]=slot, buf[1..12]=leader_def_t (5x uint16_t LE sequence + 1x uint16_t LE keycode)
+// Short payload (len==1): clears slot.
+_QMKATA_HANDLE_CMD_SET(leader) {
+    if (len < 1) return;
+    uint8_t slot = buf[0];
+    if (slot >= LEADER_DEF_MAX_SLOTS) return;
+    leader_def_t def = {};
+    if (len >= 1 + sizeof(leader_def_t)) {
+        memcpy(&def, &buf[1], sizeof(leader_def_t));
+    }
+    DBG_USR(qmkata, "leader:set slot=%u seq=[%04x,%04x,%04x,%04x,%04x] kc=%04x\n", slot, def.sequence[0], def.sequence[1], def.sequence[2], def.sequence[3], def.sequence[4], def.keycode);
+    leader_eeprom_set(slot, &def);
+}
+
+// GET: buf[0]=slot -> response: [seqnum, QMKATA_ID_LEADER, slot, leader_def_t (12B)]
+_QMKATA_HANDLE_CMD_GET(leader) {
+    if (len < 1) return;
+    uint8_t slot = buf[0];
+    if (slot >= LEADER_DEF_MAX_SLOTS) return;
+    DBG_USR(qmkata, "leader:get slot=%u\n", slot);
+    leader_def_t def = {};
+    leader_eeprom_get(slot, &def);
+    uint8_t resp[3 + sizeof(leader_def_t)];
+    resp[0] = seqnum;
+    resp[1] = QMKATA_ID_LEADER;
+    resp[2] = slot;
+    memcpy(&resp[3], &def, sizeof(leader_def_t));
+    qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+}
+
+#endif // DYNAMIC_LEADER_ENABLE && LEADER_ENABLE
