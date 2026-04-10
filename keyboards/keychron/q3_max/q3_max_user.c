@@ -22,6 +22,11 @@
 #endif
 
 void keyboard_post_init_user(void) {
+    // Leader EEPROM init
+#if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
+    extern void leader_eeprom_init(void);
+    leader_eeprom_init();
+#endif
     // Tap dance EEPROM init — order independent with combo
 #if defined(DYNAMIC_TAP_DANCE_ENABLE) && defined(TAP_DANCE_ENABLE)
     extern void tap_dance_eeprom_init(void);

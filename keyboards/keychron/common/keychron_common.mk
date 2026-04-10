@@ -36,6 +36,10 @@ ifeq ($(strip $(TAP_DANCE_ENABLE)), yes)
 include $(TOP_DIR)/keyboards/keychron/$(KEYCHRON_COMMON_DIR)/tap_dance/tap_dance_eeprom.mk
 endif
 
+ifeq ($(strip $(LEADER_ENABLE)), yes)
+include $(TOP_DIR)/keyboards/keychron/$(KEYCHRON_COMMON_DIR)/leader/leader_eeprom.mk
+endif
+
 ifeq ($(strip $(KEYCHRON_RGB_ENABLE)), yes)
 ifeq ($(strip $(RGB_MATRIX_ENABLE)), yes)
 include $(TOP_DIR)/keyboards/keychron/$(KEYCHRON_COMMON_DIR)/rgb/rgb.mk

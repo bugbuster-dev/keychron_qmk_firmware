@@ -138,3 +138,40 @@ uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
 #    endif
 
 #endif
+
+////////////////////////////////////////////////////////////////////////////////
+// LEADER KEY
+////////////////////////////////////////////////////////////////////////////////
+#ifdef LEADER_ENABLE
+#    ifdef DYNAMIC_LEADER_ENABLE
+#        include "leader_eeprom.h"
+#        include "leader.h"
+
+// Access QMK leader globals for early termination matching
+extern uint16_t leader_sequence[5];
+extern uint8_t  leader_sequence_size;
+
+void leader_end_user(void) {
+    // Timeout fallback: try one final exact match
+    leader_eeprom_try_match(leader_sequence, leader_sequence_size);
+}
+
+void post_process_record_user(uint16_t keycode, keyrecord_t *record) {
+    // Early termination: after process_leader() adds the key, check for matches
+    if (!leader_sequence_active()) return;
+    if (!record->event.pressed) return;
+
+    // Check for exact match first
+    if (leader_eeprom_try_match(leader_sequence, leader_sequence_size)) {
+        leader_end();
+        return;
+    }
+
+    // No prefix matches remain -- end early
+    if (!leader_eeprom_has_prefix(leader_sequence, leader_sequence_size)) {
+        leader_end();
+    }
+}
+
+#    endif // DYNAMIC_LEADER_ENABLE
+#endif     // LEADER_ENABLE
