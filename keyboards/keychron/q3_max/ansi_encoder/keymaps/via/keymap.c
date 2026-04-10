@@ -151,9 +151,16 @@ uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
 extern uint16_t leader_sequence[5];
 extern uint8_t  leader_sequence_size;
 
+// Flag to prevent double-fire: when post_process_record_user already
+// matched and fired the action, leader_end_user must not match again.
+static bool leader_already_matched = false;
+
 void leader_end_user(void) {
-    // Timeout fallback: try one final exact match
-    leader_eeprom_try_match(leader_sequence, leader_sequence_size);
+    // Timeout fallback: try one final exact match (skip if already fired)
+    if (!leader_already_matched) {
+        leader_eeprom_try_match(leader_sequence, leader_sequence_size);
+    }
+    leader_already_matched = false;
 }
 
 void post_process_record_user(uint16_t keycode, keyrecord_t *record) {
@@ -163,6 +170,7 @@ void post_process_record_user(uint16_t keycode, keyrecord_t *record) {
 
     // Check for exact match first
     if (leader_eeprom_try_match(leader_sequence, leader_sequence_size)) {
+        leader_already_matched = true;
         leader_end();
         return;
     }
