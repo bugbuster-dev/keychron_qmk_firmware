@@ -23,9 +23,9 @@ enum {
     TD_ESC,
 };
 
-#define KC_TD_ESC TD(TD_ESC)
+#    define KC_TD_ESC TD(TD_ESC)
 #else
-#define KC_TD_ESC KC_ESC
+#    define KC_TD_ESC KC_ESC
 #endif
 
 enum layers {
@@ -87,13 +87,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // COMBO
 ////////////////////////////////////////////////////////////////////////////////
 #ifdef COMBO_ENABLE
-#ifdef DYNAMIC_COMBO_ENABLE
-#include "combo_eeprom.h"
+#    ifdef DYNAMIC_COMBO_ENABLE
+#        include "combo_eeprom.h"
 
 // Fixed-size array — QMK's keymap_introspection.c uses sizeof(key_combos)
 combo_t key_combos[COMBO_DEF_MAX_SLOTS] = {};
@@ -106,31 +105,36 @@ const combo_def_t combo_default_defs[] = {
 };
 const uint8_t combo_default_count = sizeof(combo_default_defs) / sizeof(combo_def_t);
 
-#else
+#    else
 // Static combos (no EEPROM persistence)
 const uint16_t PROGMEM combo1_keys[] = {KC_A, KC_B, COMBO_END};
 const uint16_t PROGMEM combo2_keys[] = {KC_C, KC_D, COMBO_END};
-combo_t key_combos[] = {
+combo_t                key_combos[]  = {
     COMBO(combo1_keys, KC_ESC),
     COMBO(combo2_keys, LCTL(KC_Z)),
 };
-#endif // DYNAMIC_COMBO_ENABLE
-#endif // COMBO_ENABLE
+#    endif // DYNAMIC_COMBO_ENABLE
+#endif     // COMBO_ENABLE
 
 ////////////////////////////////////////////////////////////////////////////////
 // TAP DANCE
 ////////////////////////////////////////////////////////////////////////////////
 #ifdef TAP_DANCE_ENABLE
-// Tap Dance definitions
+#    ifdef DYNAMIC_TAP_DANCE_ENABLE
+#        include "tap_dance_eeprom.h"
+// Fixed-size array — QMK's tap dance uses sizeof(tap_dance_actions)
+tap_dance_action_t tap_dance_actions[TAP_DANCE_DEF_MAX_SLOTS];
+#    else
+// Static tap dance definitions (non-dynamic build)
 tap_dance_action_t tap_dance_actions[] = {
-    // Tap once for Escape, twice for ...
     [TD_ESC] = ACTION_TAP_DANCE_DOUBLE(KC_ESC, LCTL(LALT(KC_HOME))),
 };
+#    endif
 
-#ifdef TAPPING_TERM_PER_KEY
+#    ifdef TAPPING_TERM_PER_KEY
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
     return TAPPING_TERM;
 }
-#endif
+#    endif
 
 #endif
