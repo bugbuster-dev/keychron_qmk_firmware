@@ -80,7 +80,19 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][2] = {
 };
 #endif // ENCODER_MAP_ENABLE
 
+#if defined(LEADER_ENABLE) && defined(RGB_MATRIX_ENABLE)
+// LED index of the key that triggered leader mode (for visual indicator)
+static uint8_t leader_trigger_led = NO_LED;
+#endif
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+#if defined(LEADER_ENABLE) && defined(RGB_MATRIX_ENABLE)
+    // Track key position for leader LED indicator.  Updated on every TD or
+    // QK_LEADER press; only used when leader is actually active.
+    if (record->event.pressed && (IS_QK_TAP_DANCE(keycode) || keycode == QK_LEADER)) {
+        leader_trigger_led = g_led_config.matrix_co[record->event.key.row][record->event.key.col];
+    }
+#endif
 #if defined(COMBO_ENABLE) && defined(LEADER_ENABLE)
     // When a combo outputs QK_LEADER, process_record_quantum re-derives the
     // keycode from position (0,0) so process_leader() never sees QK_LEADER.
@@ -165,6 +177,9 @@ extern uint8_t  leader_sequence_size;
 static bool leader_already_matched = false;
 
 void leader_end_user(void) {
+#        ifdef RGB_MATRIX_ENABLE
+    leader_trigger_led = NO_LED;
+#        endif
     // Timeout fallback: try one final exact match (skip if already fired)
     if (!leader_already_matched) {
         leader_eeprom_try_match(leader_sequence, leader_sequence_size);
@@ -192,3 +207,16 @@ void post_process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 #    endif // DYNAMIC_LEADER_ENABLE
 #endif     // LEADER_ENABLE
+
+////////////////////////////////////////////////////////////////////////////////
+// RGB MATRIX INDICATORS
+////////////////////////////////////////////////////////////////////////////////
+#if defined(LEADER_ENABLE) && defined(RGB_MATRIX_ENABLE)
+bool rgb_matrix_indicators_user(void) {
+    // Light the trigger key while a leader sequence is active
+    if (leader_sequence_active() && leader_trigger_led != NO_LED) {
+        rgb_matrix_set_color(leader_trigger_led, 255, 255, 255);
+    }
+    return true;
+}
+#endif
