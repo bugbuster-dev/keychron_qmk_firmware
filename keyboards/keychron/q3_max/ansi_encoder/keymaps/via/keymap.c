@@ -119,10 +119,13 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 combo_t key_combos[COMBO_DEF_MAX_SLOTS] = {};
 
 // Default combos loaded to EEPROM on first boot / factory reset
+// Trigger pairs chosen for near-zero English bigram frequency to avoid misfires.
 const combo_def_t combo_default_defs[] = {
-    {.keys = {KC_C, KC_A, COMBO_END}, .keycode = LCTL(KC_A)},
-    {.keys = {KC_C, KC_D, COMBO_END}, .keycode = LCTL(KC_C)},
-    {.keys = {KC_C, KC_V, COMBO_END}, .keycode = LCTL(KC_V)},
+    {.keys = {KC_Z, KC_X, COMBO_END}, .keycode = LCTL(KC_A)}, // Select All
+    {.keys = {KC_X, KC_S, COMBO_END}, .keycode = LCTL(KC_C)}, // Copy
+    {.keys = {KC_C, KC_V, COMBO_END}, .keycode = LCTL(KC_V)}, // Paste
+    {.keys = {KC_V, KC_F, COMBO_END}, .keycode = LCTL(KC_X)}, // Cut
+    {.keys = {KC_X, KC_D, COMBO_END}, .keycode = LCTL(KC_Z)}, // Undo
 };
 const uint8_t combo_default_count = sizeof(combo_default_defs) / sizeof(combo_def_t);
 
