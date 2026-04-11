@@ -142,10 +142,12 @@ void tap_dance_eeprom_clear(uint8_t slot) {
 void tap_dance_eeprom_reset_defaults(void) {
     memset(td_defs, 0, sizeof(td_defs));
     memset(td_last_kc, 0, sizeof(td_last_kc));
-    // Seed slot 0 with the default TD_ESC behavior:
+    // Seed slots with the default tap dance definitions from keymap.c
     // tap x1 = KC_ESC, tap x2 = Ctrl+Alt+Home (matches static fallback)
     td_defs[0].kc1 = KC_ESC;
     td_defs[0].kc2 = LCTL(LALT(KC_HOME));
+    td_defs[1].kc1 = KC_GRV;
+    td_defs[1].hold = QK_LEADER;
     tap_dance_eeprom_apply();
     tap_dance_eeprom_save();
 }
