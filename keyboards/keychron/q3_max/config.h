@@ -91,5 +91,6 @@
 #define TAPPING_TERM_PER_KEY
 
 /* Leader key configuration */
+#define LEADER_NO_TIMEOUT
 #define LEADER_TIMEOUT 500
 #define LEADER_PER_KEY_TIMING
