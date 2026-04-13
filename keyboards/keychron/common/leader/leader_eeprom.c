@@ -5,6 +5,7 @@
 #include "eeconfig.h"
 #include "eeprom.h"
 #include "quantum.h"
+#include "dynamic_keymap.h"
 
 #if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
 
@@ -79,7 +80,12 @@ bool leader_eeprom_try_match(const uint16_t *sequence, uint8_t seq_len) {
         // Exact match: slot sequence ends right after our input
         // (next position is KC_NO or we've used all 5 slots)
         if (seq_len >= LEADER_DEF_MAX_SEQ_LEN || leader_defs[i].sequence[seq_len] == KC_NO) {
-            tap_code16(leader_defs[i].keycode);
+            uint16_t kc = leader_defs[i].keycode;
+            if (kc >= QK_MACRO && kc <= QK_MACRO_MAX) {
+                dynamic_keymap_macro_send(kc - QK_MACRO);
+            } else {
+                tap_code16(kc);
+            }
             return true;
         }
     }
