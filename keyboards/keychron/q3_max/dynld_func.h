@@ -44,11 +44,3 @@ typedef struct __attribute__ ((aligned (4))) dynld_custom_animation_env {
 } dynld_custom_animation_env_t;
 
 typedef bool (*funptr_animation_run_t)(dynld_custom_animation_env_t *anim_env, effect_params_t* params);
-
-typedef struct __attribute__ ((aligned (4))) dynld_test_env {
-    funptr_printf   printf;
-
-    uint8_t         buf[256];
-} dynld_test_env_t;
-
-typedef int (*funptr_test_t)(dynld_test_env_t *test_env);

@@ -770,6 +770,10 @@ static uint8_t dynld_func_buf[DYNLD_FUN_ID_MAX][DYNLD_FUNC_SIZE] __attribute__((
 dynld_funcs_t  g_dynld_funcs = {0};
 
 int load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, size_t len) {
+    if (fun_id >= DYNLD_FUN_ID_MAX) {
+        DBG_USR(qmkata, " fun id too large\n");
+        return -1;
+    }
     // set function pointer after fully loaded
     if (offset == 0xffff) {
         if (memcmp(dynld_func_buf[fun_id], "\0\0", 2) != 0) {
@@ -789,10 +793,6 @@ int load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, siz
         DBG_USR(qmkata, " fun too large\n");
         return -1;
     }
-    if (fun_id >= DYNLD_FUN_ID_MAX) {
-        DBG_USR(qmkata, " fun id too large\n");
-        return -1;
-    }
     if (offset == 0) {
         g_dynld_funcs.func[fun_id] = NULL;
         memset((void*)dynld_func_buf[fun_id], 0, DYNLD_FUNC_SIZE);
@@ -804,13 +804,6 @@ int load_function(const uint16_t fun_id, const uint8_t* data, size_t offset, siz
     memcpy((void*)&dynld_func_buf[fun_id][offset], data, len);
     return 0;
 }
-
-static int dynld_env_printf(const char* fmt, ...) {
-    // xprintf(fmt, ...);
-    return -1;
-}
-
-static dynld_test_env_t s_dynld_test_env = {.printf = dynld_env_printf};
 
 _QMKATA_HANDLE_CMD_SET(dynld_function) {
     uint16_t fun_id = buf[0] | buf[1] << 8;
@@ -841,16 +834,6 @@ _QMKATA_HANDLE_CMD_SET(dynld_funexec) {
             if (debug_config_user.qmkata) {
                 DBG_USR(qmkata, " exec rc=%d\n", rc);
             }
-        }
-    }
-    if (fun_id == DYNLD_FUN_ID_TEST) {
-        funptr_test_t fun_test = (funptr_test_t)g_dynld_funcs.func[DYNLD_FUN_ID_TEST];
-        rc                     = fun_test(&s_dynld_test_env);
-        (void)rc;
-
-        if (debug_config_user.qmkata) {
-            DBG_USR(qmkata, " exec rc=%d\n", rc);
-            xprintf_buf(s_dynld_test_env.buf, 32);
         }
     }
 
