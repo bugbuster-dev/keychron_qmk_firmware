@@ -19,12 +19,15 @@
 #define POWER_ON_LED_DURATION 3000
 static uint32_t power_on_indicator_timer;
 
+extern void keychron_task_user(void);
+
 #ifdef DIP_SWITCH_ENABLE
 bool dip_switch_update_kb(uint8_t index, bool active) {
+    if (dip_switch_update_user(index, active)) return true;
+
     if (index == 0) {
         default_layer_set(1UL << (active ? 2 : 0));
     }
-    dip_switch_update_user(index, active);
 
     return true;
 }
@@ -50,6 +53,8 @@ void keychron_task_kb(void) {
 #endif
         }
     }
+
+    keychron_task_user();
 }
 
 #ifdef LK_WIRELESS_ENABLE
@@ -57,3 +62,52 @@ bool lpm_is_kb_idle(void) {
     return power_on_indicator_timer == 0 && !backlight_indicator_is_active();
 }
 #endif
+
+/* Override register_code16/unregister_code16 to send each modifier key as a
+ * separate HID report instead of batching all modifier bits in one call.
+ *
+ * QMK default: do_code16() calls register_weak_mods(all_mods_at_once), which
+ * sets all modifier bits in a single HID report. This causes RDP and some
+ * remote desktop clients to miss shortcut detection (e.g. Ctrl+Alt+Home for
+ * the RDP connection bar) because they expect modifiers to arrive sequentially,
+ * as physical keypresses would produce.
+ *
+ * For non-QK_MODS keycodes the original QMK behaviour is preserved exactly.
+ */
+void register_code16(uint16_t code) {
+    if (IS_QK_MODS(code)) {
+        bool right = !!(code & QK_RMODS_MIN);
+        if (code & QK_LCTL) register_code(right ? KC_RIGHT_CTRL : KC_LEFT_CTRL);
+        if (code & QK_LSFT) register_code(right ? KC_RIGHT_SHIFT : KC_LEFT_SHIFT);
+        if (code & QK_LALT) register_code(right ? KC_RIGHT_ALT : KC_LEFT_ALT);
+        if (code & QK_LGUI) register_code(right ? KC_RIGHT_GUI : KC_LEFT_GUI);
+        uint8_t basic = code & 0xFF;
+        if (basic) register_code(basic);
+    } else {
+        if (IS_MODIFIER_KEYCODE(code) || code == KC_NO) {
+            register_mods(0);
+        } else {
+            register_weak_mods(0);
+        }
+        register_code(code);
+    }
+}
+
+void unregister_code16(uint16_t code) {
+    if (IS_QK_MODS(code)) {
+        uint8_t basic = code & 0xFF;
+        bool    right = !!(code & QK_RMODS_MIN);
+        if (basic) unregister_code(basic);
+        if (code & QK_LGUI) unregister_code(right ? KC_RIGHT_GUI : KC_LEFT_GUI);
+        if (code & QK_LALT) unregister_code(right ? KC_RIGHT_ALT : KC_LEFT_ALT);
+        if (code & QK_LSFT) unregister_code(right ? KC_RIGHT_SHIFT : KC_LEFT_SHIFT);
+        if (code & QK_LCTL) unregister_code(right ? KC_RIGHT_CTRL : KC_LEFT_CTRL);
+    } else {
+        unregister_code(code);
+        if (IS_MODIFIER_KEYCODE(code) || code == KC_NO) {
+            unregister_mods(0);
+        } else {
+            unregister_weak_mods(0);
+        }
+    }
+}
