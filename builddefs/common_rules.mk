@@ -50,8 +50,6 @@ ifeq ($(strip $(DEBUG_ENABLE)),yes)
 	CFLAGS 	 += -ggdb3
 	CXXFLAGS += -ggdb3
 	ASFLAGS  += -ggdb3
-# Create a map file when debugging
-	LDFLAGS  += -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref
 endif
 
 
@@ -102,6 +100,11 @@ ifeq ($(VERBOSE_AS_CMD),yes)
 endif
 
 #---------------- Linker Options ----------------
+
+CREATE_MAP ?= yes
+ifeq ($(CREATE_MAP),yes)
+	LDFLAGS += -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref
+endif
 
 ifeq ($(VERBOSE_LD_CMD),yes)
 	LDFLAGS += -v
