@@ -71,3 +71,127 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][2] = {
     [WIN_FN]   = {ENCODER_CCW_CW(UG_VALD, UG_VALU)},
 };
 #endif // ENCODER_MAP_ENABLE
+
+#if defined(LEADER_ENABLE) && defined(RGB_MATRIX_ENABLE)
+// LED index of the key that triggered leader mode (for visual indicator)
+static uint8_t leader_trigger_led = NO_LED;
+#endif
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+#if defined(LEADER_ENABLE) && defined(RGB_MATRIX_ENABLE)
+    // Track key position for leader LED indicator.  Updated on every TD or
+    // QK_LEADER press; only used when leader is actually active.
+    if (record->event.pressed && (IS_QK_TAP_DANCE(keycode) || keycode == QK_LEADER)) {
+        leader_trigger_led = g_led_config.matrix_co[record->event.key.row][record->event.key.col];
+    }
+#endif
+#if defined(COMBO_ENABLE) && defined(LEADER_ENABLE)
+    // When a combo outputs QK_LEADER, process_record_quantum re-derives the
+    // keycode from position (0,0) so process_leader() never sees QK_LEADER.
+    // Intercept it here via record->keycode which preserves the combo output.
+    if (record->keycode == QK_LEADER && record->event.pressed) {
+        leader_start();
+        return false;
+    }
+#endif
+    if (!process_record_keychron_common(keycode, record)) {
+        return false;
+    }
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// COMBO
+////////////////////////////////////////////////////////////////////////////////
+#ifdef COMBO_ENABLE
+#    ifdef DYNAMIC_COMBO_ENABLE
+#        include "combo_eeprom.h"
+
+// Fixed-size array — QMK's keymap_introspection.c uses sizeof(key_combos)
+combo_t key_combos[COMBO_DEF_MAX_SLOTS] = {};
+
+// Default combos loaded to EEPROM on first boot / factory reset
+// Trigger pairs chosen for near-zero English bigram frequency to avoid misfires.
+const combo_def_t combo_default_defs[] = {
+    {.keys = {KC_Z, KC_X, COMBO_END}, .keycode = LCTL(KC_A)}, // Select All
+    {.keys = {KC_X, KC_S, COMBO_END}, .keycode = LCTL(KC_C)}, // Copy
+    {.keys = {KC_C, KC_V, COMBO_END}, .keycode = LCTL(KC_V)}, // Paste
+    {.keys = {KC_V, KC_F, COMBO_END}, .keycode = LCTL(KC_X)}, // Cut
+    {.keys = {KC_X, KC_D, COMBO_END}, .keycode = LCTL(KC_Z)}, // Undo
+};
+const uint8_t combo_default_count = sizeof(combo_default_defs) / sizeof(combo_def_t);
+
+#    endif // DYNAMIC_COMBO_ENABLE
+#endif     // COMBO_ENABLE
+
+////////////////////////////////////////////////////////////////////////////////
+// TAP DANCE
+////////////////////////////////////////////////////////////////////////////////
+#ifdef TAP_DANCE_ENABLE
+#    ifdef DYNAMIC_TAP_DANCE_ENABLE
+#        include "tap_dance_eeprom.h"
+// Fixed-size array — QMK's tap dance uses sizeof(tap_dance_actions)
+tap_dance_action_t tap_dance_actions[TAP_DANCE_DEF_MAX_SLOTS];
+#    endif
+#endif
+
+////////////////////////////////////////////////////////////////////////////////
+// LEADER KEY
+////////////////////////////////////////////////////////////////////////////////
+#ifdef LEADER_ENABLE
+#    ifdef DYNAMIC_LEADER_ENABLE
+#        include "leader_eeprom.h"
+#        include "leader.h"
+
+// Access QMK leader globals for early termination matching
+extern uint16_t leader_sequence[5];
+extern uint8_t  leader_sequence_size;
+
+// Flag to prevent double-fire: when post_process_record_user already
+// matched and fired the action, leader_end_user must not match again.
+static bool leader_already_matched = false;
+
+void leader_end_user(void) {
+#        ifdef RGB_MATRIX_ENABLE
+    leader_trigger_led = NO_LED;
+#        endif
+    // Timeout fallback: try one final exact match (skip if already fired)
+    if (!leader_already_matched) {
+        leader_eeprom_try_match(leader_sequence, leader_sequence_size);
+    }
+    leader_already_matched = false;
+}
+
+void post_process_record_user(uint16_t keycode, keyrecord_t *record) {
+    // Early termination: after process_leader() adds the key, check for matches
+    if (!leader_sequence_active()) return;
+    if (!record->event.pressed) return;
+
+    // Check for exact match first
+    if (leader_eeprom_try_match(leader_sequence, leader_sequence_size)) {
+        leader_already_matched = true;
+        leader_end();
+        return;
+    }
+
+    // No prefix matches remain -- end early
+    if (!leader_eeprom_has_prefix(leader_sequence, leader_sequence_size)) {
+        leader_end();
+    }
+}
+
+#    endif // DYNAMIC_LEADER_ENABLE
+#endif     // LEADER_ENABLE
+
+////////////////////////////////////////////////////////////////////////////////
+// RGB MATRIX INDICATORS
+////////////////////////////////////////////////////////////////////////////////
+#if defined(LEADER_ENABLE) && defined(RGB_MATRIX_ENABLE)
+bool rgb_matrix_indicators_user(void) {
+    // Light the trigger key while a leader sequence is active
+    if (leader_sequence_active() && leader_trigger_led != NO_LED) {
+        rgb_matrix_set_color(leader_trigger_led, 255, 255, 255);
+    }
+    return true;
+}
+#endif
