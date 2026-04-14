@@ -35,3 +35,15 @@ ifeq ($(strip $(USB_REPORT_INTERVAL_ENABLE)), yes)
 OPT_DEFS += -DUSB_REPORT_INTERVAL_ENABLE
 SRC += $(KEYCHRON_COMMON_DIR)/usb_report_rate.c
 endif
+
+ifeq ($(strip $(COMBO_ENABLE)), yes)
+include $(KEYCHRON_COMMON_DIR)/combo/combo_eeprom.mk
+endif
+
+ifeq ($(strip $(TAP_DANCE_ENABLE)), yes)
+include $(KEYCHRON_COMMON_DIR)/tap_dance/tap_dance_eeprom.mk
+endif
+
+ifeq ($(strip $(LEADER_ENABLE)), yes)
+include $(KEYCHRON_COMMON_DIR)/leader/leader_eeprom.mk
+endif

@@ -551,7 +551,7 @@ void factory_test_rx(bool usb, uint8_t *data, uint8_t length) {
     }
 }
 
-bool dip_switch_update_user(uint8_t index, bool active) {
+__attribute__((weak)) bool dip_switch_update_user(uint8_t index, bool active) {
     if (report_os_sw_state) {
 #ifdef INVERT_OS_SWITCH_STATE
         active = !active;

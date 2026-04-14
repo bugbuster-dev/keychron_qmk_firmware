@@ -36,4 +36,16 @@ void eeconfig_init_kb_datablock(void) {
     extern void report_rate_reset(void);
     report_rate_reset();
 #endif
+#if defined(DYNAMIC_COMBO_ENABLE) && defined(COMBO_ENABLE)
+    extern void combo_eeprom_reset_defaults(void);
+    combo_eeprom_reset_defaults();
+#endif
+#if defined(DYNAMIC_TAP_DANCE_ENABLE) && defined(TAP_DANCE_ENABLE)
+    extern void tap_dance_eeprom_reset_defaults(void);
+    tap_dance_eeprom_reset_defaults();
+#endif
+#if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
+    extern void leader_eeprom_reset_defaults(void);
+    leader_eeprom_reset_defaults();
+#endif
 }
