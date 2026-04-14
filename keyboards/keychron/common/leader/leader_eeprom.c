@@ -16,6 +16,10 @@
 // RAM mirror
 static leader_def_t leader_defs[LEADER_DEF_MAX_SLOTS];
 
+// Provided by keymap.c
+extern const leader_def_t leader_default_defs[];
+extern const uint8_t      leader_default_count;
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -53,6 +57,9 @@ void leader_eeprom_clear(uint8_t slot) {
 
 void leader_eeprom_reset_defaults(void) {
     memset(leader_defs, 0, sizeof(leader_defs));
+    uint8_t count = leader_default_count;
+    if (count > LEADER_DEF_MAX_SLOTS) count = LEADER_DEF_MAX_SLOTS;
+    memcpy(leader_defs, leader_default_defs, count * sizeof(leader_def_t));
     leader_eeprom_save();
 }
 

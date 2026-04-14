@@ -143,6 +143,13 @@ tap_dance_action_t tap_dance_actions[TAP_DANCE_DEF_MAX_SLOTS];
 #        include "leader_eeprom.h"
 #        include "leader.h"
 
+// Default leader sequences loaded to EEPROM on first boot / factory reset
+const leader_def_t leader_default_defs[] = {
+    {.sequence = {KC_V, KC_C, KC_NO, KC_NO, KC_NO}, .keycode = MC_0},
+    {.sequence = {KC_V, KC_P, KC_NO, KC_NO, KC_NO}, .keycode = MC_1},
+};
+const uint8_t leader_default_count = sizeof(leader_default_defs) / sizeof(leader_def_t);
+
 // Access QMK leader globals for early termination matching
 extern uint16_t leader_sequence[5];
 extern uint8_t  leader_sequence_size;
