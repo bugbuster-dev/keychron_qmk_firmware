@@ -53,7 +53,7 @@
 #endif
 
 #ifndef XINPUT_HID_DESCRIPTOR_LEN
-#define XINPUT_HID_DESCRIPTOR_LEN 0x11
+#    define XINPUT_HID_DESCRIPTOR_LEN 0x11
 #endif
 
 /*
@@ -96,7 +96,7 @@ typedef struct {
     USB_Descriptor_Endpoint_t  Shared_INEndpoint;
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     // Console HID Interface
     USB_Descriptor_Interface_t Console_Interface;
     USB_HID_Descriptor_HID_t   Console_HID;
@@ -184,7 +184,7 @@ enum usb_interfaces {
     SHARED_INTERFACE,
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     CONSOLE_INTERFACE,
 #endif
 
@@ -224,11 +224,11 @@ enum usb_endpoints {
     __unused_epnum__ = NEXT_EPNUM, // Endpoint numbering starts at 1
 
 #ifdef XINPUT_ENABLE
-        XINPUT_IN_EPNUM = NEXT_EPNUM,
+    XINPUT_IN_EPNUM = NEXT_EPNUM,
 #    ifdef USB_ENDPOINTS_ARE_REORDERABLE
 #        define XINPUT_OUT_EPNUM XINPUT_IN_EPNUM
 #    else
-         #error("xinput require same endpoint for in and out")
+#        error("xinput require same endpoint for in and out")
 #    endif
 #endif
 
@@ -249,7 +249,7 @@ enum usb_endpoints {
 #    ifdef USB_ENDPOINTS_ARE_REORDERABLE
 #        define RAW_OUT_EPNUM RAW_IN_EPNUM
 #    else
-    RAW_OUT_EPNUM         = NEXT_EPNUM,
+    RAW_OUT_EPNUM = NEXT_EPNUM,
 #    endif
 #endif
 
@@ -257,7 +257,7 @@ enum usb_endpoints {
     SHARED_IN_EPNUM = NEXT_EPNUM,
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     CONSOLE_IN_EPNUM = NEXT_EPNUM,
 #endif
 
@@ -276,7 +276,7 @@ enum usb_endpoints {
 #    ifdef USB_ENDPOINTS_ARE_REORDERABLE
 #        define CDC_OUT_EPNUM CDC_IN_EPNUM
 #    else
-    CDC_OUT_EPNUM         = NEXT_EPNUM,
+    CDC_OUT_EPNUM = NEXT_EPNUM,
 #    endif
 #endif
 
@@ -333,6 +333,5 @@ uint16_t get_usb_descriptor(const uint16_t wValue, const uint16_t wIndex, const 
 uint16_t get_usb_vendor_descriptor(uint8_t recipient, uint8_t reqeuest, const uint16_t wValue, const uint16_t wIndex, const uint16_t wLength, const void** const DescriptorAddress);
 #ifdef XINPUT_ENABLE
 uint16_t get_usb_vendor_descriptor(uint8_t recipient, uint8_t reqeuest, const uint16_t wValue, const uint16_t wIndex, const uint16_t wLength, const void** const DescriptorAddress);
-void get_usb_vendor_descriptor_kb(uint8_t recipient, uint8_t reqeuest, const uint16_t wValue, const uint16_t wIndex, const uint16_t wLength, const void** const DescriptorAddress, uint16_t *size);
+void     get_usb_vendor_descriptor_kb(uint8_t recipient, uint8_t reqeuest, const uint16_t wValue, const uint16_t wIndex, const uint16_t wLength, const void** const DescriptorAddress, uint16_t* size);
 #endif
-

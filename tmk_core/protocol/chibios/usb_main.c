@@ -53,7 +53,7 @@ extern keymap_config_t keymap_config;
 
 #ifdef USB_REPORT_INTERVAL_ENABLE
 extern void usb_endpoint_in_tx(USBDriver *usbp, usbep_t ep);
-uint8_t usb_report_interval = 0;
+uint8_t     usb_report_interval = 0;
 #endif
 
 extern usb_endpoint_in_t  usb_endpoints_in[USB_ENDPOINT_IN_COUNT];
@@ -85,13 +85,13 @@ static const USBDescriptor *usb_get_descriptor_cb(USBDriver *usbp, uint8_t dtype
 
     static USBDescriptor descriptor;
     descriptor.ud_string = NULL;
-    //descriptor.ud_size   = get_usb_descriptor(setup->wValue.word, setup->wIndex, setup->wLength, (const void **const) & descriptor.ud_string);
+    // descriptor.ud_size   = get_usb_descriptor(setup->wValue.word, setup->wIndex, setup->wLength, (const void **const) & descriptor.ud_string);
 #ifdef XINPUT_ENABLE
     if ((usbp->setup[0] & (USB_RTYPE_DIR_MASK | USB_RTYPE_TYPE_MASK)) == (USB_RTYPE_DIR_DEV2HOST | USB_RTYPE_TYPE_VENDOR))
-        descriptor.ud_size = get_usb_vendor_descriptor(setup->bmRequestType & USB_RTYPE_RECIPIENT_MASK, setup->bRequest, setup->wValue.word, setup->wIndex, setup->wLength, (const void **const) & descriptor.ud_string);
+        descriptor.ud_size = get_usb_vendor_descriptor(setup->bmRequestType & USB_RTYPE_RECIPIENT_MASK, setup->bRequest, setup->wValue.word, setup->wIndex, setup->wLength, (const void **const)&descriptor.ud_string);
     else
 #endif
-        descriptor.ud_size  = get_usb_descriptor(setup->wValue.word, setup->wIndex, setup->wLength, (const void **const) & descriptor.ud_string);
+        descriptor.ud_size = get_usb_descriptor(setup->wValue.word, setup->wIndex, setup->wLength, (const void **const)&descriptor.ud_string);
 
     if (descriptor.ud_string == NULL) {
         return NULL;
@@ -383,9 +383,9 @@ void update_usb_report_interval(USBDriver *usbp, uint8_t interval) {
     }
 
     usbp->report_interval[USB_ENDPOINT_IN_SHARED] = interval;
-#if !defined(KEYBOARD_SHARED_EP)
+#    if !defined(KEYBOARD_SHARED_EP)
     usbp->report_interval[USB_ENDPOINT_IN_KEYBOARD] = interval;
-#endif
+#    endif
 }
 #endif
 
@@ -574,6 +574,12 @@ void send_xinput(report_xinput_t *report) {
 
 #ifdef CONSOLE_ENABLE
 
+#    ifdef CONSOLE_QMKATA
+
+void console_task(void) {}
+
+#    else
+
 int8_t sendchar(uint8_t c) {
     return (int8_t)send_report_buffered(USB_ENDPOINT_IN_CONSOLE, &c, sizeof(uint8_t));
 }
@@ -581,6 +587,8 @@ int8_t sendchar(uint8_t c) {
 void console_task(void) {
     flush_report_buffered(USB_ENDPOINT_IN_CONSOLE, true);
 }
+
+#    endif
 
 #endif /* CONSOLE_ENABLE */
 

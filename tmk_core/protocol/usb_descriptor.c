@@ -473,7 +473,7 @@ const USB_Descriptor_HIDReport_Datatype_t PROGMEM RawReport[] = {
 };
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
 const USB_Descriptor_HIDReport_Datatype_t PROGMEM ConsoleReport[] = {
     HID_RI_USAGE_PAGE(16, 0xFF31), // Vendor Defined (PJRC Teensy compatible)
     HID_RI_USAGE(8, 0x74),         // Vendor Defined (PJRC Teensy compatible)
@@ -723,7 +723,7 @@ USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor = {
     },
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
     /*
      * Console
      */
@@ -1255,55 +1255,71 @@ void set_serial_number_descriptor(void) {
    Refer to Microsoft OS 1.0 Descriptors Specification for details
    https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/microsoft-os-1-0-descriptors-specification
 */
-const USB_Descriptor_String_t PROGMEM MsOsString = {
-    .Header = {
-        .Size                   = 0x12,
-        .Type                   = DTYPE_String
-    },
-    .UnicodeString              = { 'M' ,'S' ,'F' ,'T' ,'1' ,'0' ,'0', USB_REQ_GET_MS_DESCRIPTOR }
+const USB_Descriptor_String_t PROGMEM MsOsString = {.Header = {.Size = 0x12, .Type = DTYPE_String}, .UnicodeString = {'M', 'S', 'F', 'T', '1', '0', '0', USB_REQ_GET_MS_DESCRIPTOR}};
+
+PROGMEM uint8_t compatIdDescriptor[] = {
+    0x28,
+    0x00,
+    0x00,
+    0x00, // dwLength
+    0x00,
+    0x01, // bcdVersion: 1.00
+    0x04,
+    0x00, // wIndex: Compatibility ID
+    0x01, // bCount (number of sections)
+    0x00,
+    0x00,
+    0x00,
+    0x00, // reserved
+    0x00,
+    0x00,
+    0x00,             // reserved
+    XINPUT_INTERFACE, // bFirstInterfaceNumber
+    0x01,             // reserved
+    'X',
+    'U',
+    'S',
+    'B',
+    '1',
+    '0',
+    0x00,
+    0x00, // compatibleID
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00, // subCompatibleID
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00, // reserved
+    //    SHARED_INTERFACE,          // bFirstInterfaceNumber
+    //    0x01,                      // reserved
+    //    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // compatibleID
+    //    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // subCompatibleID
+    //    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,              // reserved
 };
 
-PROGMEM uint8_t compatIdDescriptor[] =
-{
-    0x28, 0x00, 0x00, 0x00,    // dwLength
-    0x00, 0x01,                // bcdVersion: 1.00
-    0x04, 0x00,                // wIndex: Compatibility ID
-    0x01,                      // bCount (number of sections)
-    0x00, 0x00, 0x00, 0x00,    // reserved
-    0x00, 0x00, 0x00,          // reserved
-    XINPUT_INTERFACE,          // bFirstInterfaceNumber
-    0x01,                      // reserved
-    'X', 'U', 'S', 'B', '1', '0', 0x00, 0x00,        // compatibleID
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // subCompatibleID
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,              // reserved
-//    SHARED_INTERFACE,          // bFirstInterfaceNumber
-//    0x01,                      // reserved
-//    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // compatibleID
-//    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // subCompatibleID
-//    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,              // reserved
-};
-
-PROGMEM uint8_t extendedPropertiesDescriptor[0x92] =
-{
-    0x92, 0x00, 0x00, 0x00,    // dwLength
-    0x00, 0x01,                // bcdVersion: 1.00
-    0x05, 0x00,                // wIndex: extended properties
-    0x01, 0x00,                // wCount (number of sections)
-    0x88, 0x00, 0x00, 0x00,    // dwSize of first section
-    0x07, 0x00, 0x00, 0x00,    // dwPropertyDataType: REG_MULTI_SZ
-    0x2a, 0x00,                // wPropertyNameLength
-    'D',0,'e',0,'v',0,'i',0,'c',0,'e',0,'I',0,'n',0,'t',0,'e',0,'r',0,
-    'f',0,'a',0,'c',0,'e',0,'G',0,'U',0,'I',0,'D',0,'s',0,0,0,
-    0x50, 0x00, 0x00, 0x00,    // dwPropertyDataLength
-    '{',0,'9',0,'9',0,'c',0,'4',0,'b',0,'b',0,'b',0,'0',0,'-',0,
-    'e',0,'9',0,'2',0,'5',0,'-',0,'4',0,'3',0,'9',0,'7',0,'-',0,
-    'a',0,'f',0,'e',0,'e',0,'-',0,'9',0,'8',0,'1',0,'c',0,'d',0,
-    '0',0,'7',0,'0',0,'2',0,'1',0,'6',0,'3',0,'}',0,0,0,0,0,
+PROGMEM uint8_t extendedPropertiesDescriptor[0x92] = {
+    0x92, 0x00, 0x00, 0x00,                                                                                                                                                                                 // dwLength
+    0x00, 0x01,                                                                                                                                                                                             // bcdVersion: 1.00
+    0x05, 0x00,                                                                                                                                                                                             // wIndex: extended properties
+    0x01, 0x00,                                                                                                                                                                                             // wCount (number of sections)
+    0x88, 0x00, 0x00, 0x00,                                                                                                                                                                                 // dwSize of first section
+    0x07, 0x00, 0x00, 0x00,                                                                                                                                                                                 // dwPropertyDataType: REG_MULTI_SZ
+    0x2a, 0x00,                                                                                                                                                                                             // wPropertyNameLength
+    'D',  0,    'e',  0,    'v', 0, 'i', 0, 'c', 0, 'e', 0, 'I', 0, 'n', 0, 't', 0, 'e', 0, 'r', 0, 'f', 0, 'a', 0, 'c', 0, 'e', 0, 'G', 0, 'U', 0, 'I', 0, 'D', 0, 's', 0, 0,   0, 0x50, 0x00, 0x00, 0x00, // dwPropertyDataLength
+    '{',  0,    '9',  0,    '9', 0, 'c', 0, '4', 0, 'b', 0, 'b', 0, 'b', 0, '0', 0, '-', 0, 'e', 0, '9', 0, '2', 0, '5', 0, '-', 0, '4', 0, '3', 0, '9', 0, '7', 0, '-', 0, 'a', 0, 'f',  0,    'e',  0,    'e', 0, '-', 0, '9', 0, '8', 0, '1', 0, 'c', 0, 'd', 0, '0', 0, '7', 0, '0', 0, '2', 0, '1', 0, '6', 0, '3', 0, '}', 0, 0, 0, 0, 0,
 };
 #endif
 
 // clang-format on
-__attribute__((weak))  void get_usb_descriptor_kb(const uint16_t wValue, const uint16_t wIndex, const uint16_t wLength, const void** const DescriptorAddress, uint16_t *size){}
+__attribute__((weak)) void get_usb_descriptor_kb(const uint16_t wValue, const uint16_t wIndex, const uint16_t wLength, const void** const DescriptorAddress, uint16_t* size) {}
 
 /**
  * This function is called by the library when in device mode, and must be overridden (see library "USB Descriptors"
@@ -1404,7 +1420,7 @@ uint16_t get_usb_descriptor(const uint16_t wValue, const uint16_t wIndex, const 
                     break;
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
                 case CONSOLE_INTERFACE:
                     Address = &ConfigurationDescriptor.Console_HID;
                     Size    = sizeof(USB_HID_Descriptor_HID_t);
@@ -1461,7 +1477,7 @@ uint16_t get_usb_descriptor(const uint16_t wValue, const uint16_t wIndex, const 
                     break;
 #endif
 
-#ifdef CONSOLE_ENABLE
+#if defined(CONSOLE_ENABLE) && !defined(CONSOLE_QMKATA)
                 case CONSOLE_INTERFACE:
                     Address = &ConsoleReport;
                     Size    = sizeof(ConsoleReport);
@@ -1492,19 +1508,19 @@ uint16_t get_usb_descriptor(const uint16_t wValue, const uint16_t wIndex, const 
 }
 
 #ifdef XINPUT_ENABLE
-__attribute__((weak)) void get_usb_vendor_descriptor_kb(uint8_t recipient, uint8_t reqeuest, const uint16_t wValue, const uint16_t wIndex, const uint16_t wLength, const void** const DescriptorAddress, uint16_t *size) { }
+__attribute__((weak)) void get_usb_vendor_descriptor_kb(uint8_t recipient, uint8_t reqeuest, const uint16_t wValue, const uint16_t wIndex, const uint16_t wLength, const void** const DescriptorAddress, uint16_t* size) {}
 
 uint16_t get_usb_vendor_descriptor(uint8_t recipient, uint8_t reqeuest, const uint16_t wValue, const uint16_t wIndex, const uint16_t wLength, const void** const DescriptorAddress) {
-    const void*   Address         = NULL;
-    uint16_t      Size            = NO_DESCRIPTOR;
+    const void* Address = NULL;
+    uint16_t    Size    = NO_DESCRIPTOR;
 
     if (recipient == USB_RTYPE_RECIPIENT_DEVICE && reqeuest == USB_REQ_GET_MS_DESCRIPTOR) {
         if (wIndex == 4) {
             Address = &compatIdDescriptor;
-            Size = 0x28;
+            Size    = 0x28;
         } else if (wIndex == 5 && wLength == 0) {
             Address = &extendedPropertiesDescriptor;
-            Size = 0x28;
+            Size    = 0x28;
         }
     }
 
@@ -1514,4 +1530,3 @@ uint16_t get_usb_vendor_descriptor(uint8_t recipient, uint8_t reqeuest, const ui
     return Size;
 }
 #endif
-
