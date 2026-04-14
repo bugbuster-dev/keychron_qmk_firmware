@@ -36,6 +36,7 @@
 #    ifndef DYNAMIC_KEYMAP_EEPROM_ADDR
 #        ifdef VIA_ENABLE
 #            include "via.h"
+#            include "nvm/eeprom/nvm_eeprom_via_internal.h"
 #            define DYNAMIC_KEYMAP_EEPROM_ADDR (VIA_EEPROM_CONFIG_END)
 #        else
 #            define DYNAMIC_KEYMAP_EEPROM_ADDR (EECONFIG_SIZE)
