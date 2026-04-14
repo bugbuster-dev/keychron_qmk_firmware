@@ -26,7 +26,7 @@
 #    include "retail_demo.h"
 #endif
 #ifdef ANANLOG_MATRIX
-#include "profile.h"
+#    include "profile.h"
 #endif
 
 __attribute__((weak)) bool process_record_keychron_kb(uint16_t keycode, keyrecord_t *record) {
@@ -83,9 +83,9 @@ __attribute__((weak)) bool led_matrix_indicators_keychron(void) {
     extern bool led_matrix_indicators_bt(void);
     led_matrix_indicators_bt();
 #    endif
-#ifdef ANANLOG_MATRIX
+#    ifdef ANANLOG_MATRIX
     analog_matrix_indicator();
-#endif
+#    endif
 #    ifdef FACTORY_TEST_ENABLE
     factory_test_indicator();
 #    endif
@@ -102,19 +102,28 @@ __attribute__((weak)) bool rgb_matrix_indicators_keychron(void) {
     extern bool rgb_matrix_indicators_bt(void);
     rgb_matrix_indicators_bt();
 #    endif
-#ifdef ANANLOG_MATRIX
+#    ifdef ANANLOG_MATRIX
     analog_matrix_indicator();
-#endif
+#    endif
 #    ifdef FACTORY_TEST_ENABLE
     factory_test_indicator();
 #    endif
     backlit_indicator();
+
+#    ifdef QMKATA_ENABLE
+    {
+        extern void rgb_matrix_host_buf_render(void);
+        rgb_matrix_host_buf_render();
+    }
+#    endif
 
     return true;
 }
 #endif
 
 __attribute__((weak)) void keychron_task_kb(void) {}
+
+__attribute__((weak)) void keychron_task_user(void) {}
 
 void keychron_task(void) {
 #if defined(LK_WIRELESS_ENABLE) || defined(KC_BLUETOOTH_ENABLE)

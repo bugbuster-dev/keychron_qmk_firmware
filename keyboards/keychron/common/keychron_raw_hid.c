@@ -32,6 +32,9 @@
 #ifdef SNAP_CLICK_ENABLE
 #    include "snap_click.h"
 #endif
+#ifdef QMKATA_ENABLE
+#    include "qmkata/QMKata.h"
+#endif
 #if defined(LK_WIRELESS_ENABLE) || defined(KC_BLUETOOTH_ENABLE)
 #    include "wireless.h"
 #    ifdef LK_WIRELESS_ENABLE
@@ -261,6 +264,11 @@ bool kc_raw_hid_rx(uint8_t src, uint8_t *data, uint8_t length) {
             factory_test_rx(src == RAW_HID_SRC_USB, data, length);
             return true;
 
+#    endif
+#    ifdef QMKATA_ENABLE
+        case RAWHID_QMKATA_MSG:
+            qmkata_recv_data(data, length);
+            return true;
 #    endif
         default:
             return false;
