@@ -321,6 +321,14 @@ enum usb_endpoints {
 #define DIGITIZER_EPSIZE 8
 #define XINPUT_EPSIZE 32
 
+#ifdef RAW_EPSIZE_QMKATA
+#    undef RAW_EPSIZE
+#    define RAW_EPSIZE RAW_EPSIZE_QMKATA
+#    if RAW_EPSIZE > 64
+#        error "RAW_EPSIZE too large"
+#    endif
+#endif
+
 #if defined(XINPUT_ENABLE)
 #    define USB_RTYPE_TYPE_OS_FEATURE 0xC0U
 
