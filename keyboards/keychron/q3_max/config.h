@@ -81,6 +81,11 @@
 
 #endif
 
+/* Leader key configuration */
+#define LEADER_NO_TIMEOUT
+#define LEADER_TIMEOUT 500
+#define LEADER_PER_KEY_TIMING
+
 /* Factory test keys */
 #define FN_KEY_1 MO(1)
 #define FN_KEY_2 MO(3)
