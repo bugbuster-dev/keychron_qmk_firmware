@@ -86,6 +86,8 @@
 #define LEADER_TIMEOUT 500
 #define LEADER_PER_KEY_TIMING
 
+#define RGB_MATRIX_DEFAULT_MODE RGB_MATRIX_SOLID_REACTIVE_SIMPLE
+
 /* Factory test keys */
 #define FN_KEY_1 MO(1)
 #define FN_KEY_2 MO(3)
