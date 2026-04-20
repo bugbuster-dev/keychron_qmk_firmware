@@ -14,9 +14,8 @@ typedef uint16_t (*get_combo_term_fn)(uint16_t, combo_t*);
 bool module_dispatch_combo_should_trigger(uint16_t combo_index, combo_t *combo,
                                           uint16_t keycode, keyrecord_t *record) {
     module_hook_entry_t* hooks = module_get_hook_table();
-    uint8_t hook_count = module_get_hook_count();
 
-    if (combo_index < hook_count && hooks[MODULE_HOOK_COMBO_SHOULD_TRIGGER].func != NULL) {
+    if (hooks[MODULE_HOOK_COMBO_SHOULD_TRIGGER].func != NULL) {
         combo_should_trigger_fn fn = (combo_should_trigger_fn)hooks[MODULE_HOOK_COMBO_SHOULD_TRIGGER].func;
         return fn(combo_index, combo, keycode, record);
     }
@@ -27,9 +26,8 @@ bool module_dispatch_combo_should_trigger(uint16_t combo_index, combo_t *combo,
 
 void module_dispatch_process_combo_event(uint16_t combo_index, bool pressed) {
     module_hook_entry_t* hooks = module_get_hook_table();
-    uint8_t hook_count = module_get_hook_count();
 
-    if (combo_index < hook_count && hooks[MODULE_HOOK_PROCESS_COMBO_EVENT].func != NULL) {
+    if (hooks[MODULE_HOOK_PROCESS_COMBO_EVENT].func != NULL) {
         process_combo_event_fn fn = (process_combo_event_fn)hooks[MODULE_HOOK_PROCESS_COMBO_EVENT].func;
         fn(combo_index, pressed);
     }
@@ -37,9 +35,8 @@ void module_dispatch_process_combo_event(uint16_t combo_index, bool pressed) {
 
 uint16_t module_dispatch_get_combo_term(uint16_t index, combo_t *combo) {
     module_hook_entry_t* hooks = module_get_hook_table();
-    uint8_t hook_count = module_get_hook_count();
 
-    if (index < hook_count && hooks[MODULE_HOOK_GET_COMBO_TERM].func != NULL) {
+    if (hooks[MODULE_HOOK_GET_COMBO_TERM].func != NULL) {
         get_combo_term_fn fn = (get_combo_term_fn)hooks[MODULE_HOOK_GET_COMBO_TERM].func;
         return fn(index, combo);
     }
