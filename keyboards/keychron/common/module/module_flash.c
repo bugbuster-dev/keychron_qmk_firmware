@@ -6,10 +6,12 @@
 
 #include <string.h>
 #include "hal.h"
+#include "hal_efl.h"
 #include "hal_flash.h"
 #include "module_flash.h"
 
 /* Flash instance - using the ChibiOS EFL driver */
+static EFlashDriver *efl = &EFLD1;
 static BaseFlash *flash = (BaseFlash *)&EFLD1;
 
 /**
@@ -42,8 +44,8 @@ bool module_flash_write(uint32_t address, uint8_t* data, size_t len) {
         return false;
     }
 
-    /* Initialize the flash driver if not already done */
-    if (flashStart(flash, NULL) != HAL_RET_SUCCESS) {
+    /* Initialize the EFL driver */
+    if (eflStart(efl, NULL) != HAL_RET_SUCCESS) {
         return false;
     }
 
@@ -51,12 +53,12 @@ bool module_flash_write(uint32_t address, uint8_t* data, size_t len) {
     for (size_t i = 0; i < len; i += 4) {
         flash_error_t status = flashProgram(flash, address + i, 4, data + i);
         if (status != FLASH_NO_ERROR) {
-            flashStop(flash);
+            eflStop(efl);
             return false;
         }
     }
 
-    flashStop(flash);
+    eflStop(efl);
     return true;
 }
 
@@ -72,26 +74,26 @@ bool module_flash_erase_sector(uint32_t sector_base) {
         return false;
     }
 
-    /* Initialize the flash driver */
-    if (flashStart(flash, NULL) != HAL_RET_SUCCESS) {
+    /* Initialize the EFL driver */
+    if (eflStart(efl, NULL) != HAL_RET_SUCCESS) {
         return false;
     }
 
     /* Start the erase operation */
     flash_error_t status = flashStartEraseSector(flash, sector_num);
     if (status != FLASH_NO_ERROR && status != FLASH_BUSY_ERASING) {
-        flashStop(flash);
+        eflStop(efl);
         return false;
     }
 
     /* Wait for the erase to complete */
     status = flashWaitErase(flash);
     if (status != FLASH_NO_ERROR && status != FLASH_BUSY_ERASING) {
-        flashStop(flash);
+        eflStop(efl);
         return false;
     }
 
-    flashStop(flash);
+    eflStop(efl);
     return true;
 }
 

@@ -7,9 +7,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "quantum/combo.h"
+#include "process_keycode/process_combo.h"
 #include "quantum/keycodes.h"
-#include "keyevent.h"
+#include "action.h"
 
 /* Dispatcher function prototypes */
 
