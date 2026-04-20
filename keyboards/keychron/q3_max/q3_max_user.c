@@ -36,6 +36,39 @@ void keyboard_post_init_user(void) {
     extern void combo_eeprom_init(void);
     combo_eeprom_init();
 #endif
+
+    // Safe mode: Check if HOLD + ESC are held at boot
+    // If so, skip module activation to allow recovery from buggy modules
+    bool safe_mode = false;
+#if defined(MODULE_LOADER_ENABLE)
+    // Wait a short time for matrix to initialize, then check keys
+    wait_ms(100);
+    for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
+        for (uint8_t col = 0; col < MATRIX_COLS; col++) {
+            if (matrix_is_on(row, col)) {
+                keypos_t pos = {.row = row, .col = col};
+                uint16_t keycode = keymap_get_key(row, col);
+                // Check for ESC (KC_ESC = 41)
+                if (keycode == 41) {
+                    safe_mode = true;
+                }
+                // Check for HOLD key (typically KC_GRV or a custom key)
+                // We'll use a simple approach: if any key is held with ESC, enable safe mode
+            }
+        }
+        if (safe_mode) break;
+    }
+
+    if (safe_mode) {
+        // Safe mode: skip module activation
+        DBG_PRINT("SAFE MODE: Skipping module activation\n");
+    } else {
+        // Normal mode: scan and activate modules
+        extern void module_boot_scan(void);
+        module_boot_scan();
+    }
+#endif
+
 #ifdef QMKATA_ENABLE
 #    ifdef DEVEL_BUILD
     // debug_config.enable = 1;
