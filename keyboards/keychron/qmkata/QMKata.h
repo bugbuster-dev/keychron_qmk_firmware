@@ -54,6 +54,7 @@ enum {
     QMKATA_ID_COMBO          = 11,  // EEPROM-backed combo definitions
     QMKATA_ID_TAP_DANCE      = 12,  // EEPROM-backed tap dance definitions
     QMKATA_ID_LEADER         = 13,  // EEPROM-backed leader sequences
+    QMKATA_ID_MODULE         = 14,  // loadable module management
     QMKATA_ID_DYNLD_FUNCTION = 250, // dynamic load function into ram (todo bb: move to CLI or CONTROL_...)
     QMKATA_ID_DYNLD_FUNEXEC  = 251, // exec "dynamic loaded function"
 };
@@ -86,6 +87,10 @@ _QMKATA_HANDLE_CMD_SETGET(tap_dance);
 
 #if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
 _QMKATA_HANDLE_CMD_SETGET(leader);
+#endif
+
+#if defined(MODULE_LOADER_ENABLE)
+_QMKATA_HANDLE_CMD_SETGET(module);
 #endif
 
 // rgb matrix buffer set from host

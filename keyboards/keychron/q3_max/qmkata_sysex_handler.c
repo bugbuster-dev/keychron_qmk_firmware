@@ -58,6 +58,11 @@ static inline void* _qmkata_dk_addr(uint8_t layer, uint8_t row, uint8_t column) 
 #    include "leader_eeprom.h"
 #endif
 
+#if defined(MODULE_LOADER_ENABLE)
+#    include "module_loader.h"
+#    include "module_flash.h"
+#endif
+
 #include "qmkata/QMKata.h"
 #include "dynld_func.h"
 
@@ -989,3 +994,117 @@ _QMKATA_HANDLE_CMD_GET(leader) {
 }
 
 #endif // DYNAMIC_LEADER_ENABLE && LEADER_ENABLE
+
+//------------------------------------------------------------------------------
+#if defined(MODULE_LOADER_ENABLE)
+
+// Module chunk buffer for incremental loading
+static uint8_t module_chunk_buf[MODULE_FLASH_SLOT_SIZE];
+static uint8_t module_loading_slot = 0xFF;
+static uint16_t module_loading_offset = 0;
+
+// SET: buf[0]=slot_id (0-7), buf[1..2]=offset (uint16_t LE; 0xFFFF=finalize), buf[3..]=data
+_QMKATA_HANDLE_CMD_SET(module) {
+    if (len < 1) return;
+    uint8_t  slot_id   = buf[0];
+    uint16_t offset    = 0;
+    uint8_t* data      = NULL;
+    size_t   data_len  = 0;
+
+    if (len >= 3) {
+        offset = buf[1] | (buf[2] << 8);
+        data   = &buf[3];
+        data_len = len - 3;
+    } else if (len == 2) {
+        offset = buf[1] | (buf[2] << 8);
+    }
+
+    DBG_USR(qmkata, "module:set slot=%u offset=0x%04x len=%zu\n", slot_id, offset, data_len);
+
+    /* Handle finalize (offset == 0xFFFF) */
+    if (offset == 0xFFFF) {
+        if (module_loading_slot != 0xFF) {
+            /* Load the accumulated module data */
+            bool success = module_load(module_loading_slot, module_chunk_buf, sizeof(module_chunk_buf));
+            DBG_USR(qmkata, "module:load %s\n", success ? "OK" : "FAIL");
+            module_loading_slot = 0xFF;
+            module_loading_offset = 0;
+        }
+        return;
+    }
+
+    /* Handle chunk data */
+    if (slot_id >= MODULE_FLASH_SLOT_COUNT) {
+        DBG_USR(qmkata, "module:set invalid slot=%u\n", slot_id);
+        return;
+    }
+
+    /* Initialize loading state if this is the first chunk */
+    if (module_loading_slot == 0xFF && offset == 0) {
+        module_loading_slot = slot_id;
+        module_loading_offset = 0;
+        memset(module_chunk_buf, 0, sizeof(module_chunk_buf));
+    }
+
+    /* Write chunk to buffer */
+    if (data && data_len > 0) {
+        if (module_loading_offset + data_len > sizeof(module_chunk_buf)) {
+            DBG_USR(qmkata, "module:set overflow slot=%u off=%u len=%zu\n", slot_id, module_loading_offset, data_len);
+            module_loading_slot = 0xFF;
+            return;
+        }
+        memcpy(&module_chunk_buf[module_loading_offset], data, data_len);
+        module_loading_offset += data_len;
+    }
+}
+
+// GET: buf[0]=slot_id (0-7) or 0xFF for all slots summary
+_QMKATA_HANDLE_CMD_GET(module) {
+    if (len < 1) return;
+    uint8_t slot_id = buf[0];
+
+    if (slot_id == 0xFF) {
+        /* Return summary for all slots */
+        uint8_t resp[3 + MODULE_FLASH_SLOT_COUNT * 4];
+        resp[0] = seqnum;
+        resp[1] = QMKATA_ID_MODULE;
+        resp[2] = 0xFF; /* Summary */
+        for (uint8_t i = 0; i < MODULE_FLASH_SLOT_COUNT; i++) {
+            uint32_t slot_addr = MODULE_FLASH_GET_SLOT_ADDR(i);
+            uint32_t magic = *(volatile uint32_t *)slot_addr;
+            resp[3 + i * 4 + 0] = (magic >> 0) & 0xFF;
+            resp[3 + i * 4 + 1] = (magic >> 8) & 0xFF;
+            resp[3 + i * 4 + 2] = (magic >> 16) & 0xFF;
+            resp[3 + i * 4 + 3] = (magic >> 24) & 0xFF;
+        }
+        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+        return;
+    }
+
+    if (slot_id >= MODULE_FLASH_SLOT_COUNT) {
+        return;
+    }
+
+    DBG_USR(qmkata, "module:get slot=%u\n", slot_id);
+
+    uint32_t slot_addr = MODULE_FLASH_GET_SLOT_ADDR(slot_id);
+    uint32_t magic = *(volatile uint32_t *)slot_addr;
+
+    uint8_t resp[3 + 12];
+    resp[0] = seqnum;
+    resp[1] = QMKATA_ID_MODULE;
+    resp[2] = slot_id;
+    resp[3]   = (magic >> 0) & 0xFF;
+    resp[4]   = (magic >> 8) & 0xFF;
+    resp[5]   = (magic >> 16) & 0xFF;
+    resp[6]   = (magic >> 24) & 0xFF;
+    resp[7]   = 0; /* flags placeholder */
+    resp[8]   = 0;
+    resp[9]   = 0; /* hook_bitmap placeholder */
+    resp[10]  = 0;
+    resp[11]  = 0;
+    resp[12]  = 0;
+    qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+}
+
+#endif // MODULE_LOADER_ENABLE
