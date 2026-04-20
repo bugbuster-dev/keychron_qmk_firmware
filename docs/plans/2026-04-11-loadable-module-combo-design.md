@@ -29,6 +29,7 @@ The first module type targets **combo behavior customization**: the EEPROM combo
 - **Sectors 2 & 3 (32 KB)**: Dedicated to Loadable Modules.
 - **Sectors 4 & 5 (192 KB)**: Main firmware body.
 - **Erase granularity**: Sector-based. Erasing S2 or S3 only affects modules in that specific sector, leaving others and the EEPROM untouched.
+- **HAL Layer**: Flash operations use the ChibiOS HAL (`flashProgram`, `flashStartEraseSector`, `flashQueryErase`).
 
 ## Flash Layout
 
@@ -69,6 +70,11 @@ Located at `slot_base + hook_table_off`. An array of `void*` entries, one per bi
 2. Use a linker script setting `.text` origin to the specific slot address (e.g., `0x08008000` for Slot 0).
 3. Resolve symbols from the firmware's `.map` file.
 4. Output flat binary and prepend the `module_header_t`.
+
+**Host Implementation Notes:**
+- **Endianness**: All binary data (header, hook table, code) must be written in **Little-Endian** format.
+- **Alignment**: Ensure the binary is padded to a multiple of the MCU's write size (e.g., 4 bytes) to avoid programming faults.
+- **Flash Reset State**: The host tool should assume that an erased slot contains `0xFF`. While binary files may pad empty space with `0x00`, the firmware's `S2/S3` detection logic must look for `0xFF` to identify empty slots.
 
 ## Hook Table (Firmware Side)
 
@@ -119,7 +125,7 @@ To update an existing module, the specific sector (S2 or S3) containing the slot
 ## SysEx Protocol
 
 - **`QMKATA_ID_MODULE = 14`**
-- **SET (Load)**: `buf[0] = slot_id (0-7)`, `buf[1..2] = offset`, `buf[3..] = data`.
+- **SET (Load)**: `buf[0] = slot_id (0-7)`, `buf[1..2] = offset (uint16_t LE)`, `buf[3..] = data`.
 - **DEL (Unload)**: `buf[0] = slot_id (0-7)`.
 - **GET (Query)**: `buf[0] = slot_id (0-7)` or `0xFF` for summary.
 
