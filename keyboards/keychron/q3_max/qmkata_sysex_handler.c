@@ -185,6 +185,9 @@ void qmkata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf) {
 #if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
         if (id == QMKATA_ID_LEADER) _QMKATA_HANDLE_CMD_SET_FN(leader)(cmd, seqnum, len, buf);
 #endif
+#if defined(MODULE_LOADER_ENABLE)
+        if (id == QMKATA_ID_MODULE) _QMKATA_HANDLE_CMD_SET_FN(module)(cmd, seqnum, len, buf);
+#endif
     }
     if (cmd == QMKATA_CMD_GET) {
         if (id == QMKATA_ID_DEFAULT_LAYER) _QMKATA_HANDLE_CMD_GET_FN(default_layer)(cmd, seqnum, len, buf);
@@ -200,6 +203,14 @@ void qmkata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf) {
 #endif
 #if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
         if (id == QMKATA_ID_LEADER) _QMKATA_HANDLE_CMD_GET_FN(leader)(cmd, seqnum, len, buf);
+#endif
+#if defined(MODULE_LOADER_ENABLE)
+        if (id == QMKATA_ID_MODULE) _QMKATA_HANDLE_CMD_GET_FN(module)(cmd, seqnum, len, buf);
+#endif
+    }
+    if (cmd == QMKATA_CMD_DEL) {
+#if defined(MODULE_LOADER_ENABLE)
+        if (id == QMKATA_ID_MODULE) _QMKATA_HANDLE_CMD_DEL_FN(module)(cmd, seqnum, len, buf);
 #endif
     }
 }
@@ -1016,20 +1027,23 @@ _QMKATA_HANDLE_CMD_SET(module) {
         data   = &buf[3];
         data_len = len - 3;
     } else if (len == 2) {
-        offset = buf[1] | (buf[2] << 8);
+        offset = buf[1];
     }
 
     DBG_USR(qmkata, "module:set slot=%u offset=0x%04x len=%zu\n", slot_id, offset, data_len);
 
     /* Handle finalize (offset == 0xFFFF) */
     if (offset == 0xFFFF) {
+        bool success = false;
         if (module_loading_slot != 0xFF) {
-            /* Load the accumulated module data */
-            bool success = module_load(module_loading_slot, module_chunk_buf, sizeof(module_chunk_buf));
+            size_t write_len = (module_loading_offset + 3) & ~3;
+            success = module_load(module_loading_slot, module_chunk_buf, write_len);
             DBG_USR(qmkata, "module:load %s\n", success ? "OK" : "FAIL");
             module_loading_slot = 0xFF;
             module_loading_offset = 0;
         }
+        uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, success ? 0 : 1 };
+        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
         return;
     }
 
@@ -1051,10 +1065,14 @@ _QMKATA_HANDLE_CMD_SET(module) {
         if (module_loading_offset + data_len > sizeof(module_chunk_buf)) {
             DBG_USR(qmkata, "module:set overflow slot=%u off=%u len=%zu\n", slot_id, module_loading_offset, data_len);
             module_loading_slot = 0xFF;
+            uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, 2 }; /* 2 = overflow */
+            qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
             return;
         }
         memcpy(&module_chunk_buf[module_loading_offset], data, data_len);
         module_loading_offset += data_len;
+        uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, 0 }; /* 0 = success */
+        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
     }
 }
 
@@ -1090,20 +1108,44 @@ _QMKATA_HANDLE_CMD_GET(module) {
     uint32_t slot_addr = MODULE_FLASH_GET_SLOT_ADDR(slot_id);
     uint32_t magic = *(volatile uint32_t *)slot_addr;
 
-    uint8_t resp[3 + 12];
+    /* Read actual flags and hook_bitmap from header */
+    uint16_t flags = 0;
+    uint32_t hook_bitmap = 0;
+    if (magic == MODULE_HEADER_MAGIC) {
+        module_header_t hdr;
+        memcpy(&hdr, (const void*)slot_addr, sizeof(hdr));
+        flags = hdr.flags;
+        hook_bitmap = hdr.hook_bitmap;
+    }
+
+    uint8_t resp[13];
     resp[0] = seqnum;
     resp[1] = QMKATA_ID_MODULE;
     resp[2] = slot_id;
-    resp[3]   = (magic >> 0) & 0xFF;
-    resp[4]   = (magic >> 8) & 0xFF;
-    resp[5]   = (magic >> 16) & 0xFF;
-    resp[6]   = (magic >> 24) & 0xFF;
-    resp[7]   = 0; /* flags placeholder */
-    resp[8]   = 0;
-    resp[9]   = 0; /* hook_bitmap placeholder */
-    resp[10]  = 0;
-    resp[11]  = 0;
-    resp[12]  = 0;
+    resp[3]  = (magic >> 0) & 0xFF;
+    resp[4]  = (magic >> 8) & 0xFF;
+    resp[5]  = (magic >> 16) & 0xFF;
+    resp[6]  = (magic >> 24) & 0xFF;
+    resp[7]  = (flags >> 0) & 0xFF;
+    resp[8]  = (flags >> 8) & 0xFF;
+    resp[9]  = (hook_bitmap >> 0) & 0xFF;
+    resp[10] = (hook_bitmap >> 8) & 0xFF;
+    resp[11] = (hook_bitmap >> 16) & 0xFF;
+    resp[12] = (hook_bitmap >> 24) & 0xFF;
+    qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+}
+
+_QMKATA_HANDLE_CMD_DEL(module) {
+    if (len < 1) return;
+    uint8_t slot_id = buf[0];
+
+    bool success = false;
+    if (slot_id < MODULE_FLASH_SLOT_COUNT) {
+        success = module_unload(slot_id);
+        DBG_USR(qmkata, "module:del slot=%u %s\n", slot_id, success ? "OK" : "FAIL");
+    }
+
+    uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, success ? 0 : 1 };
     qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
 }
 

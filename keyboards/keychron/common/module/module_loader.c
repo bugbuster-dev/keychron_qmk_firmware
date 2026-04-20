@@ -53,85 +53,61 @@ static void release_hook(uint32_t hook_index, uint8_t module_id) {
 }
 
 bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
-    /* Validate slot ID */
-    if (slot_id >= MODULE_FLASH_SLOT_COUNT) {
-        return false;
-    }
+    if (slot_id >= MODULE_FLASH_SLOT_COUNT) return false;
+    if (len < sizeof(module_header_t)) return false;
 
-    /* Validate data length */
-    if (len < sizeof(module_header_t)) {
-        return false;
-    }
+    /* Validate header in RAM before touching flash */
+    const module_header_t* hdr = (const module_header_t*)data;
+    if (hdr->magic != MODULE_HEADER_MAGIC) return false;
+    if (hdr->version != MODULE_HEADER_VERSION) return false;
 
-    uint32_t slot_addr = MODULE_FLASH_GET_SLOT_ADDR(slot_id);
-
-    /* Write the module data to flash */
-    if (!module_flash_write(slot_addr, (uint8_t*)data, len)) {
-        return false;
-    }
-
-    /* Read back the header to validate */
-    module_header_t header;
-    if (!read_module_header(slot_addr, &header)) {
-        return false;
-    }
-
-    /* Validate magic and version */
-    if (header.magic != MODULE_HEADER_MAGIC) {
-        return false;
-    }
-    if (header.version != MODULE_HEADER_VERSION) {
-        return false;
-    }
-
-    /* Validate hook bitmap - check for conflicts */
+    /* Check for hook conflicts */
     for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-        if ((header.hook_bitmap & (1 << i)) && is_hook_claimed(i)) {
-            /* Hook conflict - reject */
+        if ((hdr->hook_bitmap & (1 << i)) && is_hook_claimed(i)) {
             return false;
         }
     }
 
-    /* Claim all hooks */
+    uint32_t slot_addr = MODULE_FLASH_GET_SLOT_ADDR(slot_id);
+
+    /* Erase sector (unload sibling modules first) */
+    uint32_t sector_base = MODULE_FLASH_GET_SLOT_SECTOR(slot_id);
+    for (uint8_t s = 0; s < MODULE_FLASH_SLOT_COUNT; s++) {
+        if (s != slot_id && MODULE_FLASH_GET_SLOT_SECTOR(s) == sector_base) {
+            module_unload(s);
+        }
+    }
+    if (!module_flash_erase_sector(sector_base)) return false;
+
+    /* Write module data to flash (pad to 4-byte alignment) */
+    size_t write_len = (len + 3) & ~3;
+    if (!module_flash_write(slot_addr, (uint8_t*)data, write_len)) return false;
+
+    /* Claim hooks */
     for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-        if (header.hook_bitmap & (1 << i)) {
+        if (hdr->hook_bitmap & (1 << i)) {
             if (!claim_hook(i, slot_id)) {
-                /* Failed to claim a hook - rollback */
                 for (uint32_t j = 0; j < i; j++) {
-                    if (header.hook_bitmap & (1 << j)) {
-                        release_hook(j, slot_id);
-                    }
+                    if (hdr->hook_bitmap & (1 << j)) release_hook(j, slot_id);
                 }
                 return false;
             }
         }
     }
 
-    /* Read the hook table from flash and populate g_module_hooks */
-    if (header.hook_table_off > 0 && header.hook_table_off < len) {
-        void** hook_table = (void**)(slot_addr + header.hook_table_off);
+    /* Read hook table from flash (entries are offsets, add slot_addr) */
+    if (hdr->hook_table_off > 0 && hdr->hook_table_off < len) {
+        void** hook_table = (void**)(slot_addr + hdr->hook_table_off);
         for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-            if (header.hook_bitmap & (1 << i)) {
-                g_module_hooks[i].func = hook_table[i];
+            if (hdr->hook_bitmap & (1 << i)) {
+                g_module_hooks[i].func = (void*)(slot_addr + (uint32_t)hook_table[i]);
             }
         }
-    }
-
-    /* Set the enabled flag in the header */
-    header.flags |= (1 << 0);
-    if (!write_module_header(slot_addr, &header)) {
-        /* Failed to write header - rollback hooks */
-        for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-            if (header.hook_bitmap & (1 << i)) {
-                release_hook(i, slot_id);
-            }
-        }
-        return false;
     }
 
     /* Call init function if present */
-    if (header.init_off > 0 && header.init_off < len) {
-        void (*init_fn)(void) = (void (*)(void))(slot_addr + header.init_off);
+    if (hdr->init_off > 0 && hdr->init_off < len) {
+        void (*init_fn)(void) = (void (*)(void))(slot_addr + hdr->init_off);
         init_fn();
     }
 
@@ -229,7 +205,7 @@ void module_boot_scan(void) {
             void** hook_table = (void**)(slot_addr + header.hook_table_off);
             for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
                 if (header.hook_bitmap & (1 << i)) {
-                    g_module_hooks[i].func = hook_table[i];
+                    g_module_hooks[i].func = (void*)(slot_addr + (uint32_t)hook_table[i]);
                 }
             }
         }

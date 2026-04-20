@@ -61,8 +61,10 @@ enum {
 
 #define _QMKATA_HANDLE_CMD_SET_FN(name) _qmkata_handle_cmd_set_##name
 #define _QMKATA_HANDLE_CMD_GET_FN(name) _qmkata_handle_cmd_get_##name
+#define _QMKATA_HANDLE_CMD_DEL_FN(name) _qmkata_handle_cmd_del_##name
 #define _QMKATA_HANDLE_CMD_SET(name) void _QMKATA_HANDLE_CMD_SET_FN(name)(uint8_t cmd, uint8_t seqnum, uint8_t len, uint8_t * buf)
 #define _QMKATA_HANDLE_CMD_GET(name) void _QMKATA_HANDLE_CMD_GET_FN(name)(uint8_t cmd, uint8_t seqnum, uint8_t len, uint8_t * buf)
+#define _QMKATA_HANDLE_CMD_DEL(name) void _QMKATA_HANDLE_CMD_DEL_FN(name)(uint8_t cmd, uint8_t seqnum, uint8_t len, uint8_t * buf)
 #define _QMKATA_HANDLE_CMD_SETGET(name) \
     _QMKATA_HANDLE_CMD_SET(name);       \
     _QMKATA_HANDLE_CMD_GET(name)
@@ -91,6 +93,7 @@ _QMKATA_HANDLE_CMD_SETGET(leader);
 
 #if defined(MODULE_LOADER_ENABLE)
 _QMKATA_HANDLE_CMD_SETGET(module);
+_QMKATA_HANDLE_CMD_DEL(module);
 #endif
 
 // rgb matrix buffer set from host
