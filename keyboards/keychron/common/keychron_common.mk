@@ -47,3 +47,7 @@ endif
 ifeq ($(strip $(LEADER_ENABLE)), yes)
 include $(KEYCHRON_COMMON_DIR)/leader/leader_eeprom.mk
 endif
+
+ifeq ($(strip $(MODULE_LOADER_ENABLE)), yes)
+include $(KEYCHRON_COMMON_DIR)/module/module_loader.mk
+endif
