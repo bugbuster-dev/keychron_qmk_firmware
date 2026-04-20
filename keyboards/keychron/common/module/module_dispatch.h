@@ -38,3 +38,39 @@ void module_dispatch_process_combo_event(uint16_t combo_index, bool pressed);
  * @return The combo term in milliseconds.
  */
 uint16_t module_dispatch_get_combo_term(uint16_t index, combo_t *combo);
+
+/**
+ * @brief Dispatcher for get_combo_must_hold.
+ * Returns false when no module hooks it (QMK default).
+ */
+bool module_dispatch_get_combo_must_hold(uint16_t index, combo_t *combo);
+
+/**
+ * @brief Dispatcher for get_combo_must_tap.
+ * Returns false when no module hooks it (QMK default).
+ */
+bool module_dispatch_get_combo_must_tap(uint16_t index, combo_t *combo);
+
+/**
+ * @brief Dispatcher for get_combo_must_press_in_order.
+ * Returns true when no module hooks it (QMK default).
+ */
+bool module_dispatch_get_combo_must_press_in_order(uint16_t index, combo_t *combo);
+
+/**
+ * @brief Dispatcher for process_combo_key_release.
+ * Returns false when no module hooks it (QMK default: do not release combo).
+ */
+bool module_dispatch_process_combo_key_release(uint16_t index, combo_t *combo, uint8_t key_index, uint16_t keycode);
+
+/**
+ * @brief Dispatcher for process_combo_key_repress.
+ * Returns false when no module hooks it (QMK default: no special repress behavior).
+ */
+bool module_dispatch_process_combo_key_repress(uint16_t index, combo_t *combo, uint8_t key_index, uint16_t keycode);
+
+/**
+ * @brief Dispatcher for combo_ref_from_layer.
+ * Returns the input layer when no module hooks it (QMK default).
+ */
+uint8_t module_dispatch_combo_ref_from_layer(uint8_t layer);
