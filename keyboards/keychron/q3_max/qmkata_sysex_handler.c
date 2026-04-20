@@ -1060,6 +1060,22 @@ _QMKATA_HANDLE_CMD_SET(module) {
         memset(module_chunk_buf, 0, sizeof(module_chunk_buf));
     }
 
+    /* Enforce in-order chunk stream for the active slot */
+    if (module_loading_slot == 0xFF) {
+        uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, 1 }; /* 1 = protocol/load fail */
+        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+        return;
+    }
+    if (slot_id != module_loading_slot || offset != module_loading_offset) {
+        DBG_USR(qmkata, "module:set desync slot=%u exp_slot=%u off=0x%04x exp_off=0x%04x\n",
+                slot_id, module_loading_slot, offset, module_loading_offset);
+        module_loading_slot = 0xFF;
+        module_loading_offset = 0;
+        uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, 1 }; /* 1 = protocol/load fail */
+        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+        return;
+    }
+
     /* Write chunk to buffer */
     if (data && data_len > 0) {
         if (module_loading_offset + data_len > sizeof(module_chunk_buf)) {

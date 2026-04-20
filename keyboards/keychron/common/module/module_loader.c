@@ -10,6 +10,65 @@
 /* Global Hook Table */
 static module_hook_entry_t g_module_hooks[MODULE_HOOK_MAX] = {{NULL, 0xFF}};
 
+/* Helper: lifecycle hooks are represented by header offsets, not dispatch table claims */
+static bool is_lifecycle_hook(uint32_t hook_index) {
+    return (hook_index == MODULE_HOOK_INIT) || (hook_index == MODULE_HOOK_DEINIT);
+}
+
+/* Helper: Validate module header layout against provided binary length */
+static bool validate_module_layout(const module_header_t* header, size_t available_len) {
+    if (header->code_size < sizeof(module_header_t)) {
+        return false;
+    }
+    if (header->code_size > MODULE_FLASH_SLOT_SIZE) {
+        return false;
+    }
+    if (header->code_size > available_len) {
+        return false;
+    }
+
+    if (header->hook_table_off < sizeof(module_header_t)) {
+        return false;
+    }
+    if (((uint64_t)header->hook_table_off + (uint64_t)(MODULE_HOOK_MAX * sizeof(uint32_t))) > header->code_size) {
+        return false;
+    }
+
+    if (header->init_off > 0) {
+        if (header->init_off < sizeof(module_header_t) || header->init_off >= header->code_size) {
+            return false;
+        }
+    }
+    if (header->deinit_off > 0) {
+        if (header->deinit_off < sizeof(module_header_t) || header->deinit_off >= header->code_size) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/* Helper: Validate hook offsets for all dispatch hooks claimed in hook_bitmap */
+static bool validate_dispatch_hook_offsets(const module_header_t* header, const uint32_t* hook_table) {
+    for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
+        if (is_lifecycle_hook(i)) {
+            continue;
+        }
+
+        if (header->hook_bitmap & (1U << i)) {
+            uint32_t hook_off = hook_table[i];
+            if (hook_off == 0) {
+                return false;
+            }
+            if (hook_off >= header->code_size) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 /* Helper: Read the module header from a slot */
 static bool read_module_header(uint32_t slot_addr, module_header_t* header) {
     /* Read the header from flash */
@@ -60,10 +119,18 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
     const module_header_t* hdr = (const module_header_t*)data;
     if (hdr->magic != MODULE_HEADER_MAGIC) return false;
     if (hdr->version != MODULE_HEADER_VERSION) return false;
+    if (!validate_module_layout(hdr, len)) return false;
+
+    const uint32_t* hook_table_data = (const uint32_t*)(data + hdr->hook_table_off);
+    if (!validate_dispatch_hook_offsets(hdr, hook_table_data)) return false;
 
     /* Check for hook conflicts */
     for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-        if ((hdr->hook_bitmap & (1 << i)) && is_hook_claimed(i)) {
+        if (is_lifecycle_hook(i)) {
+            continue;
+        }
+
+        if ((hdr->hook_bitmap & (1U << i)) && is_hook_claimed(i)) {
             return false;
         }
     }
@@ -85,28 +152,35 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
 
     /* Claim hooks */
     for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-        if (hdr->hook_bitmap & (1 << i)) {
+        if (is_lifecycle_hook(i)) {
+            continue;
+        }
+
+        if (hdr->hook_bitmap & (1U << i)) {
             if (!claim_hook(i, slot_id)) {
                 for (uint32_t j = 0; j < i; j++) {
-                    if (hdr->hook_bitmap & (1 << j)) release_hook(j, slot_id);
+                    if (!is_lifecycle_hook(j) && (hdr->hook_bitmap & (1U << j))) {
+                        release_hook(j, slot_id);
+                    }
                 }
                 return false;
             }
         }
     }
 
-    /* Read hook table from flash (entries are offsets, add slot_addr) */
-    if (hdr->hook_table_off > 0 && hdr->hook_table_off < len) {
-        void** hook_table = (void**)(slot_addr + hdr->hook_table_off);
-        for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-            if (hdr->hook_bitmap & (1 << i)) {
-                g_module_hooks[i].func = (void*)(slot_addr + (uint32_t)hook_table[i]);
-            }
+    /* Populate dispatch hooks from validated RAM hook table (entries are slot-base offsets) */
+    for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
+        if (is_lifecycle_hook(i)) {
+            continue;
+        }
+
+        if (hdr->hook_bitmap & (1U << i)) {
+            g_module_hooks[i].func = (void*)(slot_addr + hook_table_data[i]);
         }
     }
 
     /* Call init function if present */
-    if (hdr->init_off > 0 && hdr->init_off < len) {
+    if (hdr->init_off > 0) {
         void (*init_fn)(void) = (void (*)(void))(slot_addr + hdr->init_off);
         init_fn();
     }
@@ -134,14 +208,18 @@ bool module_unload(uint8_t slot_id) {
     }
 
     /* Call deinit function if present */
-    if (header.deinit_off > 0 && header.deinit_off < header.code_size) {
+    if (header.deinit_off > 0 && header.deinit_off >= sizeof(module_header_t) && header.deinit_off < header.code_size) {
         void (*deinit_fn)(void) = (void (*)(void))(slot_addr + header.deinit_off);
         deinit_fn();
     }
 
     /* Release all hooks claimed by this module */
     for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-        if (header.hook_bitmap & (1 << i)) {
+        if (is_lifecycle_hook(i)) {
+            continue;
+        }
+
+        if (header.hook_bitmap & (1U << i)) {
             release_hook(i, slot_id);
         }
     }
@@ -174,6 +252,17 @@ void module_boot_scan(void) {
             continue;
         }
 
+        if (!validate_module_layout(&header, MODULE_FLASH_SLOT_SIZE)) {
+            invalidate_module(slot_addr);
+            continue;
+        }
+
+        const uint32_t* hook_table = (const uint32_t*)(slot_addr + header.hook_table_off);
+        if (!validate_dispatch_hook_offsets(&header, hook_table)) {
+            invalidate_module(slot_addr);
+            continue;
+        }
+
         /* Check if enabled */
         if (!(header.flags & (1 << 0))) {
             continue;
@@ -182,7 +271,11 @@ void module_boot_scan(void) {
         /* Validate hook bitmap - check for conflicts */
         bool conflict = false;
         for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-            if ((header.hook_bitmap & (1 << i)) && is_hook_claimed(i)) {
+            if (is_lifecycle_hook(i)) {
+                continue;
+            }
+
+            if ((header.hook_bitmap & (1U << i)) && is_hook_claimed(i)) {
                 conflict = true;
                 break;
             }
@@ -195,23 +288,28 @@ void module_boot_scan(void) {
 
         /* Claim all hooks */
         for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-            if (header.hook_bitmap & (1 << i)) {
+            if (is_lifecycle_hook(i)) {
+                continue;
+            }
+
+            if (header.hook_bitmap & (1U << i)) {
                 claim_hook(i, slot_id);
             }
         }
 
-        /* Read the hook table from flash and populate g_module_hooks */
-        if (header.hook_table_off > 0 && header.hook_table_off < header.code_size) {
-            void** hook_table = (void**)(slot_addr + header.hook_table_off);
-            for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-                if (header.hook_bitmap & (1 << i)) {
-                    g_module_hooks[i].func = (void*)(slot_addr + (uint32_t)hook_table[i]);
-                }
+        /* Read the validated hook table from flash and populate dispatch hooks */
+        for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
+            if (is_lifecycle_hook(i)) {
+                continue;
+            }
+
+            if (header.hook_bitmap & (1U << i)) {
+                g_module_hooks[i].func = (void*)(slot_addr + hook_table[i]);
             }
         }
 
         /* Call init function if present */
-        if (header.init_off > 0 && header.init_off < header.code_size) {
+        if (header.init_off > 0) {
             void (*init_fn)(void) = (void (*)(void))(slot_addr + header.init_off);
             init_fn();
         }
