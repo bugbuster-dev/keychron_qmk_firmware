@@ -32,7 +32,7 @@
 typedef struct __attribute__((packed)) {
     uint32_t magic;          /* 0x4D4F444C ("MODL") */
     uint16_t version;        /* module format version (1) */
-    uint16_t flags;          /* bit 0: enabled, bits 1-15: reserved */
+    uint16_t flags;          /* reserved for future use (e.g. explicit enable/disable); must be 0 */
     uint32_t code_size;      /* total size of module binary (header + code) */
     uint32_t hook_bitmap;    /* bitmask of hooks this module provides */
     uint32_t hook_table_off; /* offset from slot start to hook function pointer table */

@@ -294,10 +294,11 @@ void module_boot_scan(void) {
             continue;
         }
 
-        /* Check if enabled */
-        if (!(header.flags & (1 << 0))) {
-            continue;
-        }
+        /* header.flags is currently unused at runtime; bit 0 was originally
+           an "enabled" flag but the host always sets it and there is no
+           path to toggle it, so gating activation on it was dead code.
+           The field is preserved in the header layout for a future
+           explicit enable/disable mechanism (see module_loader.h). */
 
         /* Validate hook bitmap - check for conflicts */
         bool conflict = false;
