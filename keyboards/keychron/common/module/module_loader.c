@@ -6,6 +6,8 @@
 #include <string.h>
 #include "module_loader.h"
 #include "module_flash.h"
+#include "debug.h"
+#include "print.h"
 
 /* Global Hook Table.
    Every entry must start with module_id = 0xFF (unclaimed sentinel).
@@ -275,6 +277,10 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
 
         if (hdr->hook_bitmap & (1U << i)) {
             void* func = (void*)(slot_addr + hook_table_data[i]);
+            /* DEBUG: print hook address instead of installing/calling. */
+            dprintf("[mod] load claim slot=%u hook=%lu func=%p (off=0x%lx slot=0x%lx)\n",
+                    (unsigned)slot_id, (unsigned long)i, func,
+                    (unsigned long)hook_table_data[i], (unsigned long)slot_addr);
             if (!claim_hook(i, slot_id, func)) {
                 for (uint32_t j = 0; j < i; j++) {
                     if (!is_lifecycle_hook(j) && (hdr->hook_bitmap & (1U << j))) {
@@ -289,7 +295,12 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
     /* Call init function if present */
     if (hdr->init_off > 0) {
         void (*init_fn)(void) = (void (*)(void))(slot_addr + hdr->init_off);
-        init_fn();
+        /* DEBUG: print init address instead of calling it. */
+        dprintf("[mod] load init slot=%u init_fn=%p (off=0x%lx slot=0x%lx)\n",
+                (unsigned)slot_id, (void*)init_fn,
+                (unsigned long)hdr->init_off, (unsigned long)slot_addr);
+        /* init_fn(); -- DISABLED FOR DEBUG */
+        (void)init_fn;
     }
 
     return true;
@@ -326,7 +337,12 @@ bool module_unload(uint8_t slot_id) {
        unconditionally at runtime. */
     if (header.deinit_off > 0 && header.deinit_off >= sizeof(module_header_t) && header.deinit_off < header.code_size) {
         void (*deinit_fn)(void) = (void (*)(void))(slot_addr + header.deinit_off);
-        deinit_fn();
+        /* DEBUG: print instead of calling. */
+        dprintf("[mod] unload deinit slot=%u deinit_fn=%p (off=0x%lx slot=0x%lx)\n",
+                (unsigned)slot_id, (void*)deinit_fn,
+                (unsigned long)header.deinit_off, (unsigned long)slot_addr);
+        /* deinit_fn(); -- DISABLED FOR DEBUG */
+        (void)deinit_fn;
     }
 
     /* Release all hooks claimed by this module. release_hook() is a no-op
@@ -432,6 +448,11 @@ void module_boot_scan(void) {
 
             if (header.hook_bitmap & (1U << i)) {
                 void* func = (void*)(slot_addr + hook_table[i]);
+                /* DEBUG: print but still claim — claiming only stores a pointer,
+                   it doesn't call through it. */
+                dprintf("[mod] boot claim slot=%u hook=%lu func=%p (off=0x%lx slot=0x%lx)\n",
+                        (unsigned)slot_id, (unsigned long)i, func,
+                        (unsigned long)hook_table[i], (unsigned long)slot_addr);
                 claim_hook(i, slot_id, func);
             }
         }
@@ -439,7 +460,12 @@ void module_boot_scan(void) {
         /* Call init function if present */
         if (header.init_off > 0) {
             void (*init_fn)(void) = (void (*)(void))(slot_addr + header.init_off);
-            init_fn();
+            /* DEBUG: print instead of calling. */
+            dprintf("[mod] boot init slot=%u init_fn=%p (off=0x%lx slot=0x%lx)\n",
+                    (unsigned)slot_id, (void*)init_fn,
+                    (unsigned long)header.init_off, (unsigned long)slot_addr);
+            /* init_fn(); -- DISABLED FOR DEBUG */
+            (void)init_fn;
         }
     }
 }
