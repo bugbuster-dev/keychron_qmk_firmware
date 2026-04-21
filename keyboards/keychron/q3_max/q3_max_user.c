@@ -66,7 +66,7 @@ void keyboard_post_init_user(void) {
 
     if (safe_mode) {
         // Safe mode: skip module activation
-        DBG_PRINT("SAFE MODE: Skipping module activation\n");
+        dprintf("SAFE MODE: Skipping module activation\n");
     } else {
         // Normal mode: scan and activate modules
         extern void module_boot_scan(void);

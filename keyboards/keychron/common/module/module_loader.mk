@@ -1,6 +1,11 @@
 # Module Loader Build Integration
 # Adds module source files to the build when MODULE_LOADER_ENABLE is set.
 
+OPT_DEFS += -DMODULE_LOADER_ENABLE
+
+MODULE_LOADER_DIR = keyboards/keychron/common/module
+VPATH += $(TOP_DIR)/$(MODULE_LOADER_DIR)
+
 SRC += keyboards/keychron/common/module/module_flash.c
 SRC += keyboards/keychron/common/module/module_loader.c
 SRC += keyboards/keychron/common/module/module_dispatch.c

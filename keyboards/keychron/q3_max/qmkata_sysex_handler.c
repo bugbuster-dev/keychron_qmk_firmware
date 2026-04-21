@@ -167,7 +167,7 @@ void qmkata_sysex_handler(uint8_t cmd, uint8_t len, uint8_t* buf) {
     off++;
     len--;
     buf += off;
-    DBG_USR(qmkata, "cmd:%d,len:%u,seqnum=%u\n", cmd, len, seqnum);
+    DBG_USR(qmkata, "cmd:%d,id:%d,len:%u,seqnum:%u\n", cmd, id, len, seqnum);
     if (cmd == QMKATA_CMD_SET) {
         if (id == QMKATA_ID_CLI) _QMKATA_HANDLE_CMD_SET_FN(cli)(cmd, seqnum, len, buf);
         if (id == QMKATA_ID_RGB_MATRIX_BUF) _QMKATA_HANDLE_CMD_SET_FN(rgb_matrix_buf)(cmd, seqnum, len, buf);
