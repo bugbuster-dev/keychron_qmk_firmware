@@ -7,8 +7,15 @@
 #include "module_loader.h"
 #include "module_flash.h"
 
-/* Global Hook Table */
-static module_hook_entry_t g_module_hooks[MODULE_HOOK_MAX] = {{NULL, 0xFF}};
+/* Global Hook Table.
+   Every entry must start with module_id = 0xFF (unclaimed sentinel).
+   Using a GCC range designator ensures all MODULE_HOOK_MAX entries are
+   initialized — the previous {{NULL, 0xFF}} form only set element 0 and
+   left the rest with module_id = 0, so release_hook() called with
+   module_id = 0 could have matched an unclaimed slot. */
+static module_hook_entry_t g_module_hooks[MODULE_HOOK_MAX] = {
+    [0 ... MODULE_HOOK_MAX - 1] = {NULL, 0xFF},
+};
 
 /* Helper: lifecycle hooks are represented by header offsets, not dispatch table claims */
 static bool is_lifecycle_hook(uint32_t hook_index) {
@@ -140,7 +147,13 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
 
     uint32_t slot_addr = MODULE_FLASH_GET_SLOT_ADDR(slot_id);
 
-    /* Erase sector (unload sibling modules first) */
+    /* Destructive step: flash erase on STM32F4 is sector-granular, not
+       slot-granular. Four 4 KB slots share one 16 KB sector, so erasing
+       this sector wipes every sibling module that currently lives in it.
+       We call module_unload() on each sibling first so its hooks are
+       released and its deinit runs, but the sibling binaries themselves
+       will be lost and must be re-uploaded after this call returns.
+       TODO: save siblings to RAM and restore them post-erase. */
     uint32_t sector_base = MODULE_FLASH_GET_SLOT_SECTOR(slot_id);
     for (uint8_t s = 0; s < MODULE_FLASH_SLOT_COUNT; s++) {
         if (s != slot_id && MODULE_FLASH_GET_SLOT_SECTOR(s) == sector_base) {

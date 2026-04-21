@@ -34,7 +34,9 @@ bool module_flash_write(uint32_t address, uint8_t* data, size_t len) {
         return false;
     }
 
-    /* Validate alignment - STM32F4 flash programming works best with 4-byte alignment */
+    /* Validate alignment. STM32F4 flashProgram() in word mode (used below)
+     * requires both the target address and the source buffer to be 4-byte
+     * aligned — unaligned accesses cause a FLASH_ERROR_HW from the HAL. */
     if ((address & 0x03) != 0 || ((uintptr_t)data & 0x03) != 0) {
         return false;
     }
@@ -111,9 +113,14 @@ bool module_flash_is_sector_empty(uint32_t sector_base) {
         return false;
     }
 
-    /* Read the first 4 bytes of the sector */
+    /* Quick blank-check: read only the first word. This is a fast-path
+     * optimization used by the boot scanner — if the sector-base word is
+     * 0xFFFFFFFF the sector has almost certainly never been written, so we
+     * can skip header parsing for all 4 slots in it. A partially-written
+     * sector (power loss mid-program) may still return true here, but the
+     * per-slot magic/version check downstream will reject any slot whose
+     * header is not fully valid, so false positives are safe. */
     uint32_t first_word = *(volatile uint32_t *)sector_base;
 
-    /* An erased sector contains all 0xFF bytes */
     return (first_word == 0xFFFFFFFF);
 }

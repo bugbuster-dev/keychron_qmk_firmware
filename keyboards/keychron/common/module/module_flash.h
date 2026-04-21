@@ -56,8 +56,16 @@ bool module_flash_write(uint32_t address, uint8_t* data, size_t len);
 bool module_flash_erase_sector(uint32_t sector_base);
 
 /**
- * @brief Check if a sector is empty (all 0xFF).
+ * @brief Fast blank-check on a sector by reading only its first word.
+ *
+ * Returns true if the first 4 bytes of the sector are 0xFFFFFFFF. This is
+ * a boot-path optimization to skip header parsing when a sector has never
+ * been programmed; it is NOT a rigorous "all bytes are 0xFF" test. A
+ * partially-written sector (e.g. power loss between erase and program)
+ * may still report as empty here, so callers must still validate each
+ * slot's header before trusting its contents.
+ *
  * @param sector_base The base address of the sector to check.
- * @return true if the sector is empty, false otherwise.
+ * @return true if the first word is erased (0xFFFFFFFF), false otherwise.
  */
 bool module_flash_is_sector_empty(uint32_t sector_base);
