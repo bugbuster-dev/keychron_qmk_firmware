@@ -37,23 +37,31 @@ void keyboard_post_init_user(void) {
     combo_eeprom_init();
 #endif
 
-    // Safe mode: Check if HOLD + ESC are held at boot
-    // If so, skip module activation to allow recovery from buggy modules
+    // Safe mode: if the DELETE key is held at boot, skip module activation
+    // to allow recovery from a buggy module that would otherwise crash the
+    // firmware or hijack input before the user can unload it.
 #if defined(MODULE_LOADER_ENABLE)
-    // Wait a short time for matrix to initialize, then check keys
-    wait_ms(100);
+    // At keyboard_post_init_user() time matrix_init() has run but matrix_scan()
+    // has not, so matrix[] is still zero. Drive a few scans through the
+    // default debounce window so a held key is registered before we read it.
+    // DEBOUNCE defaults to 5 ms; 10 scans at ~2 ms spacing covers it with
+    // margin on both typical (5 ms) and aggressive (1-2 ms) overrides.
+    for (uint8_t i = 0; i < 10; i++) {
+        matrix_scan();
+        wait_ms(2);
+    }
+
     bool safe_mode = false;
-    for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
+    for (uint8_t row = 0; row < MATRIX_ROWS && !safe_mode; row++) {
         for (uint8_t col = 0; col < MATRIX_COLS; col++) {
-            if (matrix_is_on(row, col)) {
-                uint16_t keycode = keymap_get_key(row, col);
-                // Check for DEL (KC_DEL = 42)
-                if (keycode == 42) {
-                    safe_mode = true;
-                }
+            if (!matrix_is_on(row, col)) continue;
+            keypos_t pos     = {.row = row, .col = col};
+            uint16_t keycode = keymap_key_to_keycode(0, pos);
+            if (keycode == KC_DEL) {
+                safe_mode = true;
+                break;
             }
         }
-        if (safe_mode) break;
     }
 
     if (safe_mode) {
