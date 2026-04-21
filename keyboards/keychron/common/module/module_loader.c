@@ -81,7 +81,10 @@ static bool write_module_header(uint32_t slot_addr, const module_header_t* heade
     return module_flash_write(slot_addr, (uint8_t*)header, sizeof(module_header_t));
 }
 
-/* Helper: Invalidate a module by clearing its magic */
+/* Helper: Invalidate a module by overwriting its header with zeros.
+   Works without a sector erase because on STM32F4 NOR flash, 1->0
+   transitions are always legal; any non-zero bit in the header becomes 0,
+   which guarantees magic != MODULE_HEADER_MAGIC on the next boot scan. */
 static bool invalidate_module(uint32_t slot_addr) {
     module_header_t header;
     memset(&header, 0, sizeof(header));
@@ -252,14 +255,18 @@ void module_boot_scan(void) {
             continue;
         }
 
+        /* Boot scan is read-only: failing modules are skipped, not erased.
+           Writing to flash during boot risks corrupting sibling modules that
+           share the sector (flash erase is sector-granular, not slot-granular)
+           and leaves the keyboard unbootable if power is lost mid-write.
+           A skipped module never has its hooks claimed, so it is inert;
+           an explicit module_unload or module_load re-write will clear it. */
         if (!validate_module_layout(&header, MODULE_FLASH_SLOT_SIZE)) {
-            invalidate_module(slot_addr);
             continue;
         }
 
         const uint32_t* hook_table = (const uint32_t*)(slot_addr + header.hook_table_off);
         if (!validate_dispatch_hook_offsets(&header, hook_table)) {
-            invalidate_module(slot_addr);
             continue;
         }
 
@@ -281,8 +288,10 @@ void module_boot_scan(void) {
             }
         }
         if (conflict) {
-            /* Deactivate the module due to conflicts */
-            invalidate_module(slot_addr);
+            /* Skip this module (see read-only boot scan rationale above).
+               The earlier module that claimed the hook wins; this one is
+               inert until the user explicitly unloads the winner or
+               rewrites this slot. */
             continue;
         }
 
