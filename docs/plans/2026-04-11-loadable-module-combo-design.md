@@ -52,15 +52,23 @@ The host compiles a C source file into a position-dependent Thumb binary targete
 typedef struct __attribute__((packed)) {
     uint32_t magic;          // 0x4D4F444C ("MODL")
     uint16_t version;        // module format version (1)
-    uint16_t flags;          // bit 0: enabled, bits 1-15: reserved
+    uint16_t flags;          // reserved for future use (e.g. explicit enable/disable); must be 0
     uint32_t code_size;      // total size of module binary (header + code)
     uint32_t hook_bitmap;    // bitmask of hooks this module provides
     uint32_t hook_table_off; // offset from slot start to hook function pointer table
     uint32_t init_off;       // offset from slot start to init function (0 = none)
     uint32_t deinit_off;     // offset from slot start to deinit function (0 = none)
-    uint32_t reserved;       // padding / future use
+    uint32_t crc32;          // CRC-32/ISO-HDLC over [0, code_size) with this field zeroed
 } module_header_t;
 ```
+
+The `crc32` field is computed by the host with `zlib.crc32` (CRC-32/ISO-HDLC:
+polynomial `0xEDB88320`, init `0xFFFFFFFF`, reflected, final XOR `0xFFFFFFFF`)
+over the entire binary with the `crc32` field itself treated as four zero
+bytes during the computation. The firmware recomputes it with the same
+convention and rejects the module if the values disagree. See
+`validate_module_crc()` in `module_loader.c` and the matching host code in
+`ModuleBuild._assemble()` / `ModuleTab._prepare_binary_for_load()`.
 
 ### Hook Function Pointer Table
 Located at `slot_base + hook_table_off`. A fixed-size array of `MODULE_HOOK_MAX` (16) `uint32_t` entries. Each entry is a **slot-relative byte offset** from the slot base to the hook's function body, not an absolute address. The firmware converts offsets to absolute addresses at load time (`func = slot_addr + hook_table[i]`), so the same module binary is valid in any slot.
@@ -119,10 +127,10 @@ Indices 3 and 4 (`INIT`, `DEINIT`) exist for bitmap accounting but are never use
 2. On finalize chunk (`offset == 0xFFFF`), the handler calls `module_load(slot_id, buf, len)`.
 3. `module_load()`:
    - Validates the header in RAM (magic, version, layout, hook-offset bounds) before touching flash.
+   - Verifies the header's `crc32` against the RAM payload so a corrupted transmission is rejected before any erase is performed.
    - Rejects if any requested hook is already claimed (first-come-first-served conflict resolution, no silent override).
    - Calls `module_unload()` on every **sibling slot in the same sector** to release their hooks and run their `deinit` — but the sibling binaries are then lost to the sector erase (see *Outstanding Issues*).
    - Erases the sector, programs the new module into its slot, claims hooks, populates the dispatch table (adding `slot_addr` to each stored offset), and invokes the module's `init` if present.
-4. The host's enabled bit (`flags & 0x01`) is expected to be set by the build pipeline; the firmware treats it as a read-only filter during boot scan.
 
 ### Unloading a Module
 1. Host sends `QMKATA_CMD_DEL` with `QMKATA_ID_MODULE` and `slot_id`.
@@ -130,7 +138,7 @@ Indices 3 and 4 (`INIT`, `DEINIT`) exist for bitmap accounting but are never use
 3. Otherwise: calls `deinit()` if present → releases every hook claimed by this slot → overwrites the on-flash header with zeros (no sector erase needed; STM32F4 NOR flash always allows `1→0` transitions).
 
 ### Boot (Auto-Activation)
-On `keyboard_post_init_user()`, the firmware scans all 8 slots. Each slot is validated (magic, version, layout, hook bounds) and, if its enabled bit is set and none of its hooks conflict with an earlier module, its hooks are claimed and its `init` is called.
+On `keyboard_post_init_user()`, the firmware scans all 8 slots. Each slot is validated (magic, version, layout, hook bounds, CRC-32 against flash contents) and, if none of its hooks conflict with an earlier module, its hooks are claimed and its `init` is called. The CRC check is what makes power-loss-mid-write detectable: a header that committed to flash before the following code region finished writing will no longer match the CRC the host signed it with, and the module is skipped instead of executed.
 
 **The boot scan is strictly read-only**: a module that fails validation or loses a hook conflict is skipped, never erased. Writing to flash during boot risks corrupting siblings (sector-granular erase) and would leave the keyboard unbootable on power loss mid-write. Inert (unclaimed) modules are cleaned up on the next explicit `module_load`/`module_unload` from the host.
 
@@ -178,9 +186,10 @@ There is currently no safe update path. Replacing a module requires erasing its 
 
 1. **Sibling data loss on load (P0).** Because 4 slots share one 16 KB sector and flash erase is sector-granular, loading any module erases the binaries of the three siblings in its sector. `module_load()` calls `module_unload()` on each sibling first so their hooks/deinit are handled cleanly, but the flash contents are lost and must be re-uploaded by the host. A proper fix reads siblings into RAM before erase and writes them back afterward (needs ~12 KB RAM scratch worst case, or a per-sibling read/write tango). The code contains a `TODO` marker at the erase call site.
 
-2. **Host always sets the enabled flag.** `ModuleBuild.py` unconditionally sets `flags & 0x01 = 1`, so the firmware's "is enabled?" check during boot is effectively always true. Either remove the check or expose a host-side toggle.
+### Resolved
 
-3. **No content hash validation.** The firmware trusts that what was written to flash is what the host intended. A CRC32 or similar in the header (covering header + code) would catch power-loss-mid-write corruption that happens to leave valid-looking magic bytes.
+- **Dead "enabled bit" check.** The host always set `flags & 0x01` and no code path ever cleared it, so gating activation on it was dead code. Removed; `flags` is now documented as reserved and must be zero.
+- **No content hash validation.** A CRC-32/ISO-HDLC over the full module binary is now stored in the header (last 4 bytes). The host computes it with `zlib.crc32`; the firmware recomputes it at load time (against the RAM buffer, before erase) and at boot time (against the flash XIP address) and skips any module whose bytes no longer match. This detects power-loss mid-write, bit rot, and corruption left behind by interrupted erases.
 
 ## Key Differences from Legacy dynld System
 | Aspect | Legacy dynld | Module Loader (Hardened) |
@@ -189,4 +198,4 @@ There is currently no safe update path. Replacing a module requires erasing its 
 | Persistence | Volatile | Persistent (survives power cycle) |
 | Linking | Position Independent | Host-linked against `.map`, slot-relative offsets |
 | Capacity | 1 KB per function | 4 KB per module (multiple hooks) |
-| Safety | None | Magic/version validation, layout bounds checks, hook-offset bounds checks, hook conflict rejection, safe-mode boot, read-only boot scan |
+| Safety | None | Magic/version validation, layout bounds checks, hook-offset bounds checks, CRC-32 content check, hook conflict rejection, safe-mode boot, read-only boot scan |
