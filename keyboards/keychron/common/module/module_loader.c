@@ -218,18 +218,29 @@ bool module_unload(uint8_t slot_id) {
         return false;
     }
 
-    /* Check if module is enabled */
-    if (!(header.flags & (1 << 0))) {
-        return false;
+    /* If the slot does not hold a currently-valid module, treat the unload
+       as a no-op success. This makes unload idempotent and, more importantly,
+       makes it safe to call from module_load()'s sibling-cleanup loop on
+       blank or stale slots. We deliberately do NOT read deinit_off,
+       hook_bitmap, or code_size when magic/version are wrong — those fields
+       may contain arbitrary bytes (erased 0xFF, zeroed by a prior
+       invalidate, or mid-write garbage after a power loss). */
+    if (header.magic != MODULE_HEADER_MAGIC || header.version != MODULE_HEADER_VERSION) {
+        return true;
     }
 
-    /* Call deinit function if present */
+    /* Call deinit function if present. Bounds-check deinit_off against the
+       header's own code_size before using it as a jump target; the layout
+       validator ran at load time but flash contents cannot be trusted
+       unconditionally at runtime. */
     if (header.deinit_off > 0 && header.deinit_off >= sizeof(module_header_t) && header.deinit_off < header.code_size) {
         void (*deinit_fn)(void) = (void (*)(void))(slot_addr + header.deinit_off);
         deinit_fn();
     }
 
-    /* Release all hooks claimed by this module */
+    /* Release all hooks claimed by this module. release_hook() is a no-op
+       on hooks not actually owned by slot_id, so a stale hook_bitmap with
+       extra bits set cannot cause us to steal another module's hook. */
     for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
         if (is_lifecycle_hook(i)) {
             continue;
@@ -240,7 +251,7 @@ bool module_unload(uint8_t slot_id) {
         }
     }
 
-    /* Invalidate the module */
+    /* Invalidate the module header on flash so the next boot skips it. */
     return invalidate_module(slot_addr);
 }
 
