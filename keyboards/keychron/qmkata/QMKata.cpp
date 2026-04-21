@@ -345,7 +345,7 @@ int qmkata_recv_data(uint8_t *data, uint8_t len) {
             s_qmkata.sendVersion();
             return 0;
         }
-        qmkata_sysex_handler(data[0], len, data+1);
+        qmkata_sysex_handler(data[0], len - 1, data+1);
         return 0;
     }
     // firmata sysex start 0xf0, with 2x7 bits encoding, sysex handler should decode it
