@@ -156,13 +156,40 @@ static bool is_hook_claimed(uint32_t hook_index) {
     return (g_module_hooks[hook_index].func != NULL);
 }
 
-/* Helper: Claim a hook for a module */
-static bool claim_hook(uint32_t hook_index, uint8_t module_id) {
+/* Helper: Claim a hook for a module and install its dispatch pointer
+   atomically (from the point of view of a dispatcher reader).
+
+   The dispatcher in module_dispatch.c gates every call on
+   `hooks[i].func != NULL`. If we stored `func` first and `module_id`
+   second, a reader that raced between the two stores would see a valid
+   function pointer with a stale `module_id`, which is harmless for
+   dispatch but would let `release_hook(slot=0, ...)` match an entry not
+   yet owned by slot 0.
+
+   We therefore store `module_id` first and `func` last, separated by a
+   compiler barrier so the compiler cannot reorder them. On Cortex-M4 the
+   pointer store itself is a single 32-bit write; any reader that observes
+   `func != NULL` is guaranteed to also observe the matching `module_id`.
+
+   The previous split-phase design (claim hooks, then populate `.func`
+   from a second loop after the flash write) had the opposite ordering:
+   `module_id` was set while `func` stayed NULL, so `is_hook_claimed()`
+   (which tests `func != NULL`) reported the entry as *unclaimed* — a
+   subsequent conflict check or parallel claim would then silently steal
+   it. Folding both stores into this helper fixes that class of bug. */
+static bool claim_hook(uint32_t hook_index, uint8_t module_id, void* func) {
+    if (func == NULL) {
+        /* A NULL dispatch pointer would leave the hook visible as
+           unclaimed to is_hook_claimed() and skipped by the dispatcher —
+           effectively a silent no-op. Refuse so callers can report it. */
+        return false;
+    }
     if (is_hook_claimed(hook_index)) {
         return false;
     }
-    g_module_hooks[hook_index].func = NULL;  /* Will be set from flash later */
     g_module_hooks[hook_index].module_id = module_id;
+    __asm__ volatile("" ::: "memory");  /* forbid reordering of the two stores */
+    g_module_hooks[hook_index].func = func;
     return true;
 }
 
@@ -192,7 +219,31 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
        at this point. */
     if (!validate_module_crc(data, hdr)) return false;
 
-    /* Check for hook conflicts */
+    uint32_t slot_addr = MODULE_FLASH_GET_SLOT_ADDR(slot_id);
+
+    /* Destructive step: flash erase on STM32F4 is sector-granular, not
+       slot-granular. Four 4 KB slots share one 16 KB sector, so erasing
+       this sector wipes every sibling module that currently lives in it.
+       We call module_unload() on each sibling first so its hooks are
+       released and its deinit runs, but the sibling binaries themselves
+       will be lost and must be re-uploaded after this call returns.
+       TODO: save siblings to RAM and restore them post-erase.
+
+       Sibling cleanup MUST happen before the hook-conflict check below:
+       if a sibling currently claims a hook that the incoming module also
+       wants, the naive pre-cleanup conflict test would reject the load
+       even though the sibling is about to be erased anyway. Cleaning up
+       first releases those hooks so the conflict check only fires on
+       genuine cross-sector collisions. */
+    uint32_t sector_base = MODULE_FLASH_GET_SLOT_SECTOR(slot_id);
+    for (uint8_t s = 0; s < MODULE_FLASH_SLOT_COUNT; s++) {
+        if (s != slot_id && MODULE_FLASH_GET_SLOT_SECTOR(s) == sector_base) {
+            module_unload(s);
+        }
+    }
+
+    /* Check for hook conflicts against whatever is still claimed after
+       sibling cleanup (i.e. modules living in the *other* sector). */
     for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
         if (is_lifecycle_hook(i)) {
             continue;
@@ -203,35 +254,28 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
         }
     }
 
-    uint32_t slot_addr = MODULE_FLASH_GET_SLOT_ADDR(slot_id);
-
-    /* Destructive step: flash erase on STM32F4 is sector-granular, not
-       slot-granular. Four 4 KB slots share one 16 KB sector, so erasing
-       this sector wipes every sibling module that currently lives in it.
-       We call module_unload() on each sibling first so its hooks are
-       released and its deinit runs, but the sibling binaries themselves
-       will be lost and must be re-uploaded after this call returns.
-       TODO: save siblings to RAM and restore them post-erase. */
-    uint32_t sector_base = MODULE_FLASH_GET_SLOT_SECTOR(slot_id);
-    for (uint8_t s = 0; s < MODULE_FLASH_SLOT_COUNT; s++) {
-        if (s != slot_id && MODULE_FLASH_GET_SLOT_SECTOR(s) == sector_base) {
-            module_unload(s);
-        }
-    }
     if (!module_flash_erase_sector(sector_base)) return false;
 
     /* Write module data to flash (pad to 4-byte alignment) */
     size_t write_len = (len + 3) & ~3;
     if (!module_flash_write(slot_addr, (uint8_t*)data, write_len)) return false;
 
-    /* Claim hooks */
+    /* Claim hooks and install dispatch pointers in one pass. claim_hook()
+       stores module_id before func (with a compiler barrier), so any
+       dispatcher that observes func != NULL also sees the matching
+       module_id. If any claim fails — which should not happen after the
+       conflict check above, but is possible if another path mutated the
+       table between the check and here — release everything this slot
+       has grabbed so far and bail. The flash contents remain written;
+       a subsequent module_unload(slot_id) will invalidate them. */
     for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
         if (is_lifecycle_hook(i)) {
             continue;
         }
 
         if (hdr->hook_bitmap & (1U << i)) {
-            if (!claim_hook(i, slot_id)) {
+            void* func = (void*)(slot_addr + hook_table_data[i]);
+            if (!claim_hook(i, slot_id, func)) {
                 for (uint32_t j = 0; j < i; j++) {
                     if (!is_lifecycle_hook(j) && (hdr->hook_bitmap & (1U << j))) {
                         release_hook(j, slot_id);
@@ -239,17 +283,6 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
                 }
                 return false;
             }
-        }
-    }
-
-    /* Populate dispatch hooks from validated RAM hook table (entries are slot-base offsets) */
-    for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-        if (is_lifecycle_hook(i)) {
-            continue;
-        }
-
-        if (hdr->hook_bitmap & (1U << i)) {
-            g_module_hooks[i].func = (void*)(slot_addr + hook_table_data[i]);
         }
     }
 
@@ -389,25 +422,17 @@ void module_boot_scan(void) {
             continue;
         }
 
-        /* Claim all hooks */
+        /* Claim hooks and install dispatch pointers in one pass so no
+           reader ever sees a claimed hook with a NULL func. See the
+           comment on claim_hook() for the store-ordering rationale. */
         for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
             if (is_lifecycle_hook(i)) {
                 continue;
             }
 
             if (header.hook_bitmap & (1U << i)) {
-                claim_hook(i, slot_id);
-            }
-        }
-
-        /* Read the validated hook table from flash and populate dispatch hooks */
-        for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
-            if (is_lifecycle_hook(i)) {
-                continue;
-            }
-
-            if (header.hook_bitmap & (1U << i)) {
-                g_module_hooks[i].func = (void*)(slot_addr + hook_table[i]);
+                void* func = (void*)(slot_addr + hook_table[i]);
+                claim_hook(i, slot_id, func);
             }
         }
 

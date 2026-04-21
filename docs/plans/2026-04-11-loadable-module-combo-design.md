@@ -4,6 +4,15 @@
 **Branch:** feat/combo-modules
 **Status:** Implemented (see Outstanding Issues)
 
+_2026-04-21 update:_ `module_load()` now (a) unloads siblings **before**
+the hook-conflict check, so replacing a module in the same sector no
+longer trips a false conflict against the about-to-be-erased sibling,
+and (b) claims hooks and installs their dispatch pointers in a single
+atomic step — `module_id` is stored before `func` with a compiler
+barrier so any reader that observes `func != NULL` is guaranteed to
+observe the matching `module_id`. This removes a window in which a
+claimed hook was visible as unclaimed to `is_hook_claimed()`.
+
 ## Overview
 
 Add a loadable module system to the Keychron Q3 Max firmware. A module is a pre-linked blob of ARM Thumb code compiled on the host against the firmware's symbol map (`.map` file). The firmware stores modules in flash, executes them in-place (XIP), and dispatches to them through a fixed hook table.
@@ -128,9 +137,11 @@ Indices 3 and 4 (`INIT`, `DEINIT`) exist for bitmap accounting but are never use
 3. `module_load()`:
    - Validates the header in RAM (magic, version, layout, hook-offset bounds) before touching flash.
    - Verifies the header's `crc32` against the RAM payload so a corrupted transmission is rejected before any erase is performed.
-   - Rejects if any requested hook is already claimed (first-come-first-served conflict resolution, no silent override).
-   - Calls `module_unload()` on every **sibling slot in the same sector** to release their hooks and run their `deinit` — but the sibling binaries are then lost to the sector erase (see *Outstanding Issues*).
-   - Erases the sector, programs the new module into its slot, claims hooks, populates the dispatch table (adding `slot_addr` to each stored offset), and invokes the module's `init` if present.
+   - Calls `module_unload()` on every **sibling slot in the same sector** to release their hooks and run their `deinit` — but the sibling binaries are then lost to the sector erase (see *Outstanding Issues*). This happens **before** the conflict check so that replacing a module in a same-sector slot is not falsely rejected for conflicting with the sibling that is about to be erased.
+   - Rejects if any requested hook is still claimed after sibling cleanup (first-come-first-served conflict resolution across the *other* sector, no silent override).
+   - Erases the sector and programs the new module into its slot.
+   - Claims each hook and installs its dispatch pointer in a single atomic step (see `claim_hook()` in `module_loader.c`): stores `module_id` first, then `func`, with a compiler barrier between them. The dispatcher gates on `func != NULL`, so no reader ever observes a claimed hook with a NULL function pointer or a stale `module_id`.
+   - Invokes the module's `init` if present.
 
 ### Unloading a Module
 1. Host sends `QMKATA_CMD_DEL` with `QMKATA_ID_MODULE` and `slot_id`.
@@ -145,7 +156,7 @@ On `keyboard_post_init_user()`, the firmware scans all 8 slots. Each slot is val
 **Safe Mode**: Holding `KC_DEL` at boot (when `keyboard_post_init_user` runs) skips module activation entirely, letting the user unload a buggy module that would otherwise crash the firmware or hijack input. The check drives ~10 matrix scans across the debounce window before reading, because `matrix_scan()` has not yet run when `keyboard_post_init_user` is called.
 
 ### Updating a Module
-There is currently no safe update path. Replacing a module requires erasing its sector, which destroys every sibling module in that sector — the host must re-upload all siblings afterwards. See *Outstanding Issues*.
+`module_load()` will happily overwrite an existing module in the same slot: it unloads the target and its sector siblings, erases, and writes the new binary — the host does not need to issue a separate `module_unload` first. However, because erase is sector-granular, every **sibling** module in the same sector is lost in the process (their hooks and `deinit` are handled cleanly, but the flash bytes are wiped) and must be re-uploaded by the host afterwards. See *Outstanding Issues* for the sibling-preservation plan.
 
 ## SysEx Protocol
 
