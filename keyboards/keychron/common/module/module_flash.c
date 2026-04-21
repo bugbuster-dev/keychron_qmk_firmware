@@ -79,16 +79,24 @@ bool module_flash_erase_sector(uint32_t sector_base) {
         return false;
     }
 
-    /* Start the erase operation */
+    /* Start the erase operation. FLASH_BUSY_ERASING here indicates another
+     * erase is in progress for this device, not an error — flashWaitErase()
+     * below will block until the sector is actually done. */
     flash_error_t status = flashStartEraseSector(flash, sector_num);
     if (status != FLASH_NO_ERROR && status != FLASH_BUSY_ERASING) {
         eflStop(efl);
         return false;
     }
 
-    /* Wait for the erase to complete */
+    /* Wait for the erase to complete. Only FLASH_NO_ERROR is a valid success
+     * result here: flashWaitErase() must not return until the controller is
+     * idle, so FLASH_BUSY_ERASING at this point means the wait was aborted
+     * or timed out and the sector is in an indeterminate (possibly partially
+     * erased) state. Returning true in that case would cause the caller's
+     * subsequent flashProgram() to write into a sector whose bits are not
+     * guaranteed to be 1, producing silent corruption. */
     status = flashWaitErase(flash);
-    if (status != FLASH_NO_ERROR && status != FLASH_BUSY_ERASING) {
+    if (status != FLASH_NO_ERROR) {
         eflStop(efl);
         return false;
     }
