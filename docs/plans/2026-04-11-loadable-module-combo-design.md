@@ -161,7 +161,11 @@ On `keyboard_post_init_user()`, the firmware scans all 8 slots. Each slot is val
 ## SysEx Protocol
 
 - **`QMKATA_ID_MODULE = 14`**
-- **SET (Load)**: `buf[0] = slot_id (0-7)`, `buf[1..2] = offset (uint16_t LE)`, `buf[3..] = data`.
+- **SET (Load)**: `buf[0] = slot_id (0-7)`, `buf[1..2] = offset (uint16_t LE)`, `buf[3] = declared_len (uint8)`, `buf[4..] = data`.
+  - `declared_len` is the exact payload byte count; the firmware uses it
+    instead of deriving length from the SysEx frame, so trailing
+    `END_SYSEX` terminators and HID-report padding are ignored.
+  - Finalize chunk uses `offset = 0xFFFF` and `declared_len = 0`.
 - **DEL (Unload)**: `buf[0] = slot_id (0-7)`.
 - **GET (Query)**: `buf[0] = slot_id (0-7)` or `0xFF` for summary.
 

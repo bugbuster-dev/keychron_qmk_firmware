@@ -1014,23 +1014,19 @@ static uint8_t module_chunk_buf[MODULE_FLASH_SLOT_SIZE];
 static uint8_t module_loading_slot = 0xFF;
 static uint16_t module_loading_offset = 0;
 
-// SET: buf[0]=slot_id (0-7), buf[1..2]=offset (uint16_t LE; 0xFFFF=finalize), buf[3..]=data
+// SET: buf[0]=slot_id (0-7), buf[1..2]=offset (uint16_t LE; 0xFFFF=finalize),
+//      buf[3]=declared payload length, buf[4..]=data
 _QMKATA_HANDLE_CMD_SET(module) {
-    if (len < 1) return;
-    uint8_t  slot_id   = buf[0];
-    uint16_t offset    = 0;
-    uint8_t* data      = NULL;
-    size_t   data_len  = 0;
+    if (len < 4) return;
+    uint8_t  slot_id      = buf[0];
+    uint16_t offset       = buf[1] | (buf[2] << 8);
+    uint8_t  declared_len = buf[3];
+    uint8_t* data         = &buf[4];
+    size_t   available    = len - 4;
+    size_t   data_len     = declared_len;
 
-    if (len >= 3) {
-        offset = buf[1] | (buf[2] << 8);
-        data   = &buf[3];
-        data_len = len - 3;
-    } else if (len == 2) {
-        offset = buf[1];
-    }
-
-    DBG_USR(qmkata, "module:set slot=%u offset=0x%04x len=%zu\n", slot_id, offset, data_len);
+    DBG_USR(qmkata, "module:set slot=%u offset=0x%04x declared=%u avail=%zu\n",
+            slot_id, offset, declared_len, available);
 
     /* Handle finalize (offset == 0xFFFF) */
     if (offset == 0xFFFF) {
@@ -1043,6 +1039,20 @@ _QMKATA_HANDLE_CMD_SET(module) {
             module_loading_offset = 0;
         }
         uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, success ? 0 : 1 };
+        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+        return;
+    }
+
+    /* Reject chunks whose declared size exceeds what actually arrived.
+     * Trailing HID report padding means `available` may be slightly
+     * larger than `declared_len`; that is fine. The reverse is a
+     * framing error or malicious client. */
+    if (declared_len > available) {
+        DBG_USR(qmkata, "module:set short slot=%u declared=%u avail=%zu\n",
+                slot_id, declared_len, available);
+        module_loading_slot = 0xFF;
+        module_loading_offset = 0;
+        uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, 1 };
         qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
         return;
     }
@@ -1077,7 +1087,7 @@ _QMKATA_HANDLE_CMD_SET(module) {
     }
 
     /* Write chunk to buffer */
-    if (data && data_len > 0) {
+    if (data_len > 0) {
         if (module_loading_offset + data_len > sizeof(module_chunk_buf)) {
             DBG_USR(qmkata, "module:set overflow slot=%u off=%u len=%zu\n", slot_id, module_loading_offset, data_len);
             module_loading_slot = 0xFF;
@@ -1087,9 +1097,9 @@ _QMKATA_HANDLE_CMD_SET(module) {
         }
         memcpy(&module_chunk_buf[module_loading_offset], data, data_len);
         module_loading_offset += data_len;
-        uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, 0 }; /* 0 = success */
-        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
     }
+    uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, 0 }; /* 0 = success */
+    qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
 }
 
 // GET: buf[0]=slot_id (0-7) or 0xFF for all slots summary
