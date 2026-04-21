@@ -76,6 +76,59 @@ static bool validate_dispatch_hook_offsets(const module_header_t* header, const 
     return true;
 }
 
+/* Helper: Validate the CRC-32 stored in a module's header against its
+   contents. Covers [0, code_size) with the 4 bytes of the crc32 field
+   treated as zero. Algorithm is CRC-32/ISO-HDLC (zlib-compatible):
+   polynomial 0xEDB88320, init 0xFFFFFFFF, reflected, final XOR 0xFFFFFFFF.
+
+   Computed byte-at-a-time without a precomputed lookup table to save
+   ~1 KB of flash; at roughly 10 cycles per bit on Cortex-M4 an entire
+   4 KB module hashes in a few milliseconds, which is negligible on the
+   one-shot module_load and module_boot_scan paths.
+
+   base must point to a contiguous copy of the module starting at the
+   header (RAM staging buffer at module_load time, or the flash XIP
+   address of a slot at module_boot_scan time — both are byte-addressable
+   contiguous memory on this platform).
+
+   Prior validate_module_layout() already ensured:
+     sizeof(module_header_t) <= code_size <= MODULE_FLASH_SLOT_SIZE
+   so the reads below cannot run past the caller's buffer. */
+static bool validate_module_crc(const uint8_t* base, const module_header_t* header) {
+    const size_t crc_off = offsetof(module_header_t, crc32);
+    const size_t code_size = header->code_size;
+
+    uint32_t crc = 0xFFFFFFFFu;
+
+    /* Bytes before the crc32 field. */
+    for (size_t i = 0; i < crc_off; i++) {
+        crc ^= base[i];
+        for (int b = 0; b < 8; b++) {
+            uint32_t mask = -(int32_t)(crc & 1u);
+            crc = (crc >> 1) ^ (0xEDB88320u & mask);
+        }
+    }
+    /* Four zero bytes standing in for the crc32 field. */
+    for (size_t i = 0; i < 4; i++) {
+        /* crc ^= 0 is a no-op; only the shift/poly step runs. */
+        for (int b = 0; b < 8; b++) {
+            uint32_t mask = -(int32_t)(crc & 1u);
+            crc = (crc >> 1) ^ (0xEDB88320u & mask);
+        }
+    }
+    /* Bytes after the crc32 field, up to code_size. */
+    for (size_t i = crc_off + 4; i < code_size; i++) {
+        crc ^= base[i];
+        for (int b = 0; b < 8; b++) {
+            uint32_t mask = -(int32_t)(crc & 1u);
+            crc = (crc >> 1) ^ (0xEDB88320u & mask);
+        }
+    }
+    crc ^= 0xFFFFFFFFu;
+
+    return (crc == header->crc32);
+}
+
 /* Helper: Read the module header from a slot */
 static bool read_module_header(uint32_t slot_addr, module_header_t* header) {
     /* Read the header from flash */
@@ -133,6 +186,11 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
 
     const uint32_t* hook_table_data = (const uint32_t*)(data + hdr->hook_table_off);
     if (!validate_dispatch_hook_offsets(hdr, hook_table_data)) return false;
+
+    /* Reject corrupted payloads before we erase flash. validate_module_layout
+       has already bounded code_size, so it is safe to CRC the RAM buffer
+       at this point. */
+    if (!validate_module_crc(data, hdr)) return false;
 
     /* Check for hook conflicts */
     for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
@@ -291,6 +349,17 @@ void module_boot_scan(void) {
 
         const uint32_t* hook_table = (const uint32_t*)(slot_addr + header.hook_table_off);
         if (!validate_dispatch_hook_offsets(&header, hook_table)) {
+            continue;
+        }
+
+        /* Reject any module whose flash contents no longer match the CRC
+           the host signed them with. This catches power-loss mid-write
+           (header committed, code region partially written), flash bit
+           rot, and the trailing state left by an interrupted erase that
+           the FLASH_BUSY_ERASING fix can detect but not undo. The slot
+           stays as-is — boot scan is read-only — so the user can retry
+           a module_load or module_unload later. */
+        if (!validate_module_crc((const uint8_t*)slot_addr, &header)) {
             continue;
         }
 

@@ -28,7 +28,11 @@
 #define MODULE_HOOK_COMBO_REF_FROM_LAYER 10
 #define MODULE_HOOK_MAX 16
 
-/* Module Header Structure (32 bytes) */
+/* Module Header Structure (32 bytes).
+   crc32 covers the bytes [0, code_size), with the 4 bytes of the
+   crc32 field itself treated as zero during computation. Algorithm is
+   CRC-32/ISO-HDLC (zlib-compatible): polynomial 0xEDB88320, init
+   0xFFFFFFFF, input and output reflected, final XOR 0xFFFFFFFF. */
 typedef struct __attribute__((packed)) {
     uint32_t magic;          /* 0x4D4F444C ("MODL") */
     uint16_t version;        /* module format version (1) */
@@ -38,7 +42,7 @@ typedef struct __attribute__((packed)) {
     uint32_t hook_table_off; /* offset from slot start to hook function pointer table */
     uint32_t init_off;       /* offset from slot start to init function (0 = none) */
     uint32_t deinit_off;     /* offset from slot start to deinit function (0 = none) */
-    uint32_t reserved;       /* padding / future use */
+    uint32_t crc32;          /* CRC-32/ISO-HDLC over [0, code_size) with this field zeroed */
 } module_header_t;
 
 _Static_assert(sizeof(module_header_t) == 32, "module_header_t must be 32 bytes");
