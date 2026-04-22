@@ -14,6 +14,23 @@
 #define MODULE_HEADER_MAGIC 0x4D4F444C  /* "MODL" */
 #define MODULE_HEADER_VERSION 1
 
+/* Value a module's init function must return for the loader to consider
+   the init call successful. Any other return value is logged as a
+   warning; the module stays loaded (hooks are already claimed and flash
+   is already written by the time init runs) but the mismatch is
+   evidence something is wrong in the module's boot path or the
+   load/dispatch mechanism itself. Modules should include module_api.h
+   (host) or this header (firmware) to get the canonical value. */
+#define MODULE_INIT_MAGIC 0x600DBEEFu
+
+/* init / deinit ABI: both take the module's Flash base address and return uint32_t.
+   Init must return MODULE_INIT_MAGIC; deinit's return value is logged but not checked.
+   module_base is passed to deinit for symmetry with init — modules have no writable
+   .data/.bss, so any PIC string access in deinit must re-derive addresses from the
+   base at call time rather than caching it from init. See module_loader.c call sites. */
+typedef uint32_t (*module_init_fn_t)(uint32_t module_base);
+typedef uint32_t (*module_deinit_fn_t)(uint32_t module_base);
+
 /* Hook Indices */
 #define MODULE_HOOK_COMBO_SHOULD_TRIGGER 0
 #define MODULE_HOOK_PROCESS_COMBO_EVENT 1

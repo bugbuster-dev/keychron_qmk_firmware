@@ -6,6 +6,7 @@
 #include <string.h>
 #include "module_loader.h"
 #include "module_flash.h"
+#include "print.h"
 
 /* Global Hook Table.
    Every entry must start with module_id = 0xFF (unclaimed sentinel).
@@ -286,10 +287,27 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
         }
     }
 
-    /* Call init function if present */
+    /* Call init function if present. ABI: returns uint32_t; the module
+       must return MODULE_INIT_MAGIC to confirm the call reached module
+       code and ran to completion. Mismatch is logged as a warning but
+       does not fail the load — flash is already written and hooks are
+       already claimed at this point, and rolling back would cascade
+       into a spurious sibling-erase on retry. The trace line is the
+       authoritative evidence that the hook-table / Thumb-bit / XIP path
+       is working end-to-end. */
     if (hdr->init_off > 0) {
-        void (*init_fn)(void) = (void (*)(void))(slot_addr + hdr->init_off);
-        init_fn();
+        module_init_fn_t init_fn = (module_init_fn_t)(slot_addr + hdr->init_off);
+        xprintf("mod load slot=%u init_fn=0x%lx\n",
+                (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
+        uint32_t rc = init_fn(slot_addr);
+        if (rc == MODULE_INIT_MAGIC) {
+            xprintf("mod load slot=%u init OK rc=0x%lx\n",
+                    (unsigned)slot_id, (unsigned long)rc);
+        } else {
+            xprintf("mod load slot=%u init BAD rc=0x%lx (expected 0x%lx)\n",
+                    (unsigned)slot_id, (unsigned long)rc,
+                    (unsigned long)MODULE_INIT_MAGIC);
+        }
     }
 
     return true;
@@ -323,10 +341,14 @@ bool module_unload(uint8_t slot_id) {
     /* Call deinit function if present. Bounds-check deinit_off against the
        header's own code_size before using it as a jump target; the layout
        validator ran at load time but flash contents cannot be trusted
-       unconditionally at runtime. */
+       unconditionally at runtime. Return value is logged for diagnostic
+       parity with init, but not checked — at this point hooks are about
+       to be released and the module invalidated regardless. */
     if (header.deinit_off > 0 && header.deinit_off >= sizeof(module_header_t) && header.deinit_off < header.code_size) {
-        void (*deinit_fn)(void) = (void (*)(void))(slot_addr + header.deinit_off);
-        deinit_fn();
+        module_deinit_fn_t deinit_fn = (module_deinit_fn_t)(slot_addr + header.deinit_off);
+        uint32_t rc = deinit_fn(slot_addr);
+        xprintf("mod unload slot=%u deinit rc=0x%lx\n",
+                (unsigned)slot_id, (unsigned long)rc);
     }
 
     /* Release all hooks claimed by this module. release_hook() is a no-op
@@ -436,10 +458,23 @@ void module_boot_scan(void) {
             }
         }
 
-        /* Call init function if present */
+        /* Call init function if present. Same ABI + magic contract as
+           module_load(); see comment there. Boot-scan mismatch is also
+           non-fatal — the module is already in flash and its hooks are
+           already claimed, and boot-scan is intentionally read-only. */
         if (header.init_off > 0) {
-            void (*init_fn)(void) = (void (*)(void))(slot_addr + header.init_off);
-            init_fn();
+        module_init_fn_t init_fn = (module_init_fn_t)(slot_addr + header.init_off);
+        xprintf("mod boot slot=%u init_fn=0x%lx\n",
+                (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
+        uint32_t rc = init_fn(slot_addr);
+        if (rc == MODULE_INIT_MAGIC) {
+            xprintf("mod boot slot=%u init OK rc=0x%lx\n",
+                        (unsigned)slot_id, (unsigned long)rc);
+            } else {
+                xprintf("mod boot slot=%u init BAD rc=0x%lx (expected 0x%lx)\n",
+                        (unsigned)slot_id, (unsigned long)rc,
+                        (unsigned long)MODULE_INIT_MAGIC);
+            }
         }
     }
 }
