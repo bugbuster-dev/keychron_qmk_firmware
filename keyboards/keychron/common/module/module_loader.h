@@ -23,13 +23,19 @@
    (host) or this header (firmware) to get the canonical value. */
 #define MODULE_INIT_MAGIC 0x600DBEEFu
 
-/* init / deinit ABI: both take the module's Flash base address and return uint32_t.
+/* init / deinit ABI: both take no arguments and return uint32_t.
    Init must return MODULE_INIT_MAGIC; deinit's return value is logged but not checked.
-   module_base is passed to deinit for symmetry with init — modules have no writable
-   .data/.bss, so any PIC string access in deinit must re-derive addresses from the
-   base at call time rather than caching it from init. See module_loader.c call sites. */
-typedef uint32_t (*module_init_fn_t)(uint32_t module_base);
-typedef uint32_t (*module_deinit_fn_t)(uint32_t module_base);
+
+   Module code does not receive its load address. Runtime R_ARM_ABS32
+   relocations rebase literal-pool entries at flash-program time, so
+   module code references its own .rodata through plain C without
+   arithmetic on a load-address parameter. The load address remains
+   available to the firmware (via slot_addr) for logging and bounds
+   validation, but passing it into the module would only invite the
+   now-broken "module_base + (uintptr_t)sym" PIC pattern to
+   double-relocate an already-rebased address. */
+typedef uint32_t (*module_init_fn_t)(void);
+typedef uint32_t (*module_deinit_fn_t)(void);
 
 /* Hook Indices */
 #define MODULE_HOOK_COMBO_SHOULD_TRIGGER 0

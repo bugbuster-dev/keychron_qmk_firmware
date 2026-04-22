@@ -351,7 +351,7 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
         module_init_fn_t init_fn = (module_init_fn_t)(slot_addr + hdr->init_off);
         xprintf("mod load slot=%u init_fn=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
-        uint32_t rc = init_fn(slot_addr);
+        uint32_t rc = init_fn();
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("mod load slot=%u init OK rc=0x%lx\n",
                     (unsigned)slot_id, (unsigned long)rc);
@@ -407,7 +407,7 @@ bool module_unload(uint8_t slot_id) {
        to be released and the module invalidated regardless. */
     if (header.deinit_off > 0 && header.deinit_off >= sizeof(module_header_t) && header.deinit_off < header.code_size) {
         module_deinit_fn_t deinit_fn = (module_deinit_fn_t)(slot_addr + header.deinit_off);
-        uint32_t rc = deinit_fn(slot_addr);
+        uint32_t rc = deinit_fn();
         xprintf("mod unload slot=%u deinit rc=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)rc);
     }
@@ -530,7 +530,7 @@ void module_boot_scan(void) {
         module_init_fn_t init_fn = (module_init_fn_t)(slot_addr + header.init_off);
         xprintf("mod boot slot=%u init_fn=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
-        uint32_t rc = init_fn(slot_addr);
+        uint32_t rc = init_fn();
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("mod boot slot=%u init OK rc=0x%lx\n",
                         (unsigned)slot_id, (unsigned long)rc);
