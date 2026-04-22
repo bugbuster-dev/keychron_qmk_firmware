@@ -14,6 +14,36 @@
 static EFlashDriver *efl = &EFLD1;
 static BaseFlash *flash = (BaseFlash *)&EFLD1;
 
+/* ChibiOS EFL API takes offsets relative to FLASH_BASE, not absolute
+ * addresses. Module code works in absolute addresses (XIP view) so we
+ * convert at the boundary. FLASH_BASE on STM32 is 0x08000000. */
+#define MODULE_FLASH_ABS_TO_OFFSET(abs) ((flash_offset_t)((abs) - FLASH_BASE))
+
+/**
+ * @brief Normalize the flash controller state before calling eflStart().
+ *
+ * The DFU bootloader leaves the STM32F4 flash controller unlocked
+ * (CR.LOCK=0) and may leave stale operation bits or error flags set.
+ * ChibiOS's eflStart() assumes CR is locked and performs the KEY1/KEY2
+ * unlock sequence unconditionally. Per RM0368 §3.5.1, writing the key
+ * sequence to an already-unlocked register "locks up FLASH_CR until
+ * next reset" — a hardware wedge that NACKs subsequent CR writes on
+ * the AHB bus, stalling XIP instruction fetch and hanging the CPU.
+ *
+ * This helper:
+ *   1. Waits for any in-flight bootloader operation (BSY=0).
+ *   2. Clears sticky error flags in SR.
+ *   3. Forces CR.LOCK=1 so eflStart()'s unlock sequence runs against
+ *      a known-locked controller.
+ *
+ * Safe to call when CR is already locked (the CR write is ignored).
+ */
+static void prepare_flash_controller(void) {
+    while (FLASH->SR & FLASH_SR_BSY) { }
+    FLASH->SR = 0x0000FFFFU;
+    FLASH->CR |= FLASH_CR_LOCK;
+}
+
 /**
  * @brief Validates that an address falls within the allowed module sectors.
  */
@@ -46,18 +76,22 @@ bool module_flash_write(uint32_t address, uint8_t* data, size_t len) {
         return false;
     }
 
+    prepare_flash_controller();
+
     /* Initialize the EFL driver */
     if (eflStart(efl, NULL) != HAL_RET_SUCCESS) {
         return false;
     }
 
-    /* Write data in 4-byte chunks */
-    for (size_t i = 0; i < len; i += 4) {
-        flash_error_t status = flashProgram(flash, address + i, 4, data + i);
-        if (status != FLASH_NO_ERROR) {
-            eflStop(efl);
-            return false;
-        }
+    /* Write the entire block in one call. The ChibiOS EFL driver programs
+     * in flash lines (32 bytes on STM32F4) — it fills each line buffer
+     * with 0xFF, copies the requested bytes, then programs the whole line.
+     * Calling it repeatedly with small n overwrites previous lines with
+     * 0xFF. A single call lets the driver handle line alignment internally. */
+    flash_error_t status = flashProgram(flash, MODULE_FLASH_ABS_TO_OFFSET(address), len, data);
+    if (status != FLASH_NO_ERROR) {
+        eflStop(efl);
+        return false;
     }
 
     eflStop(efl);
@@ -70,11 +104,17 @@ bool module_flash_erase_sector(uint32_t sector_base) {
         return false;
     }
 
-    /* Determine the sector number */
-    flash_sector_t sector_num = flashGetOffsetSector(flash, sector_base);
+    /* Determine the sector number. flashGetOffsetSector expects an
+     * offset from FLASH_BASE (0x08000000). Passing the absolute XIP
+     * address silently fails the internal range check and the function
+     * returns sector 0 — which would erase the vector table and brick
+     * the MCU on the next interrupt. */
+    flash_sector_t sector_num = flashGetOffsetSector(flash, MODULE_FLASH_ABS_TO_OFFSET(sector_base));
     if (sector_num == UINT32_MAX) {
         return false;
     }
+
+    prepare_flash_controller();
 
     /* Initialize the EFL driver */
     if (eflStart(efl, NULL) != HAL_RET_SUCCESS) {
