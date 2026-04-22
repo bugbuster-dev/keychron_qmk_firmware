@@ -25,7 +25,7 @@ extern "C" {
 #include "debug_user.h"
 #include "version.h"
 
-void debug_led_on(int li);
+void debug_led_on(int li, uint8_t r, uint8_t g, uint8_t b);
 }
 
 typedef uint16_t tx_buffer_index_t;
@@ -176,7 +176,7 @@ public:
 
         // todo bb: handle buffer full
         if (next_head == 0) {
-            debug_led_on(0);
+            debug_led_on(0, 0, 200, 200);
             // buffer full
             flush();
             return 1;
@@ -288,18 +288,19 @@ static BufferStream s_console_stream(nullptr, 0,
 
 extern "C" {
 
-void debug_led_on(int li)
+void debug_led_on(int li, uint8_t r, uint8_t g, uint8_t b)
 {
 #ifdef DEVEL_BUILD
-    extern rgb_matrix_host_buffer_t g_rgb_matrix_host_buf;
-    static uint8_t s_li = 0;
-    if (li == -1) li = s_li;
-    g_rgb_matrix_host_buf.led[li].duration = 250;
-    g_rgb_matrix_host_buf.led[li].r = 0;
-    g_rgb_matrix_host_buf.led[li].g = 200;
-    g_rgb_matrix_host_buf.led[li].b = 200;
-    g_rgb_matrix_host_buf.written = 1;
-    s_li = (s_li+1)%RGB_MATRIX_LED_COUNT;
+    /* Direct-drive LED via SNLED27351 SPI driver (bypasses RGB matrix task
+     * so markers are visible even when the main loop is stuck).
+     * NOTE: SNLED27351-SPI is the RGB driver on Q3 Max. Other keyboards
+     * may use a different LED driver (e.g. IS31FL3xxx, SNLED27351-I2C,
+     * WS2812) — check the target board's rules.mk / config.h and switch
+     * to the appropriate driver API before enabling this on other models. */
+    extern void snled27351_set_color(int index, uint8_t red, uint8_t green, uint8_t blue);
+    extern void snled27351_flush(void);
+    snled27351_set_color(li, r, g, b);
+    snled27351_flush();
 #endif
 }
 

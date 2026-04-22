@@ -76,8 +76,8 @@ void keyboard_post_init_user(void) {
 
 #ifdef QMKATA_ENABLE
 #    ifdef DEVEL_BUILD
-    // debug_config.enable = 1;
-    // debug_config_user.qmkata = 1;
+    debug_config.enable = 1;
+    debug_config_user.qmkata = 1;
 #    endif
     qmkata_init("Keychron QMKata");
 #endif

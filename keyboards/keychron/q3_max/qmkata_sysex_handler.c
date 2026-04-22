@@ -141,7 +141,7 @@ enum struct_flags { STRUCT_FLAG_READ_ONLY = 0x1 };
     resp[n + 3] = size;                           \
     n += 4;
 
-extern void debug_led_on(int led);
+extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
 
 static void xprintf_buf(uint8_t* buf, uint8_t len) {
 #ifdef CONSOLE_ENABLE
@@ -496,7 +496,7 @@ _QMKATA_HANDLE_CMD_SET(cli) {
             if (debug_config_user.qmkata) xprintf("call:0x%lx (0x%lx)\n", (uint32_t)fun, (uint32_t)fun_addr);
             fun(-1);
         } else {
-            debug_led_on(0);
+            debug_led_on(0, 0, 200, 200);
         }
         _return_cli_error(seqnum, cli_seq, 0); // no error
         return;
