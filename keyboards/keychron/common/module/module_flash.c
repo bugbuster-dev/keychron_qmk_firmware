@@ -9,6 +9,7 @@
 #include "hal_efl.h"
 #include "hal_flash.h"
 #include "module_flash.h"
+#include "print.h"
 
 /* Flash instance - using the ChibiOS EFL driver */
 static EFlashDriver *efl = &EFLD1;
@@ -144,6 +145,56 @@ bool module_flash_erase_sector(uint32_t sector_base) {
     }
 
     eflStop(efl);
+    return true;
+}
+
+bool module_flash_write_with_relocs(uint8_t slot_id,
+                                    uint32_t slot_addr,
+                                    uint8_t* buf,
+                                    size_t len,
+                                    uint32_t reloc_off,
+                                    uint32_t reloc_count) {
+    /* Structural consistency between the two fields has already been
+     * enforced by module_load() (they must be both-zero or both-nonzero,
+     * reloc_off must be 4-aligned and sit past the header+hook table, and
+     * the table must fit within code_size). Here we only walk the entries,
+     * bound-check each patch site against the buffer we are about to
+     * program, and apply the fix-up in place.
+     *
+     * Each entry is a 4-byte offset within the image at which a 32-bit
+     * word currently holds a link-time address (ORIGIN=0 based) that must
+     * be rebased to the absolute slot address by adding slot_addr. Patch
+     * sites must be 4-aligned and must not straddle the reloc table
+     * itself (we refuse to patch the table that describes the patches). */
+    if (reloc_count > 0) {
+        const uint32_t *table = (const uint32_t *)(buf + reloc_off);
+        for (uint32_t i = 0; i < reloc_count; i++) {
+            uint32_t patch_off = table[i];
+            if ((patch_off & 3u) != 0 || patch_off + 4u > reloc_off) {
+                xprintf("mod load slot=%u rejected: bad reloc[%lu] off=0x%lx (reloc_off=0x%lx)\n",
+                        (unsigned)slot_id, (unsigned long)i,
+                        (unsigned long)patch_off, (unsigned long)reloc_off);
+                return false;
+            }
+            if (patch_off + 4u > len) {
+                /* Should already be caught by patch_off < reloc_off and
+                 * reloc_off < code_size <= len, but defend against a
+                 * caller that passed a truncated buffer. */
+                xprintf("mod load slot=%u rejected: reloc[%lu] off=0x%lx past buffer (len=%u)\n",
+                        (unsigned)slot_id, (unsigned long)i,
+                        (unsigned long)patch_off, (unsigned)len);
+                return false;
+            }
+            uint32_t *word = (uint32_t *)(buf + patch_off);
+            *word += slot_addr;
+        }
+    }
+
+    if (!module_flash_write(slot_addr, buf, len)) {
+        xprintf("mod load slot=%u rejected: flash write failed at 0x%lx len=%u\n",
+                (unsigned)slot_id, (unsigned long)slot_addr, (unsigned)len);
+        return false;
+    }
     return true;
 }
 

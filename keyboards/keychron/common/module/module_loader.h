@@ -76,8 +76,20 @@ typedef struct {
 
 /**
  * @brief Load a module into a specific slot.
+ *
+ * @note Despite the `const` qualifier on @p data, the buffer IS mutated
+ *       in place: R_ARM_ABS32 relocations are applied before the flash
+ *       write by adding the slot's absolute base address to each patch
+ *       site. The `const` is retained to document caller intent (read:
+ *       "the loader takes ownership for the duration of the call") but
+ *       callers MUST NOT reuse the buffer after this function returns.
+ *       On failure the buffer may be partially patched; obtain fresh
+ *       bytes from the host before retrying. See
+ *       module_flash_write_with_relocs() for the full contract.
+ *
  * @param slot_id The slot ID (0-7).
  * @param data Pointer to the module binary data (including header).
+ *             Mutated in place; caller must not reuse after return.
  * @param len Length of the data in bytes.
  * @return true if the module was loaded successfully, false otherwise.
  */

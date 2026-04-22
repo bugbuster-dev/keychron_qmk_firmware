@@ -209,8 +209,47 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
     /* Validate header in RAM before touching flash */
     const module_header_t* hdr = (const module_header_t*)data;
     if (hdr->magic != MODULE_HEADER_MAGIC) return false;
-    if (hdr->version != MODULE_HEADER_VERSION) return false;
+    if (hdr->version != MODULE_HEADER_VERSION) {
+        xprintf("mod load slot=%u rejected: version %u != %u\n",
+                (unsigned)slot_id, (unsigned)hdr->version,
+                (unsigned)MODULE_HEADER_VERSION);
+        return false;
+    }
     if (!validate_module_layout(hdr, len)) return false;
+
+    /* Reloc table structural sanity. The host packer emits reloc_off and
+       reloc_count as a paired field — both zero when the module has no
+       ABS32 relocations, both nonzero otherwise. A silent struct.pack
+       field swap between these two would manifest as one of:
+         - only one field nonzero (inconsistent)
+         - reloc_off landing inside the header / hook table
+         - reloc table extending past code_size
+       All three are rejected here before we commit to an erase. Per-entry
+       bounds are checked inside module_flash_write_with_relocs(). */
+    {
+        const uint32_t hook_table_bytes = MODULE_HOOK_MAX * sizeof(uint32_t);
+        if ((hdr->reloc_off == 0) != (hdr->reloc_count == 0)) {
+            xprintf("mod load slot=%u rejected: reloc_off=%lu reloc_count=%lu inconsistent\n",
+                    (unsigned)slot_id, (unsigned long)hdr->reloc_off,
+                    (unsigned long)hdr->reloc_count);
+            return false;
+        }
+        if (hdr->reloc_count > 0) {
+            if ((hdr->reloc_off & 3u) != 0 ||
+                hdr->reloc_off < sizeof(module_header_t) + hook_table_bytes) {
+                xprintf("mod load slot=%u rejected: reloc_off=%lu misaligned or overlaps header/hook table\n",
+                        (unsigned)slot_id, (unsigned long)hdr->reloc_off);
+                return false;
+            }
+            /* Use 64-bit math to catch wrap on an adversarial reloc_count. */
+            if ((uint64_t)hdr->reloc_off + (uint64_t)hdr->reloc_count * 4u > (uint64_t)hdr->code_size) {
+                xprintf("mod load slot=%u rejected: reloc table extends past code_size (reloc_off=%lu count=%lu code_size=%lu)\n",
+                        (unsigned)slot_id, (unsigned long)hdr->reloc_off,
+                        (unsigned long)hdr->reloc_count, (unsigned long)hdr->code_size);
+                return false;
+            }
+        }
+    }
 
     const uint32_t* hook_table_data = (const uint32_t*)(data + hdr->hook_table_off);
     if (!validate_dispatch_hook_offsets(hdr, hook_table_data)) return false;
@@ -257,9 +296,22 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
 
     if (!module_flash_erase_sector(sector_base)) return false;
 
-    /* Write module data to flash (pad to 4-byte alignment) */
+    /* Write module data to flash (pad to 4-byte alignment). Relocations
+       are applied in place to the caller's RAM buffer immediately before
+       the flash program — once bits are committed to flash they can only
+       be cleared, so the ORIGIN=0 link-time addresses in the literal pool
+       must be rebased to absolute slot addresses while the image is still
+       in RAM. Any reloc-walk failure short-circuits before flash is
+       touched; see module_flash_write_with_relocs() for per-entry checks.
+       The mutation is a deliberate side effect on the uploader-owned
+       buffer and is acceptable because this function owns `data` for the
+       duration of the call and never returns it to the caller. */
     size_t write_len = (len + 3) & ~3;
-    if (!module_flash_write(slot_addr, (uint8_t*)data, write_len)) return false;
+    if (!module_flash_write_with_relocs(slot_id, slot_addr, (uint8_t*)data,
+                                        write_len, hdr->reloc_off,
+                                        hdr->reloc_count)) {
+        return false;
+    }
 
     /* Claim hooks and install dispatch pointers in one pass. claim_hook()
        stores module_id before func (with a compiler barrier), so any
@@ -333,8 +385,17 @@ bool module_unload(uint8_t slot_id) {
        blank or stale slots. We deliberately do NOT read deinit_off,
        hook_bitmap, or code_size when magic/version are wrong — those fields
        may contain arbitrary bytes (erased 0xFF, zeroed by a prior
-       invalidate, or mid-write garbage after a power loss). */
-    if (header.magic != MODULE_HEADER_MAGIC || header.version != MODULE_HEADER_VERSION) {
+       invalidate, or mid-write garbage after a power loss). Magic mismatch
+       is the common "nothing here" case and stays silent; version mismatch
+       means a module from an incompatible firmware build sits in the slot,
+       which is worth surfacing in the console. */
+    if (header.magic != MODULE_HEADER_MAGIC) {
+        return true;
+    }
+    if (header.version != MODULE_HEADER_VERSION) {
+        xprintf("mod unload slot=%u rejected: version %u != %u\n",
+                (unsigned)slot_id, (unsigned)header.version,
+                (unsigned)MODULE_HEADER_VERSION);
         return true;
     }
 
@@ -389,6 +450,9 @@ void module_boot_scan(void) {
             continue;
         }
         if (header.version != MODULE_HEADER_VERSION) {
+            xprintf("mod boot_scan slot=%u rejected: version %u != %u\n",
+                    (unsigned)slot_id, (unsigned)header.version,
+                    (unsigned)MODULE_HEADER_VERSION);
             continue;
         }
 
