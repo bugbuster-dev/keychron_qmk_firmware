@@ -1160,28 +1160,37 @@ _QMKATA_HANDLE_CMD_GET(module) {
     }
 
     /* Chunked binary read: host requests a slice of the slot's flash contents.
-       buf[1..2] = offset (uint16_t LE). Response carries up to ~50 bytes of
+       buf[1..2] = offset (uint16_t LE). Response carries up to 48 bytes of
        raw flash data so the host can reconstruct the full slot binary.
        Used during sector-preserving reload to back up sibling modules before
-       a sector erase. */
+       a sector erase.
+
+       Response format uses a distinct discriminator (buf[1] = 0xFD) to avoid
+       collision with the 13-byte per-slot header response (buf[1] = slot_id)
+       and the summary response (buf[1] = 0xFF):
+         [seqnum, ID_MODULE, 0xFD, slot_id, off_lo, off_hi, chunk_len, data...]
+    */
     if (len >= 3) {
         uint16_t read_off = buf[1] | (buf[2] << 8);
         if (read_off < MODULE_FLASH_SLOT_SIZE) {
+            #define MODULE_GET_MAX_CHUNK 48
             uint16_t chunk = MODULE_FLASH_SLOT_SIZE - read_off;
-            /* Leave room for response header: seqnum(1) + id(1) + slot(1) +
-               offset(2) + len(1) = 6 bytes of overhead. Max sysex payload
-               is ~60 bytes, so we can carry ~54 bytes of data. Cap at 48
-               for a safe margin. */
-            if (chunk > 48) chunk = 48;
-            uint8_t resp[6 + chunk];
+            if (chunk > MODULE_GET_MAX_CHUNK) chunk = MODULE_GET_MAX_CHUNK;
+            /* Fixed-size buffer sized for the maximum chunk; matches codebase
+               convention (no VLAs). Response length is the actual chunk size
+               plus 7-byte header. */
+            uint8_t resp[7 + MODULE_GET_MAX_CHUNK];
             resp[0] = seqnum;
             resp[1] = QMKATA_ID_MODULE;
-            resp[2] = slot_id;
-            resp[3] = read_off & 0xFF;
-            resp[4] = (read_off >> 8) & 0xFF;
-            resp[5] = chunk;
-            memcpy(&resp[6], (const void *)MODULE_FLASH_GET_SLOT_ADDR(slot_id) + read_off, chunk);
-            qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+            resp[2] = 0xFD;                    /* discriminator: chunked read */
+            resp[3] = slot_id;
+            resp[4] = read_off & 0xFF;
+            resp[5] = (read_off >> 8) & 0xFF;
+            resp[6] = chunk;
+            const uint8_t *src = (const uint8_t *)MODULE_FLASH_GET_SLOT_ADDR(slot_id);
+            memcpy(&resp[7], src + read_off, chunk);
+            qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, 7 + chunk);
+            #undef MODULE_GET_MAX_CHUNK
             return;
         }
     }
