@@ -7,9 +7,11 @@
    to vprintf_ (the lib/printf variadic entry point), which routes to
    the same console as xprintf.
 
-   Modules call mprintf for routine diagnostics. They may still call
-   printf for unconditional output (e.g. unrecoverable error paths
-   where the user must see something regardless of the bit setting).
+   Modules call mprintf for routine diagnostics. Output is automatically
+   prefixed with "[mod] " so module console output is distinguishable
+   from firmware core output. Modules may still call printf for
+   unconditional output (e.g. unrecoverable error paths where the user
+   must see something regardless of the bit setting).
 
    The function exists as a real symbol with a stable address even
    when CONSOLE_ENABLE=no; in that build it is a body-less no-op.

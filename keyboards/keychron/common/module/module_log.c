@@ -16,6 +16,7 @@ void __attribute__((used)) mprintf(const char *fmt, ...) {
     if (!debug_config_user.module) {
         return;
     }
+    xprintf("[mod] ");
     va_list ap;
     va_start(ap, fmt);
     vprintf(fmt, ap);
