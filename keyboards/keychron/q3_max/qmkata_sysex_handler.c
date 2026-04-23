@@ -673,6 +673,7 @@ enum config_debug_user_field {
     CONFIG_FIELD_DEBUG_USER_QMKATA = 1,
     CONFIG_FIELD_DEBUG_USER_STATS,
     CONFIG_FIELD_DEBUG_USER_USER_ANIM,
+    CONFIG_FIELD_DEBUG_USER_MODULE,
 };
 
 enum config_rgb_field {
@@ -731,6 +732,7 @@ static void _qmkata_send_struct_layout_config(uint8_t seqnum) {
     BITFIELD(CONFIG_FIELD_DEBUG_USER_QMKATA, 0, 1, 8);
     BITFIELD(CONFIG_FIELD_DEBUG_USER_STATS, 1, 1, 8);
     BITFIELD(CONFIG_FIELD_DEBUG_USER_USER_ANIM, 2, 1, 8);
+    BITFIELD(CONFIG_FIELD_DEBUG_USER_MODULE, 3, 1, 8);
     qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, n);
     //--------------------------------
     resp[0] = seqnum;
