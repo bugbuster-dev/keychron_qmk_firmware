@@ -9,6 +9,15 @@ VPATH += $(TOP_DIR)/$(MODULE_LOADER_DIR)
 SRC += keyboards/keychron/common/module/module_flash.c
 SRC += keyboards/keychron/common/module/module_loader.c
 SRC += keyboards/keychron/common/module/module_dispatch.c
+SRC += keyboards/keychron/common/module/module_log.c
+
+# Force the linker to keep mprintf even though no firmware-side code
+# calls it. Modules resolve it via host-side .map-based PROVIDE symbol
+# resolution (qmk-tools QMKata ModuleBuild.py), which requires the
+# symbol to survive --gc-sections. __attribute__((used)) alone is not
+# enough because it only prevents compiler-level discard; the linker
+# still garbage-collects unreferenced sections.
+EXTRALDFLAGS += -Wl,--undefined=mprintf
 
 # Enable the QMK combo callback hooks so module dispatchers are actually
 # invoked by quantum/process_keycode/process_combo.c. Without these defines

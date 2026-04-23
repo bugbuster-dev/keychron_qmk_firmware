@@ -18,6 +18,7 @@ typedef union {
         bool    qmkata : 1;
         bool    stats : 1;
         bool    user_anim : 1;
+        bool    module : 1;
         //bool    via : 1;
         //uint32_t reserved : ..;
     };
