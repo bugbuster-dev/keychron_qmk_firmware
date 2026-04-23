@@ -26,14 +26,16 @@
 /* init / deinit ABI: both take no arguments and return uint32_t.
    Init must return MODULE_INIT_MAGIC; deinit's return value is logged but not checked.
 
-   Module code does not receive its load address. Runtime R_ARM_ABS32
-   relocations rebase literal-pool entries at flash-program time, so
-   module code references its own .rodata through plain C without
-   arithmetic on a load-address parameter. The load address remains
-   available to the firmware (via slot_addr) for logging and bounds
-   validation, but passing it into the module would only invite the
-   now-broken "module_base + (uintptr_t)sym" PIC pattern to
-   double-relocate an already-rebased address. */
+   Module code does not receive its load address. R_ARM_ABS32
+   relocations are applied host-side during upload (see qmk-tools
+   ModuleBuild.apply_relocations_and_crc), rebasing literal-pool
+   entries to the target slot's absolute XIP address before the bytes
+   are flashed. Module code therefore references its own .rodata
+   through plain C without arithmetic on a load-address parameter.
+   The load address remains available to the firmware (via slot_addr)
+   for logging and bounds validation, but passing it into the module
+   would only invite the now-broken "module_base + (uintptr_t)sym" PIC
+   pattern to double-relocate an already-rebased address. */
 typedef uint32_t (*module_init_fn_t)(void);
 typedef uint32_t (*module_deinit_fn_t)(void);
 
@@ -83,19 +85,15 @@ typedef struct {
 /**
  * @brief Load a module into a specific slot.
  *
- * @note Despite the `const` qualifier on @p data, the buffer IS mutated
- *       in place: R_ARM_ABS32 relocations are applied before the flash
- *       write by adding the slot's absolute base address to each patch
- *       site. The `const` is retained to document caller intent (read:
- *       "the loader takes ownership for the duration of the call") but
- *       callers MUST NOT reuse the buffer after this function returns.
- *       On failure the buffer may be partially patched; obtain fresh
- *       bytes from the host before retrying. See
- *       module_flash_write_with_relocs() for the full contract.
+ * The caller's buffer is read verbatim and programmed to flash without
+ * modification. The host (qmk-tools ModuleBuild.apply_relocations_and_crc)
+ * has already rebased ABS32 literal-pool entries to the target slot's
+ * absolute XIP address and embedded the final CRC over the post-reloc
+ * bytes, so the header CRC matches what module_boot_scan reads back on
+ * every cold boot.
  *
  * @param slot_id The slot ID (0-7).
  * @param data Pointer to the module binary data (including header).
- *             Mutated in place; caller must not reuse after return.
  * @param len Length of the data in bytes.
  * @return true if the module was loaded successfully, false otherwise.
  */

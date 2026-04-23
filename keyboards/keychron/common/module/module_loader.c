@@ -217,40 +217,6 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
     }
     if (!validate_module_layout(hdr, len)) return false;
 
-    /* Reloc table structural sanity. The host packer emits reloc_off and
-       reloc_count as a paired field — both zero when the module has no
-       ABS32 relocations, both nonzero otherwise. A silent struct.pack
-       field swap between these two would manifest as one of:
-         - only one field nonzero (inconsistent)
-         - reloc_off landing inside the header / hook table
-         - reloc table extending past code_size
-       All three are rejected here before we commit to an erase. Per-entry
-       bounds are checked inside module_flash_write_with_relocs(). */
-    {
-        const uint32_t hook_table_bytes = MODULE_HOOK_MAX * sizeof(uint32_t);
-        if ((hdr->reloc_off == 0) != (hdr->reloc_count == 0)) {
-            xprintf("mod load slot=%u rejected: reloc_off=%lu reloc_count=%lu inconsistent\n",
-                    (unsigned)slot_id, (unsigned long)hdr->reloc_off,
-                    (unsigned long)hdr->reloc_count);
-            return false;
-        }
-        if (hdr->reloc_count > 0) {
-            if ((hdr->reloc_off & 3u) != 0 ||
-                hdr->reloc_off < sizeof(module_header_t) + hook_table_bytes) {
-                xprintf("mod load slot=%u rejected: reloc_off=%lu misaligned or overlaps header/hook table\n",
-                        (unsigned)slot_id, (unsigned long)hdr->reloc_off);
-                return false;
-            }
-            /* Use 64-bit math to catch wrap on an adversarial reloc_count. */
-            if ((uint64_t)hdr->reloc_off + (uint64_t)hdr->reloc_count * 4u > (uint64_t)hdr->code_size) {
-                xprintf("mod load slot=%u rejected: reloc table extends past code_size (reloc_off=%lu count=%lu code_size=%lu)\n",
-                        (unsigned)slot_id, (unsigned long)hdr->reloc_off,
-                        (unsigned long)hdr->reloc_count, (unsigned long)hdr->code_size);
-                return false;
-            }
-        }
-    }
-
     const uint32_t* hook_table_data = (const uint32_t*)(data + hdr->hook_table_off);
     if (!validate_dispatch_hook_offsets(hdr, hook_table_data)) return false;
 
@@ -296,20 +262,17 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
 
     if (!module_flash_erase_sector(sector_base)) return false;
 
-    /* Write module data to flash (pad to 4-byte alignment). Relocations
-       are applied in place to the caller's RAM buffer immediately before
-       the flash program — once bits are committed to flash they can only
-       be cleared, so the ORIGIN=0 link-time addresses in the literal pool
-       must be rebased to absolute slot addresses while the image is still
-       in RAM. Any reloc-walk failure short-circuits before flash is
-       touched; see module_flash_write_with_relocs() for per-entry checks.
-       The mutation is a deliberate side effect on the uploader-owned
-       buffer and is acceptable because this function owns `data` for the
-       duration of the call and never returns it to the caller. */
+    /* Write module data to flash verbatim. The host has already applied
+       ABS32 relocations (rebasing ORIGIN=0 literal-pool addresses to
+       the target slot's absolute XIP address) and embedded the final
+       CRC over the post-reloc bytes. Because we never mutate the data
+       here, the CRC stored in the header matches the bytes on flash,
+       which is what module_boot_scan validates on every cold boot.
+       See qmk-tools ModuleBuild.apply_relocations_and_crc. */
     size_t write_len = (len + 3) & ~3;
-    if (!module_flash_write_with_relocs(slot_id, slot_addr, (uint8_t*)data,
-                                        write_len, hdr->reloc_off,
-                                        hdr->reloc_count)) {
+    if (!module_flash_write(slot_addr, (uint8_t*)data, write_len)) {
+        xprintf("mod load slot=%u rejected: flash write failed at 0x%lx len=%u\n",
+                (unsigned)slot_id, (unsigned long)slot_addr, (unsigned)write_len);
         return false;
     }
 

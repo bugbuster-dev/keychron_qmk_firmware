@@ -49,58 +49,6 @@
 bool module_flash_write(uint32_t address, uint8_t* data, size_t len);
 
 /**
- * @brief Apply ABS32 relocations to a RAM image in place, then program
- *        the resulting bytes into a module slot.
- *
- * The module image is linked at ORIGIN=0 (see qmk-tools/qmk/QMKata/module_linker.ld)
- * so every literal-pool entry that refers to an in-module address is
- * emitted as the raw link-time offset. At load time we rebase each such
- * entry by adding @p slot_addr (the absolute XIP address of the target
- * slot) to the 32-bit word at each reloc table entry's offset. The
- * reloc table itself is a packed array of uint32_t patch offsets stored
- * at @p reloc_off bytes into @p buf and has @p reloc_count entries.
- *
- * Patching happens on the caller's RAM buffer — flash cannot be patched
- * after programming because STM32F4 flash bits are erase-once (1->0 only).
- * After successful patching, the entire buffer (including the now-stale
- * reloc table, which is kept for post-load debugging via XIP read) is
- * programmed to flash in one call to module_flash_write().
- *
- * On any validation failure this function logs an xprintf diagnostic
- * identifying @p slot_id and returns false without touching flash.
- *
- * @note The caller MUST NOT reuse @p buf after this function returns.
- *       Relocations are applied in place and are not idempotent — a
- *       second call with the same buffer would double-add @p slot_addr.
- *       On failure (either bad reloc entry or flash write failure), @p buf
- *       is left in an indeterminate state (possibly partially patched);
- *       the caller must obtain fresh bytes from the host before retrying.
- *       The current upload protocol (qmkata_sysex_handler::module_chunk_buf)
- *       satisfies this contract by re-staging on retry.
- *
- * @note @p reloc_off must be 4-byte aligned in addition to the structural
- *       bounds checked upstream in module_load(); alignment is verified
- *       on every entry individually before the 32-bit load.
- *
- * @param slot_id The slot ID (for diagnostic logging only).
- * @param slot_addr Absolute XIP base address of the target slot.
- * @param buf Pointer to the full module image (header + code + reloc table).
- *            Mutated in place with relocation fix-ups.
- * @param len Total image length in bytes (must be 4-byte aligned).
- * @param reloc_off Byte offset of the reloc table within @p buf, or 0
- *                  if the module has no relocations. Must be 4-aligned.
- * @param reloc_count Number of 4-byte entries in the reloc table, or 0
- *                    if the module has no relocations.
- * @return true if patching and flash write both succeeded.
- */
-bool module_flash_write_with_relocs(uint8_t slot_id,
-                                    uint32_t slot_addr,
-                                    uint8_t* buf,
-                                    size_t len,
-                                    uint32_t reloc_off,
-                                    uint32_t reloc_count);
-
-/**
  * @brief Erase a specific sector (S2 or S3).
  * @param sector_base The base address of the sector to erase (S2_BASE or S3_BASE).
  * @return true if the erase was successful, false otherwise.
