@@ -260,7 +260,13 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
         }
     }
 
-    if (!module_flash_erase_sector(sector_base)) return false;
+    /* Skip erase if the sector is already blank. This happens when the host
+       performs a sector-preserving reload: it erases the sector explicitly
+       before uploading each slot. A redundant erase wastes ~30 ms and is
+       harmless but unnecessary. */
+    if (!module_flash_is_sector_empty(sector_base)) {
+        if (!module_flash_erase_sector(sector_base)) return false;
+    }
 
     /* Write module data to flash verbatim. The host has already applied
        ABS32 relocations (rebasing ORIGIN=0 literal-pool addresses to

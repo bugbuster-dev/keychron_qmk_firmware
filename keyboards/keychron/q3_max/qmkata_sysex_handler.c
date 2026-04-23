@@ -1016,8 +1016,9 @@ static uint8_t module_chunk_buf[MODULE_FLASH_SLOT_SIZE];
 static uint8_t module_loading_slot = 0xFF;
 static uint16_t module_loading_offset = 0;
 
-// SET: buf[0]=slot_id (0-7), buf[1..2]=offset (uint16_t LE; 0xFFFF=finalize),
-//      buf[3]=declared payload length, buf[4..]=data
+// SET: buf[0]=slot_id (0-7, 0xFE=erase sector), buf[1..2]=offset (uint16_t LE;
+//      0xFFFF=finalize), buf[3]=declared payload length, buf[4..]=data
+//      For sector erase (slot_id=0xFE): buf[1]=sector_id (0=S2, 1=S3)
 _QMKATA_HANDLE_CMD_SET(module) {
     if (len < 4) return;
     uint8_t  slot_id      = buf[0];
@@ -1029,6 +1030,30 @@ _QMKATA_HANDLE_CMD_SET(module) {
 
     DBG_USR(qmkata, "module:set slot=%u offset=0x%04x declared=%u avail=%zu\n",
             slot_id, offset, declared_len, available);
+
+    /* Sector erase (slot_id=0xFE): erase an entire module flash sector.
+       Used by the host during sector-preserving reload: host reads all
+       sibling slot binaries first, then erases the sector, then
+       re-uploads every slot individually. buf[1] encodes sector_id
+       (0=Sector 2 at 0x08008000, 1=Sector 3 at 0x0800C000). */
+    if (slot_id == 0xFE) {
+        uint8_t sector_id = (offset >> 8) & 0xFF;  // buf[1] = sector_id
+        if (sector_id > 1) {
+            DBG_USR(qmkata, "module:erase invalid sector=%u\n", sector_id);
+            return;
+        }
+        uint32_t sector_base = sector_id == 0 ? MODULE_FLASH_S2_BASE : MODULE_FLASH_S3_BASE;
+        uint8_t start_slot = sector_id * 4;
+        /* Unload all slots in the sector first — release hooks, run deinit */
+        for (uint8_t s = start_slot; s < start_slot + 4; s++) {
+            module_unload(s);
+        }
+        bool ok = module_flash_erase_sector(sector_base);
+        DBG_USR(qmkata, "module:erase sector=%u %s\n", sector_id, ok ? "OK" : "FAIL");
+        uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, ok ? 0 : 1 };
+        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+        return;
+    }
 
     /* Handle finalize (offset == 0xFFFF) */
     if (offset == 0xFFFF) {
@@ -1104,7 +1129,10 @@ _QMKATA_HANDLE_CMD_SET(module) {
     qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
 }
 
-// GET: buf[0]=slot_id (0-7) or 0xFF for all slots summary
+// GET: buf[0]=slot_id (0-7), buf[1..]=offset (uint16_t LE, optional).
+//      No offset or offset=0 with len==1: return header summary (backward compat).
+//      offset>=0 with len>=3: return one chunk of slot binary data at that offset.
+//      slot_id=0xFF: return summary for all slots (backward compat).
 _QMKATA_HANDLE_CMD_GET(module) {
     if (len < 1) return;
     uint8_t slot_id = buf[0];
@@ -1129,6 +1157,33 @@ _QMKATA_HANDLE_CMD_GET(module) {
 
     if (slot_id >= MODULE_FLASH_SLOT_COUNT) {
         return;
+    }
+
+    /* Chunked binary read: host requests a slice of the slot's flash contents.
+       buf[1..2] = offset (uint16_t LE). Response carries up to ~50 bytes of
+       raw flash data so the host can reconstruct the full slot binary.
+       Used during sector-preserving reload to back up sibling modules before
+       a sector erase. */
+    if (len >= 3) {
+        uint16_t read_off = buf[1] | (buf[2] << 8);
+        if (read_off < MODULE_FLASH_SLOT_SIZE) {
+            uint16_t chunk = MODULE_FLASH_SLOT_SIZE - read_off;
+            /* Leave room for response header: seqnum(1) + id(1) + slot(1) +
+               offset(2) + len(1) = 6 bytes of overhead. Max sysex payload
+               is ~60 bytes, so we can carry ~54 bytes of data. Cap at 48
+               for a safe margin. */
+            if (chunk > 48) chunk = 48;
+            uint8_t resp[6 + chunk];
+            resp[0] = seqnum;
+            resp[1] = QMKATA_ID_MODULE;
+            resp[2] = slot_id;
+            resp[3] = read_off & 0xFF;
+            resp[4] = (read_off >> 8) & 0xFF;
+            resp[5] = chunk;
+            memcpy(&resp[6], (const void *)MODULE_FLASH_GET_SLOT_ADDR(slot_id) + read_off, chunk);
+            qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+            return;
+        }
     }
 
     DBG_USR(qmkata, "module:get slot=%u\n", slot_id);
