@@ -1018,7 +1018,8 @@ static uint16_t module_loading_offset = 0;
 
 // SET: buf[0]=slot_id (0-7, 0xFE=erase sector), buf[1..2]=offset (uint16_t LE;
 //      0xFFFF=finalize), buf[3]=declared payload length, buf[4..]=data
-//      For sector erase (slot_id=0xFE): buf[1]=sector_id (0=S2, 1=S3)
+//      For sector erase (slot_id=0xFE): buf[2]=sector_id (0=S2, 1=S3)
+//      i.e. sector_id is encoded as the high byte of the 16-bit offset field.
 _QMKATA_HANDLE_CMD_SET(module) {
     if (len < 4) return;
     uint8_t  slot_id      = buf[0];
@@ -1049,6 +1050,7 @@ _QMKATA_HANDLE_CMD_SET(module) {
             module_unload(s);
         }
         bool ok = module_flash_erase_sector(sector_base);
+        if (ok) module_loader_mark_sector_erased(sector_base);
         DBG_USR(qmkata, "module:erase sector=%u %s\n", sector_id, ok ? "OK" : "FAIL");
         uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, ok ? 0 : 1 };
         qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
@@ -1225,6 +1227,18 @@ _QMKATA_HANDLE_CMD_GET(module) {
 _QMKATA_HANDLE_CMD_DEL(module) {
     if (len < 1) return;
     uint8_t slot_id = buf[0];
+
+    /* Special slot_id 0xFD: signal end of sector-preserving reload.
+       Clears the erase-skip flag so the next independent load erases
+       normally. Sent by the host after all slots in a sector have been
+       written. */
+    if (slot_id == 0xFD) {
+        module_loader_clear_sector_erased();
+        DBG_USR(qmkata, "module:reload_done\n");
+        uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, 0 };
+        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+        return;
+    }
 
     bool success = false;
     if (slot_id < MODULE_FLASH_SLOT_COUNT) {

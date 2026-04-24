@@ -98,6 +98,18 @@ typedef struct {
 bool module_load(uint8_t slot_id, const uint8_t* data, size_t len);
 
 /**
+ * @brief Mark a sector as erased to suppress redundant erases in module_load().
+ * @param sector_base The sector base address (MODULE_FLASH_S2_BASE or S3_BASE).
+ */
+void module_loader_mark_sector_erased(uint32_t sector_base);
+
+/**
+ * @brief Clear the sector-erased flag. Called after sector-preserving reload
+ * completes so the next independent load erases normally.
+ */
+void module_loader_clear_sector_erased(void);
+
+/**
  * @brief Unload a module from a specific slot.
  * @param slot_id The slot ID (0-7).
  * @return true if the module was unloaded successfully, false otherwise.

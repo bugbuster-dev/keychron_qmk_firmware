@@ -18,6 +18,22 @@ static module_hook_entry_t g_module_hooks[MODULE_HOOK_MAX] = {
     [0 ... MODULE_HOOK_MAX - 1] = {NULL, 0xFF},
 };
 
+/* Track which sector was last erased to avoid redundant re-erases during
+ * sector-preserving reload. The host erases once, then uploads all 4 slots.
+ * Without this, module_load(slot 1) would re-erase after slot 0 was written,
+ * destroying slot 0's data. The host sends a DEL 0xFD command after the
+ * reload completes to clear the flag, ensuring the next independent load
+ * erases normally. Sentinel 0xFFFFFFFF = no sector erased yet. */
+static uint32_t s_last_erased_sector = 0xFFFFFFFF;
+
+void module_loader_mark_sector_erased(uint32_t sector_base) {
+    s_last_erased_sector = sector_base;
+}
+
+void module_loader_clear_sector_erased(void) {
+    s_last_erased_sector = 0xFFFFFFFF;
+}
+
 /* Helper: lifecycle hooks are represented by header offsets, not dispatch table claims */
 static bool is_lifecycle_hook(uint32_t hook_index) {
     return (hook_index == MODULE_HOOK_INIT) || (hook_index == MODULE_HOOK_DEINIT);
@@ -226,25 +242,30 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
     if (!validate_module_crc(data, hdr)) return false;
 
     uint32_t slot_addr = MODULE_FLASH_GET_SLOT_ADDR(slot_id);
-
-    /* Destructive step: flash erase on STM32F4 is sector-granular, not
-       slot-granular. Four 4 KB slots share one 16 KB sector, so erasing
-       this sector wipes every sibling module that currently lives in it.
-       We call module_unload() on each sibling first so its hooks are
-       released and its deinit runs, but the sibling binaries themselves
-       will be lost and must be re-uploaded after this call returns.
-       TODO: save siblings to RAM and restore them post-erase.
-
-       Sibling cleanup MUST happen before the hook-conflict check below:
-       if a sibling currently claims a hook that the incoming module also
-       wants, the naive pre-cleanup conflict test would reject the load
-       even though the sibling is about to be erased anyway. Cleaning up
-       first releases those hooks so the conflict check only fires on
-       genuine cross-sector collisions. */
     uint32_t sector_base = MODULE_FLASH_GET_SLOT_SECTOR(slot_id);
-    for (uint8_t s = 0; s < MODULE_FLASH_SLOT_COUNT; s++) {
-        if (s != slot_id && MODULE_FLASH_GET_SLOT_SECTOR(s) == sector_base) {
-            module_unload(s);
+
+    /* Sibling cleanup: release hooks and run deinit for any sibling modules
+       living in the same sector, then (further below) erase the sector to
+       destroy their flash contents.
+
+       Skip sibling cleanup entirely when the sector-preserving reload flag
+       matches this sector — the host's explicit sector-erase command already
+       ran module_unload() on all siblings, so any freshly-written sibling we
+       see here is a slot the host just wrote as part of the *same* reload
+       sequence and must be left alone. Without this guard, loading slot N
+       would invalidate slots 0..N-1 that were just written.
+
+       Outside of reload: sibling cleanup MUST happen before the hook-conflict
+       check below. If a sibling currently claims a hook that the incoming
+       module also wants, the naive pre-cleanup conflict test would reject
+       the load even though the sibling is about to be erased anyway.
+       Cleaning up first releases those hooks so the conflict check only
+       fires on genuine cross-sector collisions. */
+    if (sector_base != s_last_erased_sector) {
+        for (uint8_t s = 0; s < MODULE_FLASH_SLOT_COUNT; s++) {
+            if (s != slot_id && MODULE_FLASH_GET_SLOT_SECTOR(s) == sector_base) {
+                module_unload(s);
+            }
         }
     }
 
@@ -260,12 +281,15 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
         }
     }
 
-    /* Skip erase if the sector is already blank. This happens when the host
-       performs a sector-preserving reload: it erases the sector explicitly
-       before uploading each slot. A redundant erase wastes ~30 ms and is
-       harmless but unnecessary. */
-    if (!module_flash_is_sector_empty(sector_base)) {
+    /* Erase the sector if we haven't already erased it for this upload
+       sequence. The host may erase explicitly before a sector-preserving
+       reload, in which case the firmware's own erase command set the flag
+       and we skip redundant erases. Without this tracking, loading slot 1
+       would re-erase after slot 0 was written, destroying slot 0's data.
+       The host clears the flag by sending DEL 0xFD after the reload. */
+    if (sector_base != s_last_erased_sector) {
         if (!module_flash_erase_sector(sector_base)) return false;
+        s_last_erased_sector = sector_base;
     }
 
     /* Write module data to flash verbatim. The host has already applied
