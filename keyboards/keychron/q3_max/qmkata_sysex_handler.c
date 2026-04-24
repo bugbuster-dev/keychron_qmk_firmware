@@ -288,7 +288,7 @@ _QMKATA_HANDLE_CMD_SET(cli) {
         uint32_t val  = 0;
 
         if (lo) {
-            if (debug_config_user.qmkata) xprintf("unsupported\n");
+            dprintf("unsupported\n");
             _return_cli_error(seqnum, cli_seq, 'u');
             return;
         }
@@ -298,25 +298,23 @@ _QMKATA_HANDLE_CMD_SET(cli) {
         off += sizeof(len);
         if (!wr) {
             if (len > MAX_READ_LEN) {
-                if (debug_config_user.qmkata) xprintf("len too large\n");
+                dprintf("len too large\n");
                 _return_cli_error(seqnum, cli_seq, 'i');
                 return;
             }
             uint8_t* ptr = (uint8_t*)addr;
-            if (debug_config_user.qmkata) {
-                xprintf("m[0x%lx:%d]=", addr, len);
-                if (len == 1)
-                    xprintf("%02x\n", *ptr);
-                else if (len == 2)
-                    xprintf("%04x\n", *(uint16_t*)ptr);
-                else if (len == 4)
-                    xprintf("%08lx\n", *(uint32_t*)ptr);
-                else {
-                    if (len > 16) {
-                        xprintf("\n");
-                    }
-                    xprintf_buf(ptr, len);
+            dprintf("m[0x%lx:%d]=", addr, len);
+            if (len == 1)
+                dprintf("%02x\n", *ptr);
+            else if (len == 2)
+                dprintf("%04x\n", *(uint16_t*)ptr);
+            else if (len == 4)
+                dprintf("%08lx\n", *(uint32_t*)ptr);
+            else {
+                if (len > 16) {
+                    dprintf("\n");
                 }
+                if (debug_enable) xprintf_buf(ptr, len);
             }
             {
                 uint8_t resp[len + 3];
@@ -338,23 +336,23 @@ _QMKATA_HANDLE_CMD_SET(cli) {
                 case 1: {
                     volatile uint8_t* ptr = (volatile uint8_t*)addr;
                     *ptr                  = val;
-                    if (debug_config_user.qmkata) xprintf("%02x\n", *ptr);
+                    dprintf("%02x\n", *ptr);
                     break;
                 }
                 case 2: {
                     volatile uint16_t* ptr = (volatile uint16_t*)addr;
                     *ptr                   = val;
-                    if (debug_config_user.qmkata) xprintf("%04x\n", *ptr);
+                    dprintf("%04x\n", *ptr);
                     break;
                 }
                 case 4: {
                     volatile uint32_t* ptr = (volatile uint32_t*)addr;
                     *ptr                   = val;
-                    if (debug_config_user.qmkata) xprintf("%08lx\n", *ptr);
+                    dprintf("%08lx\n", *ptr);
                     break;
                 }
                 default:
-                    if (debug_config_user.qmkata) xprintf("invalid size\n");
+                    dprintf("invalid size\n");
                     _return_cli_error(seqnum, cli_seq, 'i');
                     break;
             }
@@ -383,7 +381,7 @@ _QMKATA_HANDLE_CMD_SET(cli) {
             resp[off] = cli_seq;
             off++;
             for (int i = 0; i < sizeof(eeprom_layout) / sizeof(eeprom_layout[0]); i++) {
-                if (debug_config_user.qmkata) xprintf("eeprom[%d]:0x%lx:%ld\n", i, eeprom_layout[i].addr, eeprom_layout[i].size);
+                dprintf("eeprom[%d]:0x%lx:%ld\n", i, eeprom_layout[i].addr, eeprom_layout[i].size);
                 resp[off] = i + 1;
                 off++;
                 memcpy(&resp[off], &eeprom_layout[i].addr, sizeof(eeprom_layout[i].addr));
@@ -403,9 +401,9 @@ _QMKATA_HANDLE_CMD_SET(cli) {
         memcpy(&len, &buf[off], sizeof(len));
         off += sizeof(len);
         if (!wr) {
-            if (debug_config_user.qmkata) xprintf("e[0x%lx:%d]=", addr, len);
+            dprintf("e[0x%lx:%d]=", addr, len);
             if (len > MAX_READ_LEN) {
-                if (debug_config_user.qmkata) xprintf("len too large\n");
+                dprintf("len too large\n");
                 _return_cli_error(seqnum, cli_seq, 'i');
                 return;
             }
@@ -425,21 +423,21 @@ _QMKATA_HANDLE_CMD_SET(cli) {
                     uint8_t val = eeprom_read_byte((const uint8_t*)addr);
                     read        = true;
                     memcpy(&resp[off], &val, len);
-                    if (debug_config_user.qmkata) xprintf("%02x\n", val);
+                    dprintf("%02x\n", val);
                     break;
                 }
                 case 2: {
                     uint16_t val = eeprom_read_word((const uint16_t*)addr);
                     read         = true;
                     memcpy(&resp[off], &val, len);
-                    if (debug_config_user.qmkata) xprintf("%04x\n", val);
+                    dprintf("%04x\n", val);
                     break;
                 }
                 case 4: {
                     uint32_t val = eeprom_read_dword((const uint32_t*)addr);
                     read         = true;
                     memcpy(&resp[off], &val, len);
-                    if (debug_config_user.qmkata) xprintf("%08lx\n", val);
+                    dprintf("%08lx\n", val);
                     break;
                 }
                 default:
@@ -461,23 +459,23 @@ _QMKATA_HANDLE_CMD_SET(cli) {
                 case 1: {
                     eeprom_update_byte((uint8_t*)addr, val);
                     val = eeprom_read_byte((const uint8_t*)addr);
-                    if (debug_config_user.qmkata) xprintf("%02x\n", (uint8_t)val);
+                    dprintf("%02x\n", (uint8_t)val);
                     break;
                 }
                 case 2: {
                     eeprom_update_word((uint16_t*)addr, val);
                     val = eeprom_read_word((const uint16_t*)addr);
-                    if (debug_config_user.qmkata) xprintf("%04x\n", (uint16_t)val);
+                    dprintf("%04x\n", (uint16_t)val);
                     break;
                 }
                 case 4: {
                     eeprom_update_dword((uint32_t*)addr, val);
                     val = eeprom_read_dword((const uint32_t*)addr);
-                    if (debug_config_user.qmkata) xprintf("%08lx\n", val);
+                    dprintf("%08lx\n", val);
                     break;
                 }
                 default: {
-                    if (debug_config_user.qmkata) xprintf("invalid size\n");
+                    dprintf("invalid size\n");
                     _return_cli_error(seqnum, cli_seq, 'i');
                     break;
                 }
@@ -493,7 +491,7 @@ _QMKATA_HANDLE_CMD_SET(cli) {
         off += sizeof(fun_addr);
         if (fun_addr) {
             void (*fun)(int) = (void (*)(int))thumb_fun_addr((void*)fun_addr);
-            if (debug_config_user.qmkata) xprintf("call:0x%lx (0x%lx)\n", (uint32_t)fun, (uint32_t)fun_addr);
+            dprintf("call:0x%lx (0x%lx)\n", (uint32_t)fun, (uint32_t)fun_addr);
             fun(-1);
         } else {
             debug_led_on(0, 0, 200, 200);
