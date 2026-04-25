@@ -154,3 +154,95 @@ uint8_t combo_ref_from_layer(uint8_t layer) {
     return module_dispatch_combo_ref_from_layer(layer);
 }
 #endif // COMBO_ENABLE
+
+/* ------------------------------------------------------------------ */
+/* Key processing dispatchers                                         */
+/* ------------------------------------------------------------------ */
+
+typedef bool (*module_process_record_fn)(uint16_t keycode, keyrecord_t *record);
+typedef layer_state_t (*module_layer_state_set_fn)(layer_state_t state);
+typedef void (*module_housekeeping_fn)(void);
+typedef bool (*module_shutdown_fn)(bool jump_to_bootloader);
+
+/**
+ * @brief Strong override of QMK's pre_process_record_user.
+ *
+ * Routes to the module owning MODULE_KEY_HOOK_PRE_PROCESS_RECORD.
+ * Returns true (continue processing) when no module claims the hook.
+ *
+ * This is a strong symbol — QMK's weak pre_process_record_user is
+ * displaced. No Keychron keymap on this branch defines
+ * pre_process_record_user, so there is no link collision.
+ */
+bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
+    module_hook_entry_t* hooks = module_get_hook_table();
+    void* fn = hooks[MODULE_KEY_HOOK_PRE_PROCESS_RECORD].func;
+    if (!fn) return true;
+    return ((module_process_record_fn)fn)(keycode, record);
+}
+
+/**
+ * @brief Cooperative dispatch helper for process_record_user.
+ *
+ * NOT a QMK callback override — this is a public helper that keymaps
+ * call explicitly from inside their own process_record_user. Keymaps
+ * that don't include the call make MODULE_KEY_HOOK_PROCESS_RECORD
+ * unreachable from that keymap (opt-in per keymap).
+ *
+ * Returns true (continue processing) when no module claims the hook.
+ *
+ * Usage in keymap.c:
+ *   bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+ *       if (!module_dispatch_process_record(keycode, record)) return false;
+ *       // ... keymap logic ...
+ *   }
+ */
+bool module_dispatch_process_record(uint16_t keycode, keyrecord_t *record) {
+    module_hook_entry_t* hooks = module_get_hook_table();
+    void* fn = hooks[MODULE_KEY_HOOK_PROCESS_RECORD].func;
+    if (!fn) return true;
+    return ((module_process_record_fn)fn)(keycode, record);
+}
+
+/**
+ * @brief Strong override of QMK's layer_state_set_user.
+ *
+ * Routes to the module owning MODULE_KEY_HOOK_LAYER_STATE_SET.
+ * Returns the input state unchanged when no module claims the hook.
+ */
+layer_state_t layer_state_set_user(layer_state_t state) {
+    module_hook_entry_t* hooks = module_get_hook_table();
+    void* fn = hooks[MODULE_KEY_HOOK_LAYER_STATE_SET].func;
+    if (!fn) return state;
+    return ((module_layer_state_set_fn)fn)(state);
+}
+
+/* ------------------------------------------------------------------ */
+/* Lifecycle dispatchers                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * @brief Strong override of QMK's housekeeping_task_user.
+ *
+ * Routes to the module owning MODULE_HOOK_HOUSEKEEPING.
+ * No-op when no module claims the hook.
+ */
+void housekeeping_task_user(void) {
+    module_hook_entry_t* hooks = module_get_hook_table();
+    void* fn = hooks[MODULE_HOOK_HOUSEKEEPING].func;
+    if (!fn) return;
+    ((module_housekeeping_fn)fn)();
+}
+
+/**
+ * @brief Strong override of QMK's shutdown_user.
+ *
+ * Routes to the module owning MODULE_HOOK_SHUTDOWN.
+ * Returns true (allow shutdown) when no module claims the hook.
+ */
+bool shutdown_user(bool jump_to_bootloader) {
+    module_hook_entry_t* hooks = module_get_hook_table();
+    void* fn = hooks[MODULE_HOOK_SHUTDOWN].func;
+    if (!fn) return true;
+    return ((module_shutdown_fn)fn)(jump_to_bootloader);
+}
