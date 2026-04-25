@@ -18,8 +18,8 @@ bool module_dispatch_combo_should_trigger(uint16_t combo_index, combo_t *combo,
                                           uint16_t keycode, keyrecord_t *record) {
     module_hook_entry_t* hooks = module_get_hook_table();
 
-    if (hooks[MODULE_HOOK_COMBO_SHOULD_TRIGGER].func != NULL) {
-        combo_should_trigger_fn fn = (combo_should_trigger_fn)hooks[MODULE_HOOK_COMBO_SHOULD_TRIGGER].func;
+    if (hooks[MODULE_COMBO_HOOK_SHOULD_TRIGGER].func != NULL) {
+        combo_should_trigger_fn fn = (combo_should_trigger_fn)hooks[MODULE_COMBO_HOOK_SHOULD_TRIGGER].func;
         return fn(combo_index, combo, keycode, record);
     }
 
@@ -30,8 +30,8 @@ bool module_dispatch_combo_should_trigger(uint16_t combo_index, combo_t *combo,
 void module_dispatch_process_combo_event(uint16_t combo_index, bool pressed) {
     module_hook_entry_t* hooks = module_get_hook_table();
 
-    if (hooks[MODULE_HOOK_PROCESS_COMBO_EVENT].func != NULL) {
-        process_combo_event_fn fn = (process_combo_event_fn)hooks[MODULE_HOOK_PROCESS_COMBO_EVENT].func;
+    if (hooks[MODULE_COMBO_HOOK_PROCESS_EVENT].func != NULL) {
+        process_combo_event_fn fn = (process_combo_event_fn)hooks[MODULE_COMBO_HOOK_PROCESS_EVENT].func;
         fn(combo_index, pressed);
     }
 }
@@ -39,8 +39,8 @@ void module_dispatch_process_combo_event(uint16_t combo_index, bool pressed) {
 uint16_t module_dispatch_get_combo_term(uint16_t index, combo_t *combo) {
     module_hook_entry_t* hooks = module_get_hook_table();
 
-    if (hooks[MODULE_HOOK_GET_COMBO_TERM].func != NULL) {
-        get_combo_term_fn fn = (get_combo_term_fn)hooks[MODULE_HOOK_GET_COMBO_TERM].func;
+    if (hooks[MODULE_COMBO_HOOK_GET_TERM].func != NULL) {
+        get_combo_term_fn fn = (get_combo_term_fn)hooks[MODULE_COMBO_HOOK_GET_TERM].func;
         return fn(index, combo);
     }
 
@@ -50,8 +50,8 @@ uint16_t module_dispatch_get_combo_term(uint16_t index, combo_t *combo) {
 
 bool module_dispatch_get_combo_must_hold(uint16_t index, combo_t *combo) {
     module_hook_entry_t* hooks = module_get_hook_table();
-    if (hooks[MODULE_HOOK_GET_COMBO_MUST_HOLD].func != NULL) {
-        get_combo_bool_fn fn = (get_combo_bool_fn)hooks[MODULE_HOOK_GET_COMBO_MUST_HOLD].func;
+    if (hooks[MODULE_COMBO_HOOK_GET_MUST_HOLD].func != NULL) {
+        get_combo_bool_fn fn = (get_combo_bool_fn)hooks[MODULE_COMBO_HOOK_GET_MUST_HOLD].func;
         return fn(index, combo);
     }
     return false;
@@ -59,8 +59,8 @@ bool module_dispatch_get_combo_must_hold(uint16_t index, combo_t *combo) {
 
 bool module_dispatch_get_combo_must_tap(uint16_t index, combo_t *combo) {
     module_hook_entry_t* hooks = module_get_hook_table();
-    if (hooks[MODULE_HOOK_GET_COMBO_MUST_TAP].func != NULL) {
-        get_combo_bool_fn fn = (get_combo_bool_fn)hooks[MODULE_HOOK_GET_COMBO_MUST_TAP].func;
+    if (hooks[MODULE_COMBO_HOOK_GET_MUST_TAP].func != NULL) {
+        get_combo_bool_fn fn = (get_combo_bool_fn)hooks[MODULE_COMBO_HOOK_GET_MUST_TAP].func;
         return fn(index, combo);
     }
     return false;
@@ -68,8 +68,8 @@ bool module_dispatch_get_combo_must_tap(uint16_t index, combo_t *combo) {
 
 bool module_dispatch_get_combo_must_press_in_order(uint16_t index, combo_t *combo) {
     module_hook_entry_t* hooks = module_get_hook_table();
-    if (hooks[MODULE_HOOK_GET_COMBO_MUST_PRESS_IN_ORDER].func != NULL) {
-        get_combo_bool_fn fn = (get_combo_bool_fn)hooks[MODULE_HOOK_GET_COMBO_MUST_PRESS_IN_ORDER].func;
+    if (hooks[MODULE_COMBO_HOOK_GET_MUST_PRESS_IN_ORDER].func != NULL) {
+        get_combo_bool_fn fn = (get_combo_bool_fn)hooks[MODULE_COMBO_HOOK_GET_MUST_PRESS_IN_ORDER].func;
         return fn(index, combo);
     }
     return true;
@@ -77,8 +77,8 @@ bool module_dispatch_get_combo_must_press_in_order(uint16_t index, combo_t *comb
 
 bool module_dispatch_process_combo_key_release(uint16_t index, combo_t *combo, uint8_t key_index, uint16_t keycode) {
     module_hook_entry_t* hooks = module_get_hook_table();
-    if (hooks[MODULE_HOOK_PROCESS_COMBO_KEY_RELEASE].func != NULL) {
-        process_combo_key_fn fn = (process_combo_key_fn)hooks[MODULE_HOOK_PROCESS_COMBO_KEY_RELEASE].func;
+    if (hooks[MODULE_COMBO_HOOK_PROCESS_KEY_RELEASE].func != NULL) {
+        process_combo_key_fn fn = (process_combo_key_fn)hooks[MODULE_COMBO_HOOK_PROCESS_KEY_RELEASE].func;
         return fn(index, combo, key_index, keycode);
     }
     return false;
@@ -86,8 +86,8 @@ bool module_dispatch_process_combo_key_release(uint16_t index, combo_t *combo, u
 
 bool module_dispatch_process_combo_key_repress(uint16_t index, combo_t *combo, uint8_t key_index, uint16_t keycode) {
     module_hook_entry_t* hooks = module_get_hook_table();
-    if (hooks[MODULE_HOOK_PROCESS_COMBO_KEY_REPRESS].func != NULL) {
-        process_combo_key_fn fn = (process_combo_key_fn)hooks[MODULE_HOOK_PROCESS_COMBO_KEY_REPRESS].func;
+    if (hooks[MODULE_COMBO_HOOK_PROCESS_KEY_REPRESS].func != NULL) {
+        process_combo_key_fn fn = (process_combo_key_fn)hooks[MODULE_COMBO_HOOK_PROCESS_KEY_REPRESS].func;
         return fn(index, combo, key_index, keycode);
     }
     return false;
@@ -95,8 +95,8 @@ bool module_dispatch_process_combo_key_repress(uint16_t index, combo_t *combo, u
 
 uint8_t module_dispatch_combo_ref_from_layer(uint8_t layer) {
     module_hook_entry_t* hooks = module_get_hook_table();
-    if (hooks[MODULE_HOOK_COMBO_REF_FROM_LAYER].func != NULL) {
-        combo_ref_from_layer_fn fn = (combo_ref_from_layer_fn)hooks[MODULE_HOOK_COMBO_REF_FROM_LAYER].func;
+    if (hooks[MODULE_COMBO_HOOK_REF_FROM_LAYER].func != NULL) {
+        combo_ref_from_layer_fn fn = (combo_ref_from_layer_fn)hooks[MODULE_COMBO_HOOK_REF_FROM_LAYER].func;
         return fn(layer);
     }
     return layer;
