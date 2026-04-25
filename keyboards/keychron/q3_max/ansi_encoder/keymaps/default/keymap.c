@@ -17,6 +17,10 @@
 #include QMK_KEYBOARD_H
 #include "keychron_common.h"
 
+#ifdef MODULE_LOADER_ENABLE
+#include "module_dispatch.h"
+#endif
+
 enum layers {
     MAC_BASE,
     MAC_FN,
@@ -78,6 +82,9 @@ static uint8_t leader_trigger_led = NO_LED;
 #endif
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+#ifdef MODULE_LOADER_ENABLE
+    if (!module_dispatch_process_record(keycode, record)) return false;
+#endif
 #if defined(LEADER_ENABLE) && defined(RGB_MATRIX_ENABLE)
     // Track key position for leader LED indicator.  Updated on every TD or
     // QK_LEADER press; only used when leader is actually active.
