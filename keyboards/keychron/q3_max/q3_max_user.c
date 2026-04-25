@@ -15,13 +15,33 @@
  */
 
 #include "quantum.h"
+#include "dynamic_keymap.h"
 #include "keychron_task.h"
+
+// Default VIA macros — 16 slots, each NUL-terminated.
+// Edit strings below. Add key actions with: 0x01, 0xHH, 0xLL (TAP keycode).
+static const uint8_t default_via_macros[] = {
+    '"', '+', 'y', 0x00,   // Macro 0: gvim copy ("+y)
+    '"', '+', 'p', 0x00,   // Macro 1: gvim paste ("+p)
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // Macros 2-8
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // Macros 9-15
+};
 #ifdef QMKATA_ENABLE
 #    include "qmkata/QMKata.h"
 #    include "debug_user.h"
 #endif
 
 void keyboard_post_init_user(void) {
+    // Write default VIA macros on fresh flash (empty EEPROM)
+    {
+        uint8_t check = 0xFF;
+        dynamic_keymap_macro_get_buffer(0, 1, &check);
+        if (check == 0) {
+            dynamic_keymap_macro_set_buffer(0, sizeof(default_via_macros),
+                                            (uint8_t*)default_via_macros);
+        }
+    }
+
     // Leader EEPROM init
 #if defined(DYNAMIC_LEADER_ENABLE) && defined(LEADER_ENABLE)
     extern void leader_eeprom_init(void);
