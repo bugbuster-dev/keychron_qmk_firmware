@@ -32,7 +32,7 @@
 | 3 | Sector-preserving reload coherence | **Already implemented** in current `module_loader.c`; see "Phase 3 status" |
 | 4 | Host-side (qmk-tools) version bump and constants | **Done** (qmk-tools commit `fb424bf` + `17008b9`) |
 | 5 | Example modules and module API surface | **Partial** — `pre_record_logger.c` example done (qmk-tools commit `bee3414`) |
-| 6 | Manual integration testing | Pending |
+| 6 | Manual integration testing | **Partial** — combo + pre_record_logger coexistence in same sector verified on hardware |
 
 ## Hooks deferred from this plan
 
@@ -455,7 +455,10 @@ Integration test plan (manual on keyboard):
    **Done** (commits `4f13b4d8` + `63bd81f9`).
 5. **Phase 5** — At least one example module (PRU logger).
    **Partial** — `pre_record_logger.c` done (qmk-tools commit `bee3414`).
-6. **Phase 6** — Manual integration testing on hardware. **Next.**
+6. **Phase 6** — Manual integration testing on hardware. **Partial** —
+   combo + pre_record_logger coexistence in same sector (slots 0+1)
+   verified on hardware. Remaining tests (hook conflict rejection,
+   sector-preserving reload survival, shutdown hook) pending.
 
 Phase 3 is not in the active sequence — already covered by the
 current loader implementation.
