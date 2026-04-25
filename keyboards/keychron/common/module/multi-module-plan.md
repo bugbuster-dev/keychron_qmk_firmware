@@ -26,11 +26,12 @@
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | Hook indices, header version bump (firmware) | **Done** (commit `1050f5fa`). Current naming: `MODULE_KEY_HOOK_PROCESS_RECORD_USER` (11). Plan below describes intended Phase-2 rename to PRE/PROCESS_RECORD split. |
-| 2 | Direct dispatchers for new hooks | **Pending** — design decisions documented below; no code changes yet |
+| 1 | Hook indices, header version bump (firmware) | **Done** (commit `1050f5fa`) |
+| 1b | Hook index refinements (PRE/PROCESS_RECORD split, HOUSEKEEPING, SHUTDOWN) | **Done** (commit `d7f51b3a`) |
+| 2 | Direct dispatchers for new hooks | **Done** (commit `4f13b4d8`) — 5 dispatchers + 4 keymap integrations |
 | 3 | Sector-preserving reload coherence | **Already implemented** in current `module_loader.c`; see "Phase 3 status" |
-| 4 | Host-side (qmk-tools) version bump and constants | **Done** (qmk-tools commit `fb424bf`). Current naming matches Phase 1 code. |
-| 5 | Example modules and module API surface | Pending |
+| 4 | Host-side (qmk-tools) version bump and constants | **Done** (qmk-tools commit `fb424bf` + `17008b9`) |
+| 5 | Example modules and module API surface | **Partial** — `pre_record_logger.c` example done (qmk-tools commit `bee3414`) |
 | 6 | Manual integration testing | Pending |
 
 ## Hooks deferred from this plan
@@ -106,7 +107,23 @@ are universal and keep the unqualified `MODULE_HOOK_` prefix. The
 namespace itself remains flat: one global `g_module_hooks` table,
 one bitmap, one-hook-one-owner across all categories.
 
-**Current implementation** (what's in `module_loader.h` now):
+`MODULE_HEADER_VERSION` bumped from 1 to 2. `hook_bitmap` stays
+`uint32_t` (32 hooks fit). On-flash hook table grew from 64 to
+128 bytes. v1 modules rejected by loader version check.
+
+**Verified end-to-end**: module v2 upload to device confirmed working.
+
+### Phase 1b — Hook index refinements — Done
+
+**Commit `d7f51b3a`** (firmware) + **`17008b9`** (qmk-tools).
+
+Index 11 renamed from `MODULE_KEY_HOOK_PROCESS_RECORD_USER` to
+`MODULE_KEY_HOOK_PRE_PROCESS_RECORD` (targets `pre_process_record_user`).
+Index 18 added as `MODULE_KEY_HOOK_PROCESS_RECORD` (cooperative
+dispatch). Index 19 added as `MODULE_HOOK_HOUSEKEEPING`. Index 20
+added as `MODULE_HOOK_SHUTDOWN`. `MODULE_HOOK_MAX` stays 32.
+
+Current layout in `module_loader.h`:
 
 ```c
 /* Combo hooks */
@@ -124,7 +141,8 @@ one bitmap, one-hook-one-owner across all categories.
 #define MODULE_COMBO_HOOK_PROCESS_KEY_REPRESS        9
 #define MODULE_COMBO_HOOK_REF_FROM_LAYER             10
 /* Key processing hooks */
-#define MODULE_KEY_HOOK_PROCESS_RECORD_USER          11
+#define MODULE_KEY_HOOK_PRE_PROCESS_RECORD           11
+#define MODULE_KEY_HOOK_PROCESS_RECORD               18
 #define MODULE_KEY_HOOK_LAYER_STATE_SET              17
 /* Tap dance hooks — reserved, not currently dispatched */
 #define MODULE_TAPDANCE_HOOK_ON_EACH_TAP             12
@@ -133,47 +151,27 @@ one bitmap, one-hook-one-owner across all categories.
 /* Leader hooks — reserved, not currently dispatched */
 #define MODULE_LEADER_HOOK_START                     15
 #define MODULE_LEADER_HOOK_END                       16
+/* Lifecycle hooks (universal) */
+#define MODULE_HOOK_HOUSEKEEPING                     19
+#define MODULE_HOOK_SHUTDOWN                         20
 
 #define MODULE_HOOK_MAX                              32
 ```
 
-`MODULE_HEADER_VERSION` bumped from 1 to 2. `hook_bitmap` stays
-`uint32_t` (32 hooks fit). On-flash hook table grew from 64 to
-128 bytes. v1 modules rejected by loader version check.
+### Phase 2 — Direct dispatchers — Done
 
-**Verified end-to-end**: module v2 upload to device confirmed working.
+**Commit `4f13b4d8`** (firmware dispatchers) + **`63bd81f9`** (keymap integration).
 
-### Phase 1b — Hook index refinements (planned for Phase 2 implementation)
+Five dispatchers implemented in `module_dispatch.c`:
+- `pre_process_record_user` — strong override, routes to `MODULE_KEY_HOOK_PRE_PROCESS_RECORD`
+- `module_dispatch_process_record` — cooperative helper for `MODULE_KEY_HOOK_PROCESS_RECORD`
+- `layer_state_set_user` — strong override, routes to `MODULE_KEY_HOOK_LAYER_STATE_SET`
+- `housekeeping_task_user` — strong override, routes to `MODULE_HOOK_HOUSEKEEPING`
+- `shutdown_user` — strong override, routes to `MODULE_HOOK_SHUTDOWN`
 
-When Phase 2 dispatchers are implemented, the hook index space will
-be refined as described below. These changes are documented here
-so the plan is complete, but the code currently ships with the
-simpler layout above.
-
-- **Index 11** will be **renamed** from `MODULE_KEY_HOOK_PROCESS_RECORD_USER`
-  to `MODULE_KEY_HOOK_PRE_PROCESS_RECORD`. The QMK callback target
-  changes from `process_record_user` (which every Keychron keymap
-  already strong-defines, causing a link collision) to
-  `pre_process_record_user` (uncontested, runs before the keymap,
-  same signature, strictly more powerful).
-- **Index 18** will be **added** as `MODULE_KEY_HOOK_PROCESS_RECORD`,
-  targeting `process_record_user` via cooperative dispatch (see
-  Phase 2 mechanism (2) below).
-- **Index 19** will be **added** as `MODULE_HOOK_HOUSEKEEPING`,
-  targeting `housekeeping_task_user`.
-- **Index 20** will be **added** as `MODULE_HOOK_SHUTDOWN`,
-  targeting `shutdown_user`.
-- `MODULE_HOOK_MAX` stays 32; all indices fit comfortably.
-
-The host-side `module_api.h` and `ModuleBuild.py` will be updated
-in lockstep when Phase 2 code lands.
-
-### Phase 2 — Direct dispatchers (pending)
-
-**No code implemented yet.** The design below is decided and ready
-for implementation. When Phase 2 lands, it will also carry the
-Phase 1b hook index refinements (rename index 11 to
-`PRE_PROCESS_RECORD`, add indices 18–20).
+All four Keychron keymaps (ansi/iso × keychron/default) now call
+`module_dispatch_process_record()` as the first line of their
+`process_record_user`, gated on `MODULE_LOADER_ENABLE`.
 
 Two dispatch mechanisms are used in Phase 2:
 
@@ -328,7 +326,7 @@ separate piece of work.
 
 ### Phase 4 — Host side (qmk-tools) — Done
 
-**Commit `fb424bf`** (qmk-tools).
+**Commits `fb424bf`** + **`17008b9`** (qmk-tools).
 
 - `ModuleBuild.apply_relocations_and_crc` writes `version = 2`.
 - `MODULE_HOOK_MAX = 32` in `ModuleBuild.py`; hook table size
@@ -336,19 +334,14 @@ separate piece of work.
 - `module_api.h` (host-side) carries hook constants grouped by
   category: `MODULE_COMBO_HOOK_*`, `MODULE_KEY_HOOK_*`,
   `MODULE_TAPDANCE_HOOK_*`, `MODULE_LEADER_HOOK_*`, plus the
-  unqualified lifecycle hooks `MODULE_HOOK_INIT` / `MODULE_HOOK_DEINIT`.
-- `ModuleBuild.py` `HOOK_NAMES` dict includes all 18 hook labels
+  unqualified lifecycle hooks `MODULE_HOOK_INIT` / `MODULE_HOOK_DEINIT` /
+  `MODULE_HOOK_HOUSEKEEPING` / `MODULE_HOOK_SHUTDOWN`.
+- `ModuleBuild.py` `HOOK_NAMES` dict includes all 21 hook labels
   for ModuleTab UI display.
 - Existing reload flow unchanged — `keyb_sector_reload_done()`
   already sends DEL 0xFD; firmware uses that signal only to clear
   `s_last_erased_sector`.
-
-**Phase 2 follow-up**: when Phase 2 lands, `module_api.h` will gain
-`MODULE_HOOK_HOUSEKEEPING` / `MODULE_HOOK_SHUTDOWN` and the
-`MODULE_KEY_HOOK_PROCESS_RECORD_USER` constant will be renamed to
-`MODULE_KEY_HOOK_PRE_PROCESS_RECORD`, with a new
-`MODULE_KEY_HOOK_PROCESS_RECORD` added. `ModuleBuild.py`
-`HOOK_NAMES` will be updated in lockstep.
+- All 20 host tests passing.
 
 ### Phase 5 — Module API and examples
 
@@ -453,14 +446,16 @@ Integration test plan (manual on keyboard):
    **Done** (commits `1050f5fa` + `fb424bf`). Verified end-to-end on
    hardware: v2 module upload succeeds.
 2. **Phase 4** — Host-side companion: version bump and hook
-   constants. **Done** (same commit as Phase 1).
-3. **Phase 2** — Direct dispatchers for `pre_process_record_user`,
+   constants. **Done** (commits `fb424bf` + `17008b9`).
+3. **Phase 1b** — Hook index refinements (PRE/PROCESS_RECORD split,
+   HOUSEKEEPING, SHUTDOWN). **Done** (commit `d7f51b3a` + `17008b9`).
+4. **Phase 2** — Direct dispatchers for `pre_process_record_user`,
    `process_record_user` (cooperative), `layer_state_set_user`,
-   `housekeeping_task_user`, `shutdown_user`. Includes Phase 1b
-   hook index refinements (rename index 11, add indices 18–20).
-   **Next.**
-4. **Phase 5** — At least one example module (PRU logger).
-5. **Phase 6** — Manual integration testing on hardware.
+   `housekeeping_task_user`, `shutdown_user`. Plus keymap integration.
+   **Done** (commits `4f13b4d8` + `63bd81f9`).
+5. **Phase 5** — At least one example module (PRU logger).
+   **Partial** — `pre_record_logger.c` done (qmk-tools commit `bee3414`).
+6. **Phase 6** — Manual integration testing on hardware. **Next.**
 
 Phase 3 is not in the active sequence — already covered by the
 current loader implementation.
