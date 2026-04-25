@@ -31,7 +31,7 @@
 | 2 | Direct dispatchers for new hooks | **Done** (commit `4f13b4d8`) — 5 dispatchers + 4 keymap integrations |
 | 3 | Sector-preserving reload coherence | **Already implemented** in current `module_loader.c`; see "Phase 3 status" |
 | 4 | Host-side (qmk-tools) version bump and constants | **Done** (qmk-tools commit `fb424bf` + `17008b9`) |
-| 5 | Example modules and module API surface | **Partial** — `pre_record_logger.c` example done (qmk-tools commit `bee3414`) |
+| 5 | Example modules and module API surface | **Partial** — `pre_record_logger.c` done (qmk-tools commit `bee3414`); `hooks_template.c` renamed to `combo_hooks_template.c` (commit `fd55961`) |
 | 6 | Manual integration testing | **Partial** — combo + pre_record_logger coexistence in same sector verified on hardware |
 
 ## Hooks deferred from this plan
@@ -362,14 +362,18 @@ separate piece of work.
 - Example modules (deliver at least one; the others are stretch):
   - **`pre_record_logger`** — claims `MODULE_KEY_HOOK_PRE_PROCESS_RECORD`,
     logs every keypress via `mprintf`. Demonstrates the strong-override
-    path; works without any keymap changes.
+    path; works without any keymap changes. **Done** (qmk-tools commit
+    `bee3414`). Builds to 288 bytes.
+  - **`combo_hooks_template`** — the original `hooks_template.c` was
+    renamed to `combo_hooks_template.c` (qmk-tools commit `fd55961`)
+    for clarity, distinguishing it from non-combo module templates.
   - **`record_logger`** — claims `MODULE_KEY_HOOK_PROCESS_RECORD`,
     logs only when the keymap opts in by calling
     `module_dispatch_process_record()`. Demonstrates the cooperative
-    path and the per-keymap opt-in semantics.
+    path and the per-keymap opt-in semantics. **Not yet delivered.**
   - **`housekeeping_heartbeat`** — claims `MODULE_HOOK_HOUSEKEEPING`,
     emits a periodic mprintf line. Exercises the lifecycle-hook path
-    end-to-end with a non-keypress callback.
+    end-to-end with a non-keypress callback. **Not yet delivered.**
 
 ### Phase 6 — Testing strategy
 
@@ -454,11 +458,18 @@ Integration test plan (manual on keyboard):
    `housekeeping_task_user`, `shutdown_user`. Plus keymap integration.
    **Done** (commits `4f13b4d8` + `63bd81f9`).
 5. **Phase 5** — At least one example module (PRU logger).
-   **Partial** — `pre_record_logger.c` done (qmk-tools commit `bee3414`).
+    **Partial** — `pre_record_logger.c` done (qmk-tools commit `bee3414`);
+    `hooks_template.c` renamed to `combo_hooks_template.c` (commit `fd55961`).
 6. **Phase 6** — Manual integration testing on hardware. **Partial** —
-   combo + pre_record_logger coexistence in same sector (slots 0+1)
-   verified on hardware. Remaining tests (hook conflict rejection,
-   sector-preserving reload survival, shutdown hook) pending.
+    combo + pre_record_logger coexistence in same sector (slots 0+1)
+    verified on hardware. Remaining tests (hook conflict rejection,
+    sector-preserving reload survival, shutdown hook) pending.
 
 Phase 3 is not in the active sequence — already covered by the
 current loader implementation.
+
+## Release Milestones
+
+| Tag | Firmware commit | qmk-tools commit | Description |
+|-----|----------------|------------------|-------------|
+| `module-support-v0.2` | `18529321` | `fd55961` | Phase 1+1b+2+4 complete; Phase 5+6 partial. Multi-module coexistence verified on hardware. |
