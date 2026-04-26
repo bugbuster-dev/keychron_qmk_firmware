@@ -298,10 +298,13 @@ bool process_record_keychron_common(uint16_t keycode, keyrecord_t *record) {
             // Backspace + Escape shortcut: flags are reset to safe defaults (pub=0, process=1)
             static keyevent_t backspace_press_event;
             static keyevent_t enter_press_event;
-            if (keycode == KC_BACKSPACE) {
+            // Use matrix positions so the shortcut works even when Escape is
+            // bound to a tap-dance keycode or otherwise remapped.
+            // Escape = [0,0], Backspace = [1,13] on all Q3 Max layouts.
+            if (record->event.key.row == 1 && record->event.key.col == 13) {
                 backspace_press_event = record->event;
             }
-            if (keycode == KC_ESCAPE && backspace_press_event.pressed) {
+            if (record->event.key.row == 0 && record->event.key.col == 0 && backspace_press_event.pressed) {
                 devel_config.pub_keypress     = 0;
                 devel_config.process_keypress = 1;
 
