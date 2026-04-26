@@ -37,6 +37,11 @@
 #    include "profile.h"
 #endif
 
+#ifdef QMKATA_ENABLE
+#    include "qmkata/QMKata.h"
+#    include "debug_user.h"
+#endif
+
 #ifdef KEYCOMBO_OS_SELECT_ENABLE
 #    ifndef MAC_BASE_LAYER
 #        error "MAC_BASE_LAYER is not defined"
@@ -281,8 +286,45 @@ bool process_record_keychron_common(uint16_t keycode, keyrecord_t *record) {
             }
             break;
 #endif
-        default:
-            return true; // Process all other keycodes normally
+        default: {
+#ifdef DEVEL_BUILD
+            static keyevent_t backspace_press_event;
+            static keyevent_t enter_press_event;
+            if (keycode == KC_BACKSPACE) {
+                backspace_press_event = record->event;
+            }
+            if (keycode == KC_ESCAPE && backspace_press_event.pressed) {
+                devel_config.pub_keypress     = 0;
+                devel_config.process_keypress = 1;
+
+                uint8_t data[16];
+                data[0]                       = QMKATA_ID_KEYEVENT;
+                backspace_press_event.pressed = false;
+                memcpy(&data[1], &backspace_press_event, sizeof(keyevent_t));
+                qmkata_send_sysex(QMKATA_CMD_PUB, data, sizeof(keyevent_t) + 1);
+            }
+            if (devel_config.pub_keypress) {
+                uint8_t data[16];
+                data[0] = QMKATA_ID_KEYEVENT;
+                memcpy(&data[1], &record->event, sizeof(keyevent_t));
+                qmkata_send_sysex(QMKATA_CMD_PUB, data, sizeof(keyevent_t) + 1);
+            }
+            if (devel_config.process_keypress == 0) {
+                if (keycode == KC_ENTER) {
+                    if (enter_press_event.pressed && record->event.pressed == 0) {
+                        enter_press_event = record->event;
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            if (keycode == KC_ENTER) {
+                enter_press_event = record->event;
+            }
+#endif
+            return true;
+        }
     }
     return true;
 }
