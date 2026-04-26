@@ -288,6 +288,25 @@ bool process_record_keychron_common(uint16_t keycode, keyrecord_t *record) {
 #endif
         default: {
 #ifdef DEVEL_BUILD
+            // ----------------------------------------------------------------
+            // DEVEL_BUILD keypress debug helpers
+            // ----------------------------------------------------------------
+            // pub_keypress (devel_config bit 0): when set, every key event in
+            // this default case is published to the host via QMKata sysex so
+            // the debugger sees raw keyevents in real time.
+            //
+            // process_keypress (devel_config bit 1): when cleared, all key
+            // processing is blocked (returns false) except ENTER press+release
+            // which passes through.  Useful for debugging without the keyboard
+            // actually typing.
+            //
+            // Backspace + Escape shortcut (emergency reset):
+            //   1. Any Backspace press is captured in backspace_press_event.
+            //   2. If Escape fires while Backspace is still held, both flags
+            //      are reset to safe defaults (pub=0, process=1) and a
+            //      synthetic "Backspace release" event is published to the
+            //      host so the debugger doesn't think Backspace is stuck.
+            // ----------------------------------------------------------------
             static keyevent_t backspace_press_event;
             static keyevent_t enter_press_event;
             if (keycode == KC_BACKSPACE) {
