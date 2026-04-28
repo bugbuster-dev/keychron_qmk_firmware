@@ -147,7 +147,7 @@ keymaps/keychron/rules.mk
 | **DIP Switch** | Pin C9 (toggles MAC/Win base layers) |
 | **Wireless Chip** | LKBT51 (3 BT hosts + 2.4G) |
 | **EEPROM** | Embedded flash wear-leveling (3KB logical / 6KB physical) |
-| **Debounce** | Custom (10ms) |
+| **Debounce** | Custom (15ms) |
 
 ### Enabled Features
 
