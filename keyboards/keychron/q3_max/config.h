@@ -18,6 +18,15 @@
 
 #include "eeconfig_kb.h"
 
+/* CPU Clock: uncomment for 84 MHz (default 48 MHz)
+ *
+ * 48 MHz:  SPI divisor auto-adjusts to 16  → 1.5 MHz SPI
+ * 84 MHz:  SPI divisor auto-adjusts to 32  → 1.3 MHz SPI
+ *
+ * Also applies to mcuconf.h PLL settings.
+ */
+/* #define SYSCLK_84MHZ */
+
 /* Encoder Configuration */
 #define ENCODER_DEFAULT_POS 0x3
 #define ENCODER_MAP_KEY_DELAY 2
@@ -35,7 +44,16 @@
 #    define SNLED27351_SDB_PIN B7
 #    define SNLED27351_SELECT_PINS \
         { B8, B9 }
-#    define SNLED27351_SPI_DIVISOR 16
+/* QMK SPI driver rounds divisor UP to next power of 2 (2,4,8,16,32,...).
+ * SPI1 runs from PCLK2 (APB2):
+ *   48 MHz SYSCLK → PCLK2 = 24 MHz → /16  = 1.5 MHz  SPI
+ *   84 MHz SYSCLK → PCLK2 = 42 MHz → /32  = 1.31 MHz SPI
+ */
+#    if defined(SYSCLK_84MHZ)
+#        define SNLED27351_SPI_DIVISOR 32
+#    else
+#        define SNLED27351_SPI_DIVISOR 16
+#    endif
 #    define SNLED27351_PHASE_CHANNEL SNLED27351_SCAN_PHASE_12_CHANNEL
 #endif
 

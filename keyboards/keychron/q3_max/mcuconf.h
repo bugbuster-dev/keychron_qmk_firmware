@@ -21,17 +21,40 @@
 #undef STM32_HSECLK
 #define STM32_HSECLK 16000000
 
+/*
+ * PLL Configuration
+ *
+ * Default (48 MHz):  PLLM=8, PLLN=96,  PLLP=4, PLLQ=4
+ *   VCO = 16MHz/8 × 96  = 192 MHz  →  SYSCLK = 192/4 = 48 MHz,  USB = 192/4 = 48 MHz
+ *
+ * 84 MHz (double):    PLLM=8, PLLN=168, PLLP=4, PLLQ=7
+ *   VCO = 16MHz/8 × 168 = 336 MHz  →  SYSCLK = 336/4 = 84 MHz,  USB = 336/7 = 48 MHz
+ *
+ * Controlled by SYSCLK_84MHZ (defined in config.h).
+ */
+#if defined(SYSCLK_84MHZ)
+#    define _Q3M_PLLM 8
+#    define _Q3M_PLLN 168
+#    define _Q3M_PLLP 4
+#    define _Q3M_PLLQ 7
+#else
+#    define _Q3M_PLLM 8
+#    define _Q3M_PLLN 96
+#    define _Q3M_PLLP 4
+#    define _Q3M_PLLQ 4
+#endif
+
 #undef STM32_PLLM_VALUE
-#define STM32_PLLM_VALUE 8
+#define STM32_PLLM_VALUE _Q3M_PLLM
 
 #undef STM32_PLLN_VALUE
-#define STM32_PLLN_VALUE 96
+#define STM32_PLLN_VALUE _Q3M_PLLN
 
 #undef STM32_PLLP_VALUE
-#define STM32_PLLP_VALUE 4
+#define STM32_PLLP_VALUE _Q3M_PLLP
 
 #undef STM32_PLLQ_VALUE
-#define STM32_PLLQ_VALUE 4
+#define STM32_PLLQ_VALUE _Q3M_PLLQ
 
 #undef STM32_SPI_USE_SPI1
 #define STM32_SPI_USE_SPI1 TRUE
