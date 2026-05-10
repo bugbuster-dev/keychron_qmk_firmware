@@ -149,6 +149,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifdef CONNECTION_ENABLE
 #    include "connection.h"
 #endif
+#ifdef KEY_PROCESSING_SM_ENABLE
+#    include "pipeline.h"
+#endif
 
 static uint32_t last_input_modification_time = 0;
 uint32_t        last_input_activity_time(void) {
@@ -674,6 +677,10 @@ void quantum_task(void) {
 
 #ifdef LEADER_ENABLE
     leader_task();
+#endif
+
+#ifdef KEY_PROCESSING_SM_ENABLE
+    pipeline_tick();
 #endif
 
 #ifdef WPM_ENABLE
