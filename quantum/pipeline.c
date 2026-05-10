@@ -7,13 +7,13 @@ static sm_machine_t *machines[MAX_MACHINES] = {0};
 static int machine_count = 0;
 
 void pipeline_register(sm_machine_t *machine) {
-    if (machine_count >= MAX_MACHINES) return;
+    if (!machine || machine_count >= MAX_MACHINES) return;
     machines[machine_count++] = machine;
     // Insertion sort by phase, then priority
     for (int i = machine_count - 1; i > 0; i--) {
-        int cmp = ((machines[i]->phase << 8) + machines[i]->priority) -
-                  ((machines[i-1]->phase << 8) + machines[i-1]->priority);
-        if (cmp >= 0) break;
+        int cur = (int)machines[i]->phase * 256 + machines[i]->priority;
+        int prev = (int)machines[i-1]->phase * 256 + machines[i-1]->priority;
+        if (cur >= prev) break;
         sm_machine_t *tmp = machines[i];
         machines[i] = machines[i-1];
         machines[i-1] = tmp;
@@ -39,7 +39,7 @@ void pipeline_tick(void) {
 
 void pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
     for (int i = 0; i < machine_count; i++) {
-        if (machines[i]->phase == PHASE_PRE_TAP) {
+        if (machines[i]->phase == PHASE_PRE_TAP && machines[i]->handle) {
             machines[i]->handle(machines[i]->instance, event, record);
         }
     }
@@ -48,7 +48,7 @@ void pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
 void pipeline_process_post_tap(keyevent_t *event, keyrecord_t *record) {
     // POST_TAP machines (can consume)
     for (int i = 0; i < machine_count; i++) {
-        if (machines[i]->phase == PHASE_POST_TAP) {
+        if (machines[i]->phase == PHASE_POST_TAP && machines[i]->handle) {
             if (machines[i]->handle(machines[i]->instance, event, record) == SM_CONSUME) return;
         }
     }
@@ -56,7 +56,7 @@ void pipeline_process_post_tap(keyevent_t *event, keyrecord_t *record) {
     process_record_handler(record);
     // POST_EXEC (observe only)
     for (int i = 0; i < machine_count; i++) {
-        if (machines[i]->phase == PHASE_POST_EXEC) {
+        if (machines[i]->phase == PHASE_POST_EXEC && machines[i]->handle) {
             machines[i]->handle(machines[i]->instance, event, record);
         }
     }
