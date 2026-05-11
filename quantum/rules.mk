@@ -1,7 +1,8 @@
 # State machine key processing pipeline
 ifdef KEY_PROCESSING_SM_ENABLE
     SRC += quantum/pipeline.c
-    INC += quantum/features
+    VPATH += $(QUANTUM_DIR)/features
+    EXTRAINCDIRS += $(QUANTUM_DIR)/features
 
     ifdef VIM_MODAL_ENABLE
         SRC += quantum/features/vim_modal_adapter.c
