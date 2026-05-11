@@ -154,6 +154,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #    ifdef VIM_MODAL_ENABLE
 #        include "vim_modal_adapter.h"
 #    endif
+#    ifdef STICKY_COMBO_ENABLE
+#        include "sticky_combo_adapter.h"
+#    endif
 #endif
 
 static uint32_t last_input_modification_time = 0;
@@ -350,6 +353,9 @@ void keyboard_post_init_quantum(void) {
     pipeline_init();
 #    ifdef VIM_MODAL_ENABLE
     pipeline_register(vim_modal_machine_get());
+#    endif
+#    ifdef STICKY_COMBO_ENABLE
+    pipeline_register(sticky_combo_machine_get());
 #    endif
 #endif
     keyboard_post_init_kb();
