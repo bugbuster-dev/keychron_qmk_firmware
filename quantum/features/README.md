@@ -163,6 +163,7 @@ struct sm_machine {
 | Feature | File | Phase | Type |
 |---------|------|-------|------|
 | Vim modal | `vim_modal_*` | PRE_TAP | SM (5 states) |
+| Sticky combo | `sticky_combo_*` | PRE_TAP | SM (4 states) |
 
 ## StateSmith installation
 
