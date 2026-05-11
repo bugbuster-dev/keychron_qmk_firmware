@@ -1,0 +1,31 @@
+@startuml VimModal
+' Vim-style modal editor for QMK keyboard
+' Each state changes how keys are translated and forwarded to the host
+
+state normal
+state insert
+state visual
+state command
+state replace
+
+[*] -> normal
+
+' Normal mode: starting point, hjkl = arrows, ijoa = enter insert
+normal --> insert  : on_i
+normal --> insert  : on_a
+normal --> insert  : on_o
+normal --> visual  : on_v
+normal --> command : on_colon
+normal --> replace : on_shift_r
+
+' Escape always returns to normal
+insert  --> normal : on_escape
+visual  --> normal : on_escape
+command --> normal : on_escape
+command --> normal : on_enter
+replace --> normal : on_escape
+
+/'! $CONFIG : toml
+SmRunnerSettings.transpilerId = "C99"
+'/
+@enduml

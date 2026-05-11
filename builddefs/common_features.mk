@@ -33,6 +33,7 @@ QUANTUM_SRC += \
     $(QUANTUM_DIR)/process_keycode/process_quantum.c \
 
 include $(QUANTUM_DIR)/nvm/rules.mk
+include $(QUANTUM_DIR)/rules.mk
 
 VPATH += $(QUANTUM_DIR)/logging
 # Fall back to lib/printf if there is no platform provided print

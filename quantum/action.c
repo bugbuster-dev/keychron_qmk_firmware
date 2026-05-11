@@ -25,6 +25,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "led.h"
 #include "action_layer.h"
 #include "action_tapping.h"
+#ifdef KEY_PROCESSING_SM_ENABLE
+#    include "pipeline.h"
+#endif
 #include "action_util.h"
 #include "action.h"
 #include "wait.h"
@@ -131,6 +134,15 @@ void action_exec(keyevent_t event) {
 #    if defined(AUTO_SHIFT_ENABLE) && defined(RETRO_SHIFT)
     if (event.pressed) {
         retroshift_poll_time(&event);
+    }
+#    endif
+#    ifdef KEY_PROCESSING_SM_ENABLE
+    // Pipeline pre-tap phase: SMs can intercept and consume key events
+    // (e.g., vim modal mode translates h→Left and consumes the original).
+    if (!IS_NOEVENT(record.event)) {
+        if (pipeline_process_pre_tap(&event, &record)) {
+            return;  // event consumed, skip further processing
+        }
     }
 #    endif
     if (IS_NOEVENT(record.event) || pre_process_record_quantum(&record)) {

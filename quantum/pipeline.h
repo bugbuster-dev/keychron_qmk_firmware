@@ -29,7 +29,8 @@ void pipeline_init(void);
 void pipeline_register(sm_machine_t *machine);
 
 // Phase-specific entry points (called from action_exec)
-void pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record);
+// Returns true if event was consumed (caller should skip further processing)
+bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record);
 void pipeline_process_post_tap(keyevent_t *event, keyrecord_t *record);
 
 // Called from keyboard_task() for timer handling

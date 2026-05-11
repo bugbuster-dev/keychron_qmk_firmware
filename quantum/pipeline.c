@@ -37,12 +37,16 @@ void pipeline_tick(void) {
     }
 }
 
-void pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
+// Returns true if pipeline consumed the event (caller should skip further processing).
+bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
     for (int i = 0; i < machine_count; i++) {
         if (machines[i]->phase == PHASE_PRE_TAP && machines[i]->handle) {
-            machines[i]->handle(machines[i]->instance, event, record);
+            if (machines[i]->handle(machines[i]->instance, event, record) == SM_CONSUME) {
+                return true;
+            }
         }
     }
+    return false;
 }
 
 void pipeline_process_post_tap(keyevent_t *event, keyrecord_t *record) {

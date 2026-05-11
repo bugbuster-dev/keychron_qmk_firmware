@@ -151,6 +151,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #endif
 #ifdef KEY_PROCESSING_SM_ENABLE
 #    include "pipeline.h"
+#    ifdef VIM_MODAL_ENABLE
+#        include "vim_modal_adapter.h"
+#    endif
 #endif
 
 static uint32_t last_input_modification_time = 0;
@@ -343,6 +346,12 @@ __attribute__((weak)) void keyboard_post_init_modules(void) {}
 
 void keyboard_post_init_quantum(void) {
     keyboard_post_init_modules();
+#ifdef KEY_PROCESSING_SM_ENABLE
+    pipeline_init();
+#    ifdef VIM_MODAL_ENABLE
+    pipeline_register(vim_modal_machine_get());
+#    endif
+#endif
     keyboard_post_init_kb();
 }
 
