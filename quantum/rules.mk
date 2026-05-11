@@ -8,6 +8,12 @@ ifdef KEY_PROCESSING_SM_ENABLE
         SRC += quantum/features/VimModal.c
         OPT_DEFS += -DVIM_MODAL_ENABLE
     endif
+
+    ifdef STICKY_COMBO_ENABLE
+        SRC += quantum/features/sticky_combo_adapter.c
+        SRC += quantum/features/StickyCombo.c
+        OPT_DEFS += -DSTICKY_COMBO_ENABLE
+    endif
 endif
 
 # StateSmith code generation (PlantUML → C)
