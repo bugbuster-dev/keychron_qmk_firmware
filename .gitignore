@@ -18,6 +18,7 @@
 *.lst
 *.map
 *.o
+keychron_*.md5
 *.a
 *.so
 *.dylib
