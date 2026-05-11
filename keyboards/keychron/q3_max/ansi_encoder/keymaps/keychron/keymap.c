@@ -240,3 +240,14 @@ bool rgb_matrix_indicators_user(void) {
     return true;
 }
 #endif
+
+#ifdef STICKY_COMBO_ENABLE
+#include "sticky_combo_adapter.h"
+
+const sticky_combo_def_t sticky_combos[] = {
+    // Demo: J+K simultaneously = no action; then with J held tap K = Down,
+    // or with K held tap J = Up. Directional nav after the combo gesture.
+    {KC_J, KC_K, KC_NO, KC_UP, KC_DOWN},
+};
+const uint8_t sticky_combo_count = sizeof(sticky_combos) / sizeof(sticky_combos[0]);
+#endif
