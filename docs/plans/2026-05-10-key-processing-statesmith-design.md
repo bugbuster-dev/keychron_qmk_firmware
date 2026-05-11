@@ -1,5 +1,12 @@
 # Key Processing — State Machine Refactor Design
 
+> **⚠️ HISTORICAL — DO NOT USE AS REFERENCE**
+> This document describes the ORIGINAL plan (wholesale replacement of combo/tap dance/leader with state machines).
+> During implementation we discovered that the SMs added no value for these features.
+> See [2026-05-11-key-processing-pipeline-outcome.md](2026-05-11-key-processing-pipeline-outcome.md) for what actually shipped and lessons learned.
+
+---
+
 > Branch: `refactor/key-processing-sm`
 > Framework: [StateSmith](https://github.com/StateSmith/StateSmith) (Apache-2.0)
 > Scope: Pipeline + internals, breaking changes OK

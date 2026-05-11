@@ -1,5 +1,11 @@
 # Key Processing State Machine Refactor — Implementation Plan
 
+> **⚠️ HISTORICAL — DO NOT EXECUTE**
+> This plan was executed in full (10 tasks), then **reverted** because the SMs added no value for combo/tap dance/leader.
+> See [2026-05-11-key-processing-pipeline-outcome.md](2026-05-11-key-processing-pipeline-outcome.md) for what actually shipped and why.
+
+---
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Replace inconsistent key processing hooks (combo, tap dance, leader) with a uniform StateSmith-generated state machine pipeline.
