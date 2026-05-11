@@ -169,15 +169,10 @@ struct sm_machine {
 The CLI is needed only when regenerating C code from `.puml` diagrams. Generated
 files are committed to the repo, so end users don't need StateSmith installed.
 
-```bash
-# Download (x86_64 Linux)
-curl -sL https://github.com/StateSmith/StateSmith/releases/download/cli-v0.21.0-alpha-1/statesmith-linux-x64.tar.gz | tar xz -C /tmp
-mkdir -p ~/.local/bin
-mv /tmp/ss.cli ~/.local/bin/statesmith
-chmod +x ~/.local/bin/statesmith
-```
+See [docs/setup/installing-statesmith.md](../../docs/setup/installing-statesmith.md)
+for installation instructions, usage, troubleshooting, and diagram syntax notes.
 
-Then regenerate all SMs:
+Quick regeneration of all SMs:
 
 ```bash
 make statesmith-gen
