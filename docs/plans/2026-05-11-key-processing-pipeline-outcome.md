@@ -1,6 +1,8 @@
 # Key Processing Pipeline — Outcome & Lessons
 
 > Branch: `refactor/key-processing-sm`
+> Follow-up: `feat/sram-modules` adds SRAM-loaded pipeline modules — see
+> [docs/setup/sram-modules.md](../setup/sram-modules.md).
 > Status: Pipeline orchestrator shipped, vim modal demo as proof-of-concept
 > See also: [original design](2026-05-10-key-processing-statesmith-design.md) and [original impl plan](2026-05-10-key-processing-statesmith-impl.md) (now of historical interest only — the plan changed during execution)
 

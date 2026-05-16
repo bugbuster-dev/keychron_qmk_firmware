@@ -33,6 +33,7 @@
 | 4 | Host-side (qmk-tools) version bump and constants | **Done** (qmk-tools commit `fb424bf` + `17008b9`) |
 | 5 | Example modules and module API surface | **Partial** — `pre_record_logger.c` done (qmk-tools commit `bee3414`); `hooks_template.c` renamed to `combo_hooks_template.c` (commit `fd55961`) |
 | 6 | Manual integration testing | **Partial** — combo + pre_record_logger coexistence in same sector verified on hardware |
+| 7 | SRAM target + pipeline_env (header v3) | **Done** (branch `feat/sram-modules`) — see [docs/setup/sram-modules.md](../../../docs/setup/sram-modules.md) |
 
 ## Hooks deferred from this plan
 
