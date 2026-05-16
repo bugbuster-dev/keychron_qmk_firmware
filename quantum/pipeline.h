@@ -28,6 +28,12 @@ struct sm_machine {
 void pipeline_init(void);
 void pipeline_register(sm_machine_t *machine);
 
+/* Remove a previously registered machine. Safe to call with a machine
+   pointer that was never registered (no-op). Required by SRAM-loaded
+   pipeline modules so unload can detach the module's sm_machine_t
+   before its memory is cleared. */
+void pipeline_unregister(sm_machine_t *machine);
+
 // Phase-specific entry points (called from action_exec)
 // Returns true if event was consumed (caller should skip further processing)
 bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record);

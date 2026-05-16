@@ -6,10 +6,28 @@
 #include <string.h>
 #include "module_loader.h"
 #include "module_flash.h"
+#ifdef KEY_PROCESSING_SM_ENABLE
+#    include "pipeline_env.h"
+#endif
 #ifdef MODULE_SRAM_ENABLE
 #    include "module_sram.h"
 #endif
 #include "print.h"
+
+/* Helper for init_fn() callers — returns the env pointer when the
+   pipeline is built, NULL otherwise. Old (non-pipeline) modules ignore
+   the argument; new pipeline modules require KEY_PROCESSING_SM_ENABLE
+   to be set at firmware build time, which is enforced indirectly: a
+   pipeline module's init will call env->pipeline_register, segfaulting
+   immediately if env is NULL. That's louder than silently doing
+   nothing, so it's the right failure mode. */
+static inline struct pipeline_env *module_init_env(void) {
+#ifdef KEY_PROCESSING_SM_ENABLE
+    return pipeline_env_get();
+#else
+    return NULL;
+#endif
+}
 
 /* Global Hook Table.
    Every entry must start with module_id = 0xFF (unclaimed sentinel).
@@ -261,7 +279,7 @@ static bool module_install_hooks_and_init(uint8_t slot_id, uint32_t slot_addr,
         xprintf("%s slot=%u init_fn=0x%lx\n",
                 trace_prefix, (unsigned)slot_id,
                 (unsigned long)(uintptr_t)init_fn);
-        uint32_t rc = init_fn();
+        uint32_t rc = init_fn(module_init_env());
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("%s slot=%u init OK rc=0x%lx\n",
                     trace_prefix, (unsigned)slot_id, (unsigned long)rc);
@@ -513,7 +531,7 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
         module_init_fn_t init_fn = (module_init_fn_t)(slot_addr + hdr->init_off);
         xprintf("mod load slot=%u init_fn=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
-        uint32_t rc = init_fn();
+        uint32_t rc = init_fn(module_init_env());
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("mod load slot=%u init OK rc=0x%lx\n",
                     (unsigned)slot_id, (unsigned long)rc);
@@ -697,7 +715,7 @@ void module_boot_scan(void) {
         module_init_fn_t init_fn = (module_init_fn_t)(slot_addr + header.init_off);
         xprintf("mod boot slot=%u init_fn=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
-        uint32_t rc = init_fn();
+        uint32_t rc = init_fn(module_init_env());
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("mod boot slot=%u init OK rc=0x%lx\n",
                         (unsigned)slot_id, (unsigned long)rc);

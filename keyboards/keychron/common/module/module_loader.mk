@@ -11,6 +11,10 @@ SRC += keyboards/keychron/common/module/module_loader.c
 SRC += keyboards/keychron/common/module/module_dispatch.c
 SRC += keyboards/keychron/common/module/module_log.c
 
+# pipeline_env.c lives in quantum/rules.mk's KEY_PROCESSING_SM_ENABLE
+# block — it references quantum/pipeline.c symbols which only exist when
+# the pipeline is built.
+
 # Note: MODULE_SRAM_ENABLE support lives in quantum/rules.mk because
 # keymap-level rules.mk variables are not yet visible at the point this
 # file is included (keychron_common.mk is loaded before keymap rules.mk).

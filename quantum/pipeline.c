@@ -20,6 +20,21 @@ void pipeline_register(sm_machine_t *machine) {
     }
 }
 
+void pipeline_unregister(sm_machine_t *machine) {
+    if (!machine) return;
+    // Find the entry and compact the array.
+    for (int i = 0; i < machine_count; i++) {
+        if (machines[i] == machine) {
+            for (int j = i; j < machine_count - 1; j++) {
+                machines[j] = machines[j + 1];
+            }
+            machine_count--;
+            machines[machine_count] = NULL;
+            return;
+        }
+    }
+}
+
 void pipeline_init(void) {
     machine_count = 0;
     memset(machines, 0, sizeof(machines));

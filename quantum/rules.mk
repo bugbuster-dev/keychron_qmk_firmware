@@ -1,8 +1,12 @@
 # State machine key processing pipeline
 ifdef KEY_PROCESSING_SM_ENABLE
+    OPT_DEFS += -DKEY_PROCESSING_SM_ENABLE
     SRC += quantum/pipeline.c
+    SRC += keyboards/keychron/common/module/pipeline_env.c
     VPATH += $(QUANTUM_DIR)/features
     EXTRAINCDIRS += $(QUANTUM_DIR)/features
+    VPATH += $(TOP_DIR)/keyboards/keychron/common/module
+    EXTRAINCDIRS += $(TOP_DIR)/keyboards/keychron/common/module
 
     ifdef VIM_MODAL_ENABLE
         SRC += quantum/features/vim_modal_adapter.c
