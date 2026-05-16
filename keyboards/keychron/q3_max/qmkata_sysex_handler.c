@@ -60,6 +60,9 @@ static inline void* _qmkata_dk_addr(uint8_t layer, uint8_t row, uint8_t column) 
 
 #if defined(MODULE_LOADER_ENABLE)
 #    include "module_loader.h"
+#    ifdef MODULE_SRAM_ENABLE
+#        include "module_sram.h"
+#    endif
 #    include "module_flash.h"
 #endif
 
@@ -1085,10 +1088,19 @@ _QMKATA_HANDLE_CMD_SET(module) {
     }
 
     /* Handle chunk data */
+#ifdef MODULE_SRAM_ENABLE
+    /* SRAM slot IDs (>= MODULE_SRAM_SLOT_BASE_ID) are accepted too —
+       module_load() dispatches by slot ID. */
+    if (slot_id >= MODULE_FLASH_SLOT_COUNT && !module_sram_is_sram_slot(slot_id)) {
+        DBG_USR(qmkata, "module:set invalid slot=%u\n", slot_id);
+        return;
+    }
+#else
     if (slot_id >= MODULE_FLASH_SLOT_COUNT) {
         DBG_USR(qmkata, "module:set invalid slot=%u\n", slot_id);
         return;
     }
+#endif
 
     /* Initialize loading state if this is the first chunk */
     if (module_loading_slot == 0xFF && offset == 0) {
