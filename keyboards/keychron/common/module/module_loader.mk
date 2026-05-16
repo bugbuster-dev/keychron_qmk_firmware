@@ -11,13 +11,9 @@ SRC += keyboards/keychron/common/module/module_loader.c
 SRC += keyboards/keychron/common/module/module_dispatch.c
 SRC += keyboards/keychron/common/module/module_log.c
 
-# SRAM module support (volatile, no flash wear). Opt-in per keymap.
-# If MODULE_SRAM_TOTAL_SIZE doesn't fit, the link fails with
-# "region 'ram0' overflowed" — by design.
-ifeq ($(strip $(MODULE_SRAM_ENABLE)), yes)
-OPT_DEFS += -DMODULE_SRAM_ENABLE
-SRC += keyboards/keychron/common/module/module_sram.c
-endif
+# Note: MODULE_SRAM_ENABLE support lives in quantum/rules.mk because
+# keymap-level rules.mk variables are not yet visible at the point this
+# file is included (keychron_common.mk is loaded before keymap rules.mk).
 
 # Force the linker to keep mprintf even though no firmware-side code
 # calls it. Modules resolve it via host-side .map-based PROVIDE symbol

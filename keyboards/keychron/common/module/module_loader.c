@@ -6,6 +6,9 @@
 #include <string.h>
 #include "module_loader.h"
 #include "module_flash.h"
+#ifdef MODULE_SRAM_ENABLE
+#    include "module_sram.h"
+#endif
 #include "print.h"
 
 /* Global Hook Table.
@@ -218,7 +221,173 @@ static void release_hook(uint32_t hook_index, uint8_t module_id) {
     }
 }
 
+/* Helper: claim hooks, install dispatch pointers, run init.
+   Common to flash and SRAM targets. Caller guarantees:
+   - slot_addr points at the live module (post-write for flash, post-memcpy for SRAM)
+   - hdr is a validated header (magic/version/layout/crc all ok)
+   - No hook conflicts (caller already checked)
+   On any claim_hook() failure (should be impossible after a conflict check
+   but defensive against concurrent table mutation), releases what it has
+   claimed and returns false.
+
+   Today only the SRAM path uses this; the flash path still inlines the
+   equivalent logic for minimal-diff risk. A future cleanup can DRY them. */
+#ifdef MODULE_SRAM_ENABLE
+static bool module_install_hooks_and_init(uint8_t slot_id, uint32_t slot_addr,
+                                          const module_header_t* hdr,
+                                          const char* trace_prefix) {
+    const uint32_t* hook_table_data =
+        (const uint32_t*)(slot_addr + hdr->hook_table_off);
+
+    for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
+        if (is_lifecycle_hook(i)) {
+            continue;
+        }
+        if (hdr->hook_bitmap & (1U << i)) {
+            void* func = (void*)(slot_addr + hook_table_data[i]);
+            if (!claim_hook(i, slot_id, func)) {
+                for (uint32_t j = 0; j < i; j++) {
+                    if (!is_lifecycle_hook(j) && (hdr->hook_bitmap & (1U << j))) {
+                        release_hook(j, slot_id);
+                    }
+                }
+                return false;
+            }
+        }
+    }
+
+    if (hdr->init_off > 0) {
+        module_init_fn_t init_fn = (module_init_fn_t)(slot_addr + hdr->init_off);
+        xprintf("%s slot=%u init_fn=0x%lx\n",
+                trace_prefix, (unsigned)slot_id,
+                (unsigned long)(uintptr_t)init_fn);
+        uint32_t rc = init_fn();
+        if (rc == MODULE_INIT_MAGIC) {
+            xprintf("%s slot=%u init OK rc=0x%lx\n",
+                    trace_prefix, (unsigned)slot_id, (unsigned long)rc);
+        } else {
+            xprintf("%s slot=%u init BAD rc=0x%lx (expected 0x%lx)\n",
+                    trace_prefix, (unsigned)slot_id, (unsigned long)rc,
+                    (unsigned long)MODULE_INIT_MAGIC);
+        }
+    }
+    return true;
+}
+
+/* SRAM load path. Mirror of the flash module_load() below, minus the
+   sector erase / sibling cleanup (SRAM slots are independent — no shared
+   sector semantics). The host applies relocations against the SRAM slot
+   address before upload, same as flash. */
+static bool module_load_sram(uint8_t slot_id, const uint8_t* data, size_t len) {
+    if (!module_sram_is_sram_slot(slot_id)) return false;
+    if (len < sizeof(module_header_t)) return false;
+
+    const module_header_t* hdr = (const module_header_t*)data;
+    if (hdr->magic != MODULE_HEADER_MAGIC) return false;
+    if (hdr->version != MODULE_HEADER_VERSION) {
+        xprintf("mod load sram slot=%u rejected: version %u != %u\n",
+                (unsigned)slot_id, (unsigned)hdr->version,
+                (unsigned)MODULE_HEADER_VERSION);
+        return false;
+    }
+    if (!validate_module_layout(hdr, len)) return false;
+
+    const uint32_t* hook_table_data = (const uint32_t*)(data + hdr->hook_table_off);
+    if (!validate_dispatch_hook_offsets(hdr, hook_table_data)) return false;
+    if (!validate_module_crc(data, hdr)) return false;
+
+    /* If this slot already has a module loaded, unload it first so its
+       hooks are released and any new conflicts are detected against
+       fresh state. */
+    if (module_sram_slot_is_loaded(slot_id)) {
+        module_unload(slot_id);
+    }
+
+    /* Hook-conflict check against everything currently claimed. */
+    for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
+        if (is_lifecycle_hook(i)) continue;
+        if ((hdr->hook_bitmap & (1U << i)) && is_hook_claimed(i)) {
+            xprintf("mod load sram slot=%u rejected: hook %lu already claimed\n",
+                    (unsigned)slot_id, (unsigned long)i);
+            return false;
+        }
+    }
+
+    uint32_t slot_addr = module_sram_slot_addr(slot_id);
+    if (slot_addr == 0) return false;
+
+    /* Word-align write length. SRAM doesn't care, but stay consistent
+       with flash semantics so identical binaries work in both paths. */
+    size_t write_len = (len + 3) & ~3;
+    module_sram_clear(slot_id);
+    if (!module_sram_write(slot_addr, data, write_len)) {
+        xprintf("mod load sram slot=%u rejected: sram write failed at 0x%lx len=%u\n",
+                (unsigned)slot_id, (unsigned long)slot_addr, (unsigned)write_len);
+        return false;
+    }
+
+    if (!module_install_hooks_and_init(slot_id, slot_addr, hdr, "mod load sram")) {
+        module_sram_clear(slot_id);
+        return false;
+    }
+
+    module_sram_slot_set_loaded(slot_id, true);
+    return true;
+}
+
+static bool module_unload_sram(uint8_t slot_id) {
+    if (!module_sram_is_sram_slot(slot_id)) return false;
+    if (!module_sram_slot_is_loaded(slot_id)) {
+        /* Idempotent no-op for unloaded SRAM slots, matching flash semantics. */
+        return true;
+    }
+
+    uint32_t slot_addr = module_sram_slot_addr(slot_id);
+    if (slot_addr == 0) return false;
+
+    /* Header lives at the start of the slot, in SRAM, so we read it directly. */
+    const module_header_t* header = (const module_header_t*)slot_addr;
+    if (header->magic != MODULE_HEADER_MAGIC) {
+        /* Slot marked loaded but header is garbage — clear and forget. */
+        module_sram_clear(slot_id);
+        return true;
+    }
+    if (header->version != MODULE_HEADER_VERSION) {
+        xprintf("mod unload sram slot=%u rejected: version %u != %u\n",
+                (unsigned)slot_id, (unsigned)header->version,
+                (unsigned)MODULE_HEADER_VERSION);
+        module_sram_clear(slot_id);
+        return true;
+    }
+
+    if (header->deinit_off > 0 &&
+        header->deinit_off >= sizeof(module_header_t) &&
+        header->deinit_off < header->code_size) {
+        module_deinit_fn_t deinit_fn =
+            (module_deinit_fn_t)(slot_addr + header->deinit_off);
+        uint32_t rc = deinit_fn();
+        xprintf("mod unload sram slot=%u deinit rc=0x%lx\n",
+                (unsigned)slot_id, (unsigned long)rc);
+    }
+
+    for (uint32_t i = 0; i < MODULE_HOOK_MAX; i++) {
+        if (is_lifecycle_hook(i)) continue;
+        if (header->hook_bitmap & (1U << i)) {
+            release_hook(i, slot_id);
+        }
+    }
+
+    module_sram_clear(slot_id);
+    return true;
+}
+#endif /* MODULE_SRAM_ENABLE */
+
 bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
+#ifdef MODULE_SRAM_ENABLE
+    if (module_sram_is_sram_slot(slot_id)) {
+        return module_load_sram(slot_id, data, len);
+    }
+#endif
     if (slot_id >= MODULE_FLASH_SLOT_COUNT) return false;
     if (len < sizeof(module_header_t)) return false;
 
@@ -359,6 +528,11 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
 }
 
 bool module_unload(uint8_t slot_id) {
+#ifdef MODULE_SRAM_ENABLE
+    if (module_sram_is_sram_slot(slot_id)) {
+        return module_unload_sram(slot_id);
+    }
+#endif
     /* Validate slot ID */
     if (slot_id >= MODULE_FLASH_SLOT_COUNT) {
         return false;

@@ -27,3 +27,13 @@ GENERATED_C := $(patsubst quantum/features/%.puml,quantum/features/%.c,$(PUMLS))
 .PHONY: statesmith-gen
 statesmith-gen:
 	@for f in $(PUMLS); do $(STATESMITH) run --lang C99 --no-csx --no-ask $$f; done
+
+# SRAM module support (volatile, no flash wear). Opt-in per keymap.
+# Lives here (not in module_loader.mk) because keymap-level rules.mk
+# variables are not yet visible when keychron_common.mk is processed.
+# If MODULE_SRAM_TOTAL_SIZE doesn't fit, the link fails with
+# "region 'ram0' overflowed" — by design.
+ifeq ($(strip $(MODULE_SRAM_ENABLE)), yes)
+    OPT_DEFS += -DMODULE_SRAM_ENABLE
+    SRC += keyboards/keychron/common/module/module_sram.c
+endif

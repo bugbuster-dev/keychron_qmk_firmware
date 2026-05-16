@@ -129,12 +129,24 @@ typedef struct {
  * bytes, so the header CRC matches what module_boot_scan reads back on
  * every cold boot.
  *
- * @param slot_id The slot ID (0-7).
+ * @param slot_id The slot ID (0-7 for flash, 8+ for SRAM if MODULE_SRAM_ENABLE).
  * @param data Pointer to the module binary data (including header).
  * @param len Length of the data in bytes.
  * @return true if the module was loaded successfully, false otherwise.
+ *
+ * Slot IDs 0-7 dispatch to flash. Slot IDs >= 8 require MODULE_SRAM_ENABLE
+ * and dispatch to SRAM (volatile, lost on reset). The host applies
+ * relocations against the SRAM slot address in the same way it does for
+ * flash slots.
  */
 bool module_load(uint8_t slot_id, const uint8_t* data, size_t len);
+
+/* Module load target. Internal — module_load() picks the target from
+   slot_id, but the dispatcher is exposed for diagnostics. */
+typedef enum {
+    MODULE_TARGET_FLASH = 0,
+    MODULE_TARGET_SRAM  = 1,
+} module_target_t;
 
 /**
  * @brief Mark a sector as erased to suppress redundant erases in module_load().
