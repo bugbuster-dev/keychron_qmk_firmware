@@ -54,7 +54,19 @@ Stock build (the binary the emulator will boot in v1.0):
 
 ```sh
 qmk compile -kb keychron/q3_max/ansi_encoder -km keychron
-# ELF lands under .build/
+```
+
+Output ELF (consumed by Renode `.resc` script):
+
+```
+.build/keychron_q3_max_ansi_encoder_keychron.elf
+```
+
+Verified sizing (firmware fits comfortably in F401 256K flash + 64K SRAM):
+
+```
+text  data   bss
+105K   3K   61K
 ```
 
 Emu-diagnostic build (extra logging via `CONSOLE_ENABLE` + `DEBUG_MATRIX_SCAN_RATE_ENABLE`): see `build/README.md` (added in Phase 1, Task 1.5).
