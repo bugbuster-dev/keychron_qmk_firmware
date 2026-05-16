@@ -14,3 +14,13 @@ flash:
 
 sram:
     size: 0x00010000   // 64 KB
+
+// Remove RTC. Renode's STM32F4_RTC model crashes when the firmware
+// writes 0 to DateRegister (year=month=day=0 is not a representable
+// DateTime). The Q3 Max wireless code touches RTC for sleep
+// timestamps; this is not required for v1.0 emulation. Detach it
+// from the bus and re-mount the address range as plain memory so
+// register reads/writes are silent.
+rtc: @ none
+fake_rtc: Memory.MappedMemory @ sysbus 0x40002800
+    size: 0x400

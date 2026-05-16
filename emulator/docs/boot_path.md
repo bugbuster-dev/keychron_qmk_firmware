@@ -126,3 +126,45 @@ Confirmed by PC hooks on `0x0801e124` (`matrix_scan`) firing repeatedly.
 - `keyboard_post_init_quantum` hook (`0x0801d754`) fired only once but `keyboard_post_init_kb` (`0x0801bdcc`) did not. `keychron_common_init` → `wireless_common_init` → `lkbt51_init` chain therefore not executing. Likely stuck inside `quantum_init` / `led_init_ports` / `rgb_matrix_init` / `dip_switch_init` — the four calls between `matrix_init` and the post-init tail-call. Need deeper hook-trace to localise. SPI activity not yet seen, so the LKBT51 stub (Phase 2) is not yet on the critical path.
 - USB OTG FS endpoint registers return 0 from SVD; no enumeration attempted yet because no fake host driving the bus. Phase 3.
 - The OTG FS region warnings ("Unhandled register") are cosmetic — firmware progresses past them via spin-loop-friendly defaults.
+
+### Task 1.3 (continued) — Two more boot blockers in `keyboard_init` sub-chain
+
+After matrix_scan started running on its own thread, the *main* thread was still blocked inside `keyboard_init`'s sub-calls. Drilling further:
+
+**Issue C — `spiSend` / `spiExchange` block on DMA completion**
+
+`rgb_matrix_init` calls into `snled27351_init_drivers` → `spi_init` → `snled27351_init` → `snled27351_write_register` → `spiSend`. ChibiOS SPI HAL kicks off DMA-driven transfers then suspends the calling thread on a binary semaphore signalled by the DMA TC interrupt. Renode's DMA model doesn't interact with our SPI peripheral to generate the completion IRQ, so the thread sleeps forever.
+
+Workaround in `q3_max.resc`: patch the first instruction of `spiSend` (`0x08025e2e`) and `spiExchange` (`0x08025e0c`) to `movs r0, #0; bx lr` (encoded `0x47702000`). Both functions become no-ops returning success with no data transferred. The SNLED27351 LED-driver writes silently fail; RGB rendering is out of v1.0 scope. The LKBT51 wireless co-MCU stub (Phase 2) uses a different Renode peripheral path that bypasses ChibiOS SPI HAL.
+
+**Issue D — Renode `STM32F4_RTC` crashes on `DateRegister=0` write; init poll spins**
+
+ChibiOS HAL `rtc_lld_init` writes 0 to RTC DateRegister (offset 0x4). Renode's `STM32F4_RTC` model converts the register bits to a `System.DateTime` and throws `ArgumentOutOfRangeException` for year=month=day=0.
+
+Two-part workaround:
+
+1. Detach the RTC peripheral (`rtc: @ none` in the `.repl`) and remap the address range as plain `Memory.MappedMemory` so register accesses are silent.
+2. `rtc_enter_init` (`0x08027b54`) polls `RTC_ISR.INITF` (bit 6 of offset 0xC) to wait for the chip to enter init mode. With plain memory at the RTC region, INITF reads as 0 forever. Patch the function's first instruction to `bx lr` (`0x4770`) so init is a no-op. RTC is used only for sleep timestamps which are not exercised in v1.0.
+
+### Phase 1 exit criterion MET ✓
+
+After all workarounds, the firmware reaches steady state with the full main loop running:
+
+```
+housekeeping_task → protocol_pre_task → protocol_keyboard_task → (repeat)
+```
+
+`matrix_scan` runs on a separate thread. `wireless_init` ran cleanly. The LKBT51 init sent SPI writes to a non-existent peripheral (Renode warns about unhandled SPI1 transactions but the patched `spiSend`/`spiExchange` no-op return prevents any blocking).
+
+Boot path summary (all blockers fixed via in-tree workarounds, no firmware rebuild):
+
+| # | Blocker | Root cause | Workaround |
+|---|---------|------------|------------|
+| A | `chSysHalt` in `backing_store_init` | F_SIZE OTP at `0x1FFF7A22` reads 0 | Write `0x0100` at boot |
+| B | Sleeping threads never wake | NVIC ICSR RETTOBASE bit stuck at 0 | `SetHookAfterPeripheralRead` OR bit 11 |
+| C | `chSysPolledDelayX` spins | DWT CYCCNT not modelled (E0001004) | Patch first insn to `bx lr` |
+| D | SPI calls block on DMA TC | DMA → SPI interaction missing | Patch `spiSend`/`spiExchange` to no-op |
+| E | `STM32F4_RTC` crash on date=0 | Renode RTC model bug | Detach + remap as memory |
+| F | `rtc_enter_init` spins on INITF | Memory RTC region returns 0 | Patch first insn to `bx lr` |
+
+Ready for Phase 2 (LKBT51 stub on SPI1) and Phase 3 (USB OTG FS enumeration).

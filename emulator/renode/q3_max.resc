@@ -30,6 +30,30 @@ macro reset
     # the delay returns immediately. Accuracy is fine: callers tolerate
     # over-fast delays (it is a minimum, not a fixed sleep).
     sysbus WriteWord 0x08025184 0x4770
+
+    # Patch out spiSend (0x08025e2e) and spiExchange (0x08025e0c).
+    # ChibiOS SPI HAL kicks off DMA-driven transfers then blocks the
+    # calling thread on a binary semaphore signalled by the DMA TC ISR.
+    # Renode's DMA model does not interact with our SPI peripheral to
+    # generate completion IRQs, so the thread sleeps forever. We make
+    # both functions `movs r0, #0; bx lr` — they return success with
+    # no data transferred. The Q3 Max's SPI-driven SNLED27351 LED
+    # driver writes silently fail (acceptable; RGB rendering is out
+    # of scope for v1.0). The LKBT51 wireless co-MCU stub will be
+    # attached in Phase 2 via a different Renode peripheral path
+    # that does not depend on ChibiOS SPI driver semantics.
+    sysbus WriteDoubleWord 0x08025e2e 0x47702000
+    sysbus WriteDoubleWord 0x08025e0c 0x47702000
+
+    # Patch out rtc_enter_init (0x08027b54) and rtc_exit_init.
+    # ChibiOS RTC HAL initialises the calendar by setting RTC_ISR.INIT
+    # (bit 7) then polling RTC_ISR.INITF (bit 6) until the chip
+    # acknowledges. We replaced Renode's STM32F4_RTC peripheral with
+    # plain memory (the real model crashes on DateRegister=0 writes
+    # the firmware emits), so INITF never asserts and the poll spins
+    # forever. The Q3 Max uses RTC only for sleep timestamps which
+    # are not exercised in v1.0. Make rtc_enter_init a no-op.
+    sysbus WriteWord 0x08027b54 0x4770
 """
 runMacro $reset
 
