@@ -79,3 +79,50 @@ After the F_SIZE fix:
 - Add USB OTG FS as a stub peripheral so `usb_lld_start` doesn't block? Or build emu-diagnostic with `USB=no` first?
 - Inspect what `main()` actually did via execution tracer (Renode has `cpu CreateExecutionTracing`) — a more reliable boot trace than peripheral access alone.
 - Address the "ReadByte from 0x0" warnings (still showing post-fix? need to re-check the log).
+
+### Task 1.3 — Diagnosed two more boot blockers and worked around them
+
+After F_SIZE, the firmware reached ChibiOS idle and stayed there. Drilling into the boot path with `sysbus.cpu AddHook` traced execution to `init_usb_driver`, which calls `chThdSleep(5000)`. The sleep never returned. Root causes:
+
+**Issue A — NVIC ICSR RETTOBASE bit always returns 0**
+
+ChibiOS port `port-armv7m`'s `__port_irq_epilogue` (`0x08025838`) reads SCB ICSR at `0xE000ED04` and tests bit 11 (RETTOBASE) to decide whether to run the preemption check on ISR exit. Renode's NVIC model returns `0x00065580` for ICSR — RETTOBASE bit clear regardless of nesting state — so ChibiOS always takes the "still nested" branch and skips preemption. Sleeping threads are never resumed.
+
+Workaround in `q3_max.resc`:
+
+```
+sysbus SetHookAfterPeripheralRead sysbus.nvic """
+if offset == 0xD04:
+    value = value | 0x800
+"""
+```
+
+This forces bit 11 = 1 on every ICSR read. In our scenario (single non-nested IRQ at a time) this is always the correct value.
+
+**Issue B — DWT CYCCNT not implemented; busy-loop hangs**
+
+`chSysPolledDelayX` (`0x08025184`) busy-polls DWT CYCCNT at `0xE0001004` for short delays. Renode's Cortex-M model doesn't implement DWT — the address falls outside any peripheral and reads return 0. `usb_lld_start` calls `chSysPolledDelayX` twice (for USB core reset and stabilisation delays), causing infinite spin.
+
+Workaround in `q3_max.resc`: patch `chSysPolledDelayX`'s first instruction to `bx lr` (encoded `0x4770`), making it a no-op. Acceptable because callers tolerate "ran faster than expected" delays — the function is a *minimum* spin, not a *fixed* sleep.
+
+```
+sysbus WriteWord 0x08025184 0x4770
+```
+
+### Task 1.3 result — Boot reaches QMK main loop
+
+With both workarounds in place:
+
+- `chThdSleep(5000)` in `init_usb_driver` returns ✓
+- `usb_lld_start` runs, reads OTG FS DIEPCTL/DOEPCTL/GAHBCFG registers (returning SVD defaults of 0 / 0x8000), exits cleanly ✓
+- `keyboard_init` runs ✓
+- `matrix_init` runs ✓
+- `matrix_scan` periodically runs in the main loop ✓
+
+Confirmed by PC hooks on `0x0801e124` (`matrix_scan`) firing repeatedly.
+
+### Open Phase 1 follow-ups
+
+- `keyboard_post_init_quantum` hook (`0x0801d754`) fired only once but `keyboard_post_init_kb` (`0x0801bdcc`) did not. `keychron_common_init` → `wireless_common_init` → `lkbt51_init` chain therefore not executing. Likely stuck inside `quantum_init` / `led_init_ports` / `rgb_matrix_init` / `dip_switch_init` — the four calls between `matrix_init` and the post-init tail-call. Need deeper hook-trace to localise. SPI activity not yet seen, so the LKBT51 stub (Phase 2) is not yet on the critical path.
+- USB OTG FS endpoint registers return 0 from SVD; no enumeration attempted yet because no fake host driving the bus. Phase 3.
+- The OTG FS region warnings ("Unhandled register") are cosmetic — firmware progresses past them via spin-loop-friendly defaults.

@@ -22,5 +22,28 @@ macro reset
     # F401CC = 256 KB → 0x0100. Without this, ChibiOS efl_lld_init() leaves
     # the flash descriptor unset and backing_store_init() panics.
     sysbus WriteWord 0x1FFF7A22 0x0100
+
+    # Patch out chSysPolledDelayX (0x08025184). ChibiOS busy-loops on
+    # DWT CYCCNT (at 0xE0001004) for short delays; Renode's Cortex-M
+    # model does not implement DWT, so reads return 0 and the loop
+    # spins forever. We replace the first instruction with `bx lr` so
+    # the delay returns immediately. Accuracy is fine: callers tolerate
+    # over-fast delays (it is a minimum, not a fixed sleep).
+    sysbus WriteWord 0x08025184 0x4770
 """
 runMacro $reset
+
+# Workaround: Renode's NVIC model returns RETTOBASE (ICSR bit 11) = 0
+# unconditionally. ChibiOS port-armv7m's __port_irq_epilogue tests this
+# bit to decide whether to run the preemption check on ISR exit. With
+# bit 11 stuck at 0, ChibiOS skips the preemption check and sleeping
+# threads are never resumed — boot hangs in the first chThdSleep.
+#
+# We patch the bit on every ICSR read. RETTOBASE = 1 means "no preempted
+# active exceptions"; that is the correct value when ChibiOS reads ICSR
+# from the IRQ epilogue of a single, non-nested IRQ — which is the only
+# case ChibiOS reads ICSR for. Setting it unconditionally is safe here.
+sysbus SetHookAfterPeripheralRead sysbus.nvic """
+if offset == 0xD04:
+    value = value | 0x800
+"""
