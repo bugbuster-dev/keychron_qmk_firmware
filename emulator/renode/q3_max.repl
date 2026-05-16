@@ -1,0 +1,16 @@
+// Keychron Q3 Max — STM32F401 platform for Renode
+//
+// Starts from the generic STM32F4 base and overrides flash/SRAM sizing
+// for F401CC (256 KB flash, 64 KB SRAM). All peripherals the firmware
+// touches at boot — RCC, GPIO A-D, EXTI, timers, SPI1, USART2 — are
+// inherited from the base. Q3 Max-specific peripherals (LKBT51 stub,
+// matrix injector) are attached in Phase 2.
+
+using "platforms/cpus/stm32f4.repl"
+
+// F401CC sizing overrides
+flash:
+    size: 0x00040000   // 256 KB
+
+sram:
+    size: 0x00010000   // 64 KB

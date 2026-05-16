@@ -1,0 +1,21 @@
+:name: Keychron Q3 Max
+:description: Renode emulator for Keychron Q3 Max QMK firmware (STM32F401 + LKBT51)
+
+# ELF path can be overridden via:
+#   renode -e '$bin=@/path/to/firmware.elf; include @emulator/renode/q3_max.resc'
+$bin?=@.build/keychron_q3_max_ansi_encoder_keychron.elf
+
+using sysbus
+mach create "q3_max"
+machine LoadPlatformDescription @emulator/renode/q3_max.repl
+
+# USART2 is QMK's CONSOLE UART when CONSOLE_ENABLE=yes is set in the
+# emu-diagnostic build. Open the analyzer window unconditionally — it
+# is harmless if the stock build is silent.
+showAnalyzer sysbus.usart2
+
+macro reset
+"""
+    sysbus LoadELF $bin
+"""
+runMacro $reset
