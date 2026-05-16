@@ -168,3 +168,16 @@ Boot path summary (all blockers fixed via in-tree workarounds, no firmware rebui
 | F | `rtc_enter_init` spins on INITF | Memory RTC region returns 0 | Patch first insn to `bx lr` |
 
 Ready for Phase 2 (LKBT51 stub on SPI1) and Phase 3 (USB OTG FS enumeration).
+
+## Phase 2 progress
+
+### Task 2.3 — LKBT51 SPI wiring DEFERRED
+
+The plan called for wiring the Python `Lkbt51Protocol` (Task 2.2) into Renode SPI1 as a slave peripheral so the firmware's SPI transactions are intercepted and responded to. Investigation shows this is not on the critical path for v1.0:
+
+- Renode 1.16.1 portable does not include a `Python.PythonPeripheral` variant that implements `ISPIPeripheral`. Only `NORFlash`, `SFDP`, and Cadence SPI controllers are present. Writing a custom SPI-slave plugin requires building Renode from source.
+- More importantly: Phase 1's workaround for the DMA→SPI completion bug patched `spiSend` and `spiExchange` in firmware to `movs r0,#0; bx lr`. With those patched, the firmware emits **zero SPI bytes** during steady-state operation. There is nothing for an SPI slave peripheral to absorb.
+
+The `Lkbt51Protocol` code from Task 2.2 is kept (well-tested, 10 unit tests green). It will be wired up in v2.x alongside a proper SPI HAL fix that allows the firmware to actually issue DMA-driven SPI transactions, at which point the protocol stub will absorb wireless-co-MCU traffic naturally.
+
+For v1.0, this means the firmware boots cleanly past `lkbt51_init` / `wireless_init` (already confirmed in Phase 1) and the LKBT51 protocol stays a pure-Python module ready for integration.
