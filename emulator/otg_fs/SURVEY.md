@@ -157,3 +157,97 @@ of Option B's symbol hooks, so the throwaway cost is equal.
 2. Implement enumeration state machine (USBRST → ENUMDNE → SETUP/IN cycle for 4 standard descriptors).
 3. Wire NVIC IRQ 67 (OTG_FS) — confirm Renode's NVIC accepts raise-from-Python.
 4. Surface inject/capture APIs to scenario layer.
+
+## Showstopper probe results (2026-05-17)
+
+Before committing to Option C, verified Renode 1.16.1 portable
+supports the three capabilities Option C depends on:
+
+### Showstopper 1: state persistence in PythonPeripheral — RESOLVED
+
+A Python.PythonPeripheral with `initable: true` runs the script
+once with `request.IsInit` set; local variables created in that
+branch persist across subsequent `IsRead` / `IsWrite` calls.
+Tested with a dict-based register store:
+
+```python
+if request.IsInit:
+    state = {"regs": {}, "calls": 0}
+elif request.IsRead:
+    state["calls"] += 1
+    request.Value = state["regs"].get(request.Offset, 0)
+elif request.IsWrite:
+    state["regs"][request.Offset] = request.Value
+```
+
+Reads return previously-written values from the dict. The `calls`
+counter increments monotonically. Works as expected.
+
+### Showstopper 2: multi-register dispatch — RESOLVED
+
+A single `PythonPeripheral` with `size: 0x4000` covers the entire
+OTG FS region. `request.Offset` correctly identifies the accessed
+register; the script dispatches with normal `if` / `elif`. Tested
+with reads at four distinct offsets, each returning its own value.
+
+### Showstopper 3: raising NVIC IRQ from Python — RESOLVED
+
+PythonPeripheral itself has zero GPIO outputs by default
+(`self.HasGPIO()` returns False, `self.GetGPIOs()` returns empty),
+so the standard `-> nvic@67` repl syntax does not work. **But**
+the script can reach into the machine and call NVIC directly:
+
+```python
+m = self.GetMachine()
+nvic = m["sysbus.nvic"]
+nvic.OnGPIO(67, True)    # assert IRQ line 67
+nvic.OnGPIO(67, False)   # deassert
+# or one-shot:
+nvic.SetPendingIRQ(67)
+```
+
+Verified `OnGPIO(67, True/False)` and `SetPendingIRQ(67)` all
+execute without exception. Actual IRQ delivery to a running CPU
+will be verified during Task 3.2 integration.
+
+### Constraint discovered: IronPython 2.7.12
+
+Renode's Python engine is **IronPython 2.7.12** (Python 2 syntax).
+Peripheral scripts must NOT use:
+
+- f-strings (`f"..."`) — use `"%x" % v` or `"{}".format(v)`
+- `from __future__ import annotations` — Python 3 only
+- Type hints — Python 3 only
+- `print()` as statement vs function — IronPython accepts both,
+  but use `self.Log(LogLevel.Warning, ...)` for emulator output
+
+The `Lkbt51Protocol` and `MatrixState` unit-tested classes
+already use modern Python 3 syntax. They will need a thin IronPython
+2.7-compatible wrapper layer when imported into Renode peripherals
+(or the modern syntax stripped from the modules used inside the
+peripheral). Probably easiest: keep Python 3 sources for tests
+and write parallel `_irpy` adapter files.
+
+### API reference (PascalCase, IronPython 2.7)
+
+| Property | Type | Notes |
+|----------|------|-------|
+| `request.IsInit`  | bool | true on first call (script load) |
+| `request.IsRead`  | bool | true on register read |
+| `request.IsWrite` | bool | true on register write |
+| `request.IsUser`  | bool | user-invoked (e.g., from monitor) |
+| `request.Type`    | enum | textual type for logging |
+| `request.Offset`  | int  | byte offset within peripheral region |
+| `request.Value`   | int  | read: script sets; write: script reads |
+| `self.Log(level, msg)` | — | level from `LogLevel.{Noisy,Info,Warning,Error}` |
+| `self.GetMachine()` | Machine | full machine handle |
+| `m["sysbus.nvic"]` | NVIC | get NVIC by path |
+| `nvic.OnGPIO(line, bool)` | — | assert/deassert IRQ line |
+| `nvic.SetPendingIRQ(line)` | — | one-shot pending |
+
+## Conclusion
+
+**No showstoppers.** Option C is feasible in Renode 1.16.1 portable
+without building Renode from source. Estimated effort revised down
+to **4–6 days** for Task 3.2 (was 5–8 in the original survey).
+Ready to begin implementation.
