@@ -17,5 +17,10 @@ showAnalyzer sysbus.usart2
 macro reset
 """
     sysbus LoadELF $bin
+
+    # F401CC OTP: F_SIZE half-word at 0x1FFF7A22 reports flash size in KB.
+    # F401CC = 256 KB → 0x0100. Without this, ChibiOS efl_lld_init() leaves
+    # the flash descriptor unset and backing_store_init() panics.
+    sysbus WriteWord 0x1FFF7A22 0x0100
 """
 runMacro $reset
