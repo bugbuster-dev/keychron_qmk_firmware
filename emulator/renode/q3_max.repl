@@ -24,3 +24,69 @@ sram:
 rtc: @ none
 fake_rtc: Memory.MappedMemory @ sysbus 0x40002800
     size: 0x400
+
+// OTG FS device-mode peripheral. Python-scripted stub that handles
+// W1C interrupt-status registers, per-EP TX FIFO capture, and
+// drives a minimal enumeration sequence. See emulator/otg_fs/SURVEY.md
+// for design.
+//
+// Mapped over the full OTG FS region (Global + Device + PWRCLK + FIFOs
+// = 0x4000 bytes). Replaces the upstream stm32f4.repl USB:RESET tag
+// which only covered 0x50000010..0x5000003F. NVIC IRQ 67 is reached
+// from the script via self.GetMachine()["sysbus.nvic"].OnGPIO(67, ...)
+// — PythonPeripheral has no GPIO outputs of its own.
+//
+// IronPython 2.7.12 syntax — no f-strings, no Python 3 typing.
+// Script inlined (not filename:) because Renode resolves relative
+// `filename:` against its install directory, not cwd; absolute paths
+// hurt portability.
+otg_fs: Python.PythonPeripheral @ sysbus 0x50000000
+    size: 0x4000
+    initable: true
+    script: '''
+if request.IsInit:
+    regs = {}
+    regs[0x010] = 0x80000000  # GRSTCTL: AHBIDL=1 (bus idle, reset complete)
+    ep_in_buffers = [[], [], [], [], [], []]  # one TX queue per IN endpoint
+    enum_phase = "idle"
+    # W1C set: writes of 1 clear the bit in these regs.
+    w1c = set([0x014])  # GINTSTS
+    for ep in range(6):
+        w1c.add(0x908 + 0x20 * ep)  # DIEPINT(N)
+        w1c.add(0xB08 + 0x20 * ep)  # DOEPINT(N)
+    self.Log(LogLevel.Info, "otg_fs: peripheral initialised")
+elif request.IsRead:
+    o = request.Offset
+    request.Value = regs.get(o, 0)
+    self.Log(LogLevel.Noisy, "otg_fs R 0x%04x -> 0x%08x" % (o, request.Value))
+elif request.IsWrite:
+    o = request.Offset
+    v = request.Value
+    if o == 0x010:
+        # GRSTCTL: handle core/FIFO/RX reset bits. Bits that mean
+        # "go do something" are CSRST(0), HSRST(1), FCRST(2),
+        # RXFFLSH(4), TXFFLSH(5). All self-clear once the
+        # reset action completes. We model "instant completion"
+        # by clearing those bits immediately and asserting AHBIDL.
+        regs[o] = 0x80000000  # AHBIDL=1; all reset bits cleared
+        self.Log(LogLevel.Noisy, "otg_fs GRSTCTL self-clear (req=0x%08x)" % v)
+    elif o in w1c:
+        cur = regs.get(o, 0)
+        regs[o] = cur & ~v
+        self.Log(LogLevel.Noisy, "otg_fs W1C 0x%04x clr=0x%08x" % (o, v))
+    elif 0x1000 <= o < 0x7000:
+        ep = (o - 0x1000) // 0x1000
+        if 0 <= ep < 6:
+            ep_in_buffers[ep].append(v)
+            self.Log(LogLevel.Noisy,
+                     "otg_fs TX-FIFO%d <- 0x%08x (len %d)"
+                     % (ep, v, len(ep_in_buffers[ep])))
+    else:
+        regs[o] = v
+        self.Log(LogLevel.Noisy, "otg_fs W 0x%04x <- 0x%08x" % (o, v))
+        if o == 0x804 and (v & 0x2) == 0 and enum_phase == "idle":
+            # DCTL.SDIS=0 → soft connect. Enumeration starts.
+            enum_phase = "connect_pending"
+            self.Log(LogLevel.Info,
+                     "otg_fs: soft-connect (DCTL.SDIS=0)")
+'''

@@ -181,3 +181,26 @@ The plan called for wiring the Python `Lkbt51Protocol` (Task 2.2) into Renode SP
 The `Lkbt51Protocol` code from Task 2.2 is kept (well-tested, 10 unit tests green). It will be wired up in v2.x alongside a proper SPI HAL fix that allows the firmware to actually issue DMA-driven SPI transactions, at which point the protocol stub will absorb wireless-co-MCU traffic naturally.
 
 For v1.0, this means the firmware boots cleanly past `lkbt51_init` / `wireless_init` (already confirmed in Phase 1) and the LKBT51 protocol stays a pure-Python module ready for integration.
+
+### Task 3.2 (sub-3.2.1) — OTG FS PythonPeripheral attached
+
+After the showstopper probe confirmed Option C is feasible, attached a Python.PythonPeripheral at 0x50000000 covering the full OTG FS region (size 0x4000). Initial implementation handles:
+
+- W1C semantics on GINTSTS + DIEPINT[0..5] + DOEPINT[0..5]
+- Per-EP TX FIFO capture into `ep_in_buffers[0..5]`
+- GRSTCTL self-clear: writes to soft-reset bits (CSRST, etc.) clear immediately and re-assert AHBIDL
+- DCTL.SDIS=0 detection (soft-connect; marks enum_phase = "connect_pending")
+- Default register backing with read-after-write semantics
+
+Discovered constraints during attachment:
+
+1. **`filename:` in `.repl` resolves relative to Renode's install dir**, not the cwd. Using `filename: "emulator/otg_fs/otg_fs.py"` causes a silent 30s hang on .repl load. Workarounds: inline the script via `script: '''...'''` (multi-line triple-quote), or use absolute path. We chose inline for portability.
+2. **PythonPeripheral has no GPIO outputs by default** — confirmed in showstopper probe. Wiring `-> nvic@67` in `.repl` would fail; instead the script uses `self.GetMachine()["sysbus.nvic"].OnGPIO(67, True/False)` (not yet exercised — IRQ delivery is deferred to sub-3.2.2).
+3. **First fix needed at boot**: ChibiOS's `usb_lld_start` writes GRSTCTL.CSRST=1 then polls bit 0 until it clears. Without auto-clear, the firmware spins forever. The script now models GRSTCTL as "all reset bits self-clear on write; AHBIDL stays set."
+
+After GRSTCTL self-clear fix:
+- `usb_lld_start` completes
+- All EP control/interrupt registers configured (DIEPCTL0-3, DOEPCTL0-3, DAINTMSK, DIEPMSK, DOEPMSK, GINTMSK = 0x00000001 globally enabled)
+- Firmware now waits for OTG_FS_IRQ (line 67) which has not been delivered yet — but main loop runs anyway because matrix scan and protocol_keyboard_task are on independent threads.
+
+boot_smoke regression check: still passes with same numbers (2576 matrix_scan / 2572 protocol_keyboard_task iterations in 2s sim). The Python peripheral adds negligible overhead because OTG accesses are bursty during boot, then quiescent.
