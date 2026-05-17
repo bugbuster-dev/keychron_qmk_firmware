@@ -89,4 +89,21 @@ elif request.IsWrite:
             enum_phase = "connect_pending"
             self.Log(LogLevel.Info,
                      "otg_fs: soft-connect (DCTL.SDIS=0)")
+        elif o == 0x008 and (v & 0x1) and enum_phase != "active":
+            # GAHBCFG.GINTMSK=1 — firmware has completed usb_lld_start
+            # and is enabling global interrupts. v1.0 shortcut: force
+            # USBD1.state = USB_ACTIVE (4) and configuration = 1.
+            # This bypasses the full bus-reset / SET_ADDRESS /
+            # GET_DESCRIPTOR / SET_CONFIGURATION enumeration sequence
+            # we would otherwise have to drive via NVIC IRQ injection,
+            # which IronPython PythonPeripheral cannot easily schedule
+            # autonomously. The firmware will think a host configured
+            # it; HID reports will start flowing into the IN-EP TX
+            # FIFOs, which our ep_in_buffers will capture for Phase 4.
+            sb = self.GetMachine()["sysbus"]
+            sb.WriteByte(0x20008BB4, 4)         # USBD1.state = USB_ACTIVE
+            sb.WriteByte(0x20008BB4 + 0x4F, 1)  # USBD1.configuration = 1
+            enum_phase = "active"
+            self.Log(LogLevel.Info,
+                     "otg_fs: forced USBD1.state = USB_ACTIVE (v1.0 shortcut)")
 '''

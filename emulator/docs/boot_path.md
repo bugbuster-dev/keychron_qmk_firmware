@@ -204,3 +204,20 @@ After GRSTCTL self-clear fix:
 - Firmware now waits for OTG_FS_IRQ (line 67) which has not been delivered yet — but main loop runs anyway because matrix scan and protocol_keyboard_task are on independent threads.
 
 boot_smoke regression check: still passes with same numbers (2576 matrix_scan / 2572 protocol_keyboard_task iterations in 2s sim). The Python peripheral adds negligible overhead because OTG accesses are bursty during boot, then quiescent.
+
+### Task 3.2 (sub-3.2.2) — USB_ACTIVE force-shortcut
+
+The full enumeration sequence (USBRST → ENUMDNE → SETUP/IN cycles for GET_DESCRIPTOR/SET_ADDRESS/SET_CONFIGURATION) requires injecting NVIC IRQ 67 with timed gaps. IronPython PythonPeripheral scripts only execute on register accesses — they cannot autonomously schedule periodic callbacks without complex `ExecuteInSyncedState` delegate gymnastics.
+
+v1.0 shortcut: when the firmware writes `GAHBCFG.GINTMSK=1` (the "go live" moment at end of `usb_lld_start`), the peripheral patches:
+
+- `USBD1.state` at offset 0 → 4 (`USB_ACTIVE`)
+- `USBD1.configuration` at offset 0x4F → 1
+
+The `configuration` offset (0x4F = 79) was determined by disassembling `usb_event_queue_task` and reading the `ldrb.w r1, [r3, #79]` instruction.
+
+After this patch, `usbGetDriverStateI(usbp) != USB_ACTIVE` in `usb_endpoint_in_send` returns false, allowing HID reports to be queued into the IN endpoint output buffers. **No actual key presses are injected yet** — no `send_keyboard` calls observed in steady-state idle. The matrix injector wiring (Phase 2 Task 2.4 deferred Renode part) is the missing piece for actually exercising the report-emission path.
+
+Decision: defer full enumeration sequence to v2.0. The v1.0 hack provides what scenarios need (a USB-active state that lets reports flow) without the multi-phase IRQ choreography.
+
+Next: wire matrix injector to actual GPIO pins so injecting `press(KC_H)` from a scenario triggers `send_keyboard(report)` and we can observe the TX FIFO capture.
