@@ -18,6 +18,99 @@
 #include "dynamic_keymap.h"
 #include "keychron_task.h"
 
+#ifdef MODULE_SRAM_ENABLE
+#    include "module_sram.h"
+#    include "module_loader.h"
+#endif
+
+/* Emulator dprintf via USART2 (0x40004404).
+ * USART2 CR1 pre-enabled by .resc. Renode accepts DR writes unconditionally.
+ * QMKata's sendchar() tees here, so xprintf/dprintf reach Renode analyzer. */
+void dbg_putc(char c) {
+    *(volatile uint32_t *)0x40004404 = c;
+}
+void dbg_print(const char *s) { while (*s) dbg_putc(*s++); }
+void dbg_hex8(uint8_t v) {
+    static const char h[] = "0123456789abcdef";
+    dbg_putc(h[(v >> 4) & 0xf]);
+    dbg_putc(h[v & 0xf]);
+}
+
+#ifdef MODULE_SRAM_ENABLE
+/* Emulator runtime command byte for module load/unload from the Renode
+ * monitor. Host writes via `sysbus WriteByte <addr> <cmd>`. Edge-triggered
+ * in emu_module_poll() below.
+ *   1 = load slot 8 (bytes must already be staged at g_emu_module_stage)
+ *   2 = unload slot 8
+ * Other values ignored. Declared volatile + used so the optimizer can't
+ * elide it. */
+volatile uint8_t g_emu_module_cmd __attribute__((used)) = 0;
+
+/* Staging buffer for module bytes uploaded by the host via Renode's
+ * `sysbus LoadBinary @<bin> <g_emu_module_stage>`. Lives in .bss so it
+ * gets zero-initialised after boot but the host stages *after* boot,
+ * so .bss zeroing doesn't clobber the staged bytes. We deliberately do
+ * NOT stage into g_module_sram directly because the loader's
+ * module_sram_clear() memsets the slot to 0xFF before memcpy, which
+ * would wipe a stage-in-place source. */
+uint8_t g_emu_module_stage[0x1000] __attribute__((used, aligned(4)));
+volatile uint16_t g_emu_module_stage_len __attribute__((used)) = 0;
+#endif
+
+#ifdef MODULE_SRAM_ENABLE
+/* Emulator: poll the runtime command byte each scan. Edge-detected so it
+ * fires once per write. To re-trigger the same command, write 0 then the
+ * command again:
+ *   sysbus WriteByte <addr> 0
+ *   sysbus WriteByte <addr> 1
+ *
+ * housekeeping_task_kb and housekeeping_task_user are both already claimed
+ * (by keychron_task.c and module_dispatch.c respectively), so we piggyback
+ * on matrix_scan_kb below — it's already overridden in this file. */
+static void emu_module_poll(void) {
+    static uint8_t last_cmd = 0;
+    uint8_t cmd = g_emu_module_cmd;
+    if (cmd == last_cmd) return;
+    last_cmd = cmd;
+    if (cmd == 1) {
+        uint16_t len = g_emu_module_stage_len;
+        dbg_print("\r\nemu: load slot 8 len=");
+        dbg_hex8((len >> 8) & 0xff);
+        dbg_hex8(len & 0xff);
+        if (len == 0) {
+            dbg_print(" (no staged bytes; write g_emu_module_stage_len first)");
+            return;
+        }
+        bool ok = module_load(MODULE_SRAM_SLOT_BASE_ID,
+                              g_emu_module_stage,
+                              len);
+        dbg_print(ok ? " OK" : " FAIL");
+    } else if (cmd == 2) {
+        dbg_print("\r\nemu: unload slot 8... ");
+        bool ok = module_unload(MODULE_SRAM_SLOT_BASE_ID);
+        dbg_print(ok ? "OK" : "FAIL");
+    }
+}
+#endif
+
+/* Log cooked matrix[3] to UART only when it changes */
+void matrix_scan_kb(void) {
+    extern matrix_row_t matrix[MATRIX_ROWS];
+    static uint32_t prev = 0;
+    uint32_t v = matrix[3];
+    if (v != prev) {
+        prev = v;
+        dbg_print("\r\nMAT ");
+        dbg_hex8(v & 0xff); dbg_putc(' ');
+        dbg_hex8((v >> 8) & 0xff); dbg_putc(' ');
+        dbg_hex8((v >> 16) & 0xff); dbg_putc(' ');
+        dbg_hex8((v >> 24) & 0xff);
+    }
+#ifdef MODULE_SRAM_ENABLE
+    emu_module_poll();
+#endif
+}
+
 // Default VIA macros — 16 slots, each NUL-terminated.
 // Edit strings below. Add key actions with: 0x01, 0xHH, 0xLL (TAP keycode).
 static const uint8_t default_via_macros[] = {
@@ -96,10 +189,18 @@ void keyboard_post_init_user(void) {
 
 #ifdef QMKATA_ENABLE
 #    ifdef DEVEL_BUILD
-    debug_config.enable = 1;
+      debug_config.enable = 1;
     debug_config_user.qmkata = 0;
 #    endif
     qmkata_init("Keychron QMKata");
+#endif
+
+#ifdef MODULE_SRAM_ENABLE
+    /* Emulator note: SRAM module loading is driven by the runtime command
+     * byte g_emu_module_cmd (polled from matrix_scan_kb). The host stages
+     * the module bytes into g_emu_module_stage (a separate buffer that
+     * the loader's module_sram_clear() does NOT touch), sets
+     * g_emu_module_stage_len, then writes 1 to g_emu_module_cmd. */
 #endif
 }
 

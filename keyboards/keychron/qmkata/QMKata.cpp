@@ -305,8 +305,10 @@ void debug_led_on(int li, uint8_t r, uint8_t g, uint8_t b)
 }
 
 // console sendchar
+extern "C" void dbg_putc(char c);  // emulator UART trace
 int8_t sendchar(uint8_t c) {
     s_console_stream.write(c);
+    dbg_putc((char)c);  // tee to USART2 for emulator
     //if (g_console_stream.need_flush()) debug_led_on(0);
     return 0;
 }

@@ -11,15 +11,22 @@
 #include "print.h"
 #include <stdarg.h>
 
-/* xprintf is a macro in QMK's print.h that expands to either uprintf or
-   nothing depending on the log target. Modules need an actual function
-   to call through the env table, so wrap it. */
+/* Emulator: xprintf is routed to USART2 via QMKata sendchar tee (dbg_putc).
+ * Forward module trace calls through the same path. */
+#include <stdio.h>  /* vsnprintf */
 static int env_xprintf(const char *fmt, ...) {
-    /* TODO: forward to uprintf via va_list once that's wired up.
-       For now, swallow — modules can return MODULE_INIT_MAGIC etc. to
-       confirm execution without relying on log output. */
-    (void)fmt;
-    return 0;
+    va_list ap;
+    char buf[128];
+    va_start(ap, fmt);
+    int n = vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    if (n > 0 && ((size_t)n < sizeof(buf))) {
+        xprintf("%s", buf);
+    } else if (n > 0) {
+        /* Truncated: print what fits */
+        xprintf("%s", buf);
+    }
+    return n;
 }
 
 static pipeline_env_t g_pipeline_env = {
