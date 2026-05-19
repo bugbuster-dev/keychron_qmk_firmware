@@ -25,16 +25,17 @@ sys.path.insert(0, str(Path(__file__).parent / "lib"))
 
 from layout import Layout  # noqa: E402
 from renode_driver import make_hook, repo_root, run_renode  # noqa: E402
+from symbol_resolver import resolve_symbols  # noqa: E402
 
 
-HOOKS = {
-    0x0801E194: "HIT main",
-    0x0801D7F0: "HIT keyboard_init",
-    0x08013A14: "HIT wireless_init",
-    0x0801E0F0: "HIT matrix_init",
-    0x0801E190: "HIT protocol_keyboard_task",
-    0x0801E124: "HIT matrix_scan",
-}
+HOOK_SYMBOLS = [
+    ("main", "HIT main"),
+    ("keyboard_init", "HIT keyboard_init"),
+    ("wireless_init", "HIT wireless_init"),
+    ("matrix_init", "HIT matrix_init"),
+    ("protocol_keyboard_task", "HIT protocol_keyboard_task"),
+    ("matrix_scan", "HIT matrix_scan"),
+]
 
 
 def main() -> int:
@@ -60,7 +61,12 @@ def main() -> int:
     print(f"  layout: row_pins={layout.row_pins}")
     print(f"  layout: diode_direction={layout.diode_direction}")
 
-    extra = [make_hook(addr, msg) for addr, msg in HOOKS.items()]
+    # Resolve hook addresses from the ELF so they survive firmware rebuilds.
+    syms = resolve_symbols(elf)
+    extra = []
+    for sym_name, msg in HOOK_SYMBOLS:
+        addr = syms[sym_name]
+        extra.append(make_hook(int(addr, 16), msg))
 
     print("  running Renode for 2s simulated time (~15s real)...")
     result = run_renode(

@@ -101,9 +101,44 @@ elif request.IsWrite:
             # it; HID reports will start flowing into the IN-EP TX
             # FIFOs, which our ep_in_buffers will capture for Phase 4.
             sb = self.GetMachine()["sysbus"]
-            sb.WriteByte(0x20008BB4, 4)         # USBD1.state = USB_ACTIVE
-            sb.WriteByte(0x20008BB4 + 0x4F, 1)  # USBD1.configuration = 1
+            sb.WriteByte(0x20009b84, 4)         # USBD1.state = USB_ACTIVE
+            sb.WriteByte(0x20009b84 + 0x4F, 1)  # USBD1.configuration = 1
             enum_phase = "active"
             self.Log(LogLevel.Info,
                      "otg_fs: forced USBD1.state = USB_ACTIVE (v1.0 shortcut)")
+'''
+
+// Matrix injector. Maps switch state to GPIO pin levels so the
+// firmware's matrix scan sees injected presses. The Q3 Max matrix
+// has diode_direction = ROW2COL in info.json.
+//
+// IMPORTANT: ROW2COL means the diode points row→col. QMK's matrix
+// scan for ROW2COL drives the *column* low one at a time and reads
+// the *row* pins. A closed switch at (r, c) lets current flow from
+// the row pin through the diode to the driven-low col, pulling the
+// row pin low. So during scan:
+//   active = "current col being driven low"
+//   readings = row pin states (low = pressed in active col)
+//
+// Pins (per info.json matrix_pins):
+//   rows: C12, D2, B3, B4, B5, B6
+//   cols: C6, C7, C8, A14, A15, C10, C11, C13, C14, C15,
+//         C0, C1, C2, C3, A0, A1, A2
+//
+// Design:
+// - Scenario calls `sysbus.matrix ControlWrite (row*32+col) 1/0`
+// Matrix injector stub. Key injection now works by patching the
+// firmware's global matrix SRAM directly via CPU hooks (press_key()
+// in renode_driver.py). This peripheral exists only as a trigger
+// for IsInit logging; the IsWrite/IsRead handlers are no longer used.
+matrix: Python.PythonPeripheral @ sysbus 0x70000000
+    size: 0x100
+    initable: true
+    script: '''
+if request.IsInit:
+    self.Log(LogLevel.Info, "matrix: injector initialised")
+elif request.IsRead:
+    request.Value = 0
+elif request.IsWrite:
+    request.Value = 0
 '''
