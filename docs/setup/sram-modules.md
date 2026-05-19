@@ -32,8 +32,8 @@ What's different in SRAM:
 
 A 4 KB SRAM module on Q3 Max (STM32F401xC, 64 KB SRAM total) consumes
 ~4 KB of `.bss` and shrinks `.heap` correspondingly. After Phase 3 with
-all features on (vim_modal + sticky_combo + module loader + pipeline env),
-the build still has ~30 KB heap remaining. Growing `MODULE_SRAM_TOTAL_SIZE`
+module loader + pipeline env, the build still has ~30 KB heap remaining.
+Growing `MODULE_SRAM_TOTAL_SIZE`
 past what the keyboard can spare triggers a hard link error:
 
 ```
@@ -68,15 +68,27 @@ OPT_DEFS += -DMODULE_SRAM_TOTAL_SIZE=8192   # 2 slots × 4 KB
 | 8        | SRAM   | First (and only by default) SRAM slot |
 | 9+       | SRAM   | Available with larger `MODULE_SRAM_TOTAL_SIZE` |
 
-Host (`qmk-tools/QMKata/ModuleTab.py`) routes slot IDs ≥ 8 to the SRAM
-address (`0x2000F000` default for STM32F401xC top-of-RAM carve-out).
-Real builds should expose the exact `g_module_sram` address via
-`keyboard.module_sram_layout()`.
+Host tooling must relocate modules against the firmware's **actual**
+`g_module_sram` address. `0x2000F000` remains the historical default
+for an STM32F401xC 4 KB top-of-RAM carve-out, but Q3 Max firmware
+builds place `g_module_sram` in `.bss`, so the address moves when
+`.bss` changes. Use `arm-none-eabi-nm .build/...elf | grep
+g_module_sram` or `emulator/scripts/build_sram_module.py`, which
+resolves it automatically.
 
 ## Authoring a pipeline module
 
 The complete example lives at:
 `qmk-tools/qmk/QMKata/module_examples/pipeline_sticky_combo/`.
+
+The stock `ModuleBuild` rejects writable globals and the default module
+linker script discards `.data`/`.bss`. That is safe for flash/XIP
+modules but not enough for stateful SRAM pipeline modules like
+`pipeline_sticky_combo`, which need `g_machine` and feature state to
+persist across callbacks. The emulator helper
+`emulator/scripts/build_sram_module.py` uses a SRAM-only linker-script
+variant that keeps `.data` and `.bss` inside the 4 KB module blob, then
+relocates + CRCs the result against the resolved `g_module_sram`.
 
 Minimal skeleton:
 
@@ -150,8 +162,53 @@ init_fn=0xXXXXXXXX` on the console):
 arm-none-eabi-addr2line -e build/sticky_combo_module.elf 0x2000F1A4
 ```
 
-Subtract `0x2000F020` (slot base + 32-byte header) from the crash PC
-to get the offset into the module's `.text`.
+Subtract the resolved `g_module_sram` address from the crash PC to get
+the offset into the module blob. The current module binary layout is:
+
+```
+[0..31]    module_header_t (32 bytes)
+[32..159]  hook table (MODULE_HOOK_MAX * 4 bytes)
+[160..]    .text + merged .rodata + SRAM-only .data/.bss when using
+           emulator/scripts/build_sram_module.py
+```
+
+So, if `init_fn=0x20003e55` and `g_module_sram=0x20003d68`, the init
+function lives at blob offset `0xed`.
+
+## Renode emulator workflow
+
+For interactive debugging in the emulator:
+
+```bash
+qmk compile -kb keychron/q3_max/ansi_encoder -km keychron
+python3 emulator/scripts/sync_addrs.py
+python3 emulator/scripts/build_sram_module.py
+python3 emulator/scenarios/sram_sticky_combo.py
+```
+
+The scenario stages the module into `g_emu_module_stage` after boot,
+writes `g_emu_module_stage_len`, then writes command `1` to
+`g_emu_module_cmd`. Firmware polls that byte from `matrix_scan_kb` and
+calls `module_load(8, g_emu_module_stage, len)`. The separate staging
+buffer is required because `module_sram_clear()` clears `g_module_sram`
+before copying into it.
+
+Runtime controls from the Renode monitor:
+
+```
+sysbus WriteByte <g_emu_module_cmd> 1   # load slot 8
+sysbus WriteByte <g_emu_module_cmd> 2   # unload slot 8
+sysbus WriteByte <g_emu_module_cmd> 0   # clear edge detector
+```
+
+Regression coverage:
+
+```bash
+python3 emulator/scenarios/test_sram_sticky_combo.py
+```
+
+This currently verifies combo arm/consume, timeout, non-combo passthrough,
+KC_UP/KC_DOWN tap actions, and unload/reload.
 
 ## Volatility caveat — recap
 

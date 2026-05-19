@@ -2,10 +2,26 @@
 
 Renode-based emulator for the unmodified Keychron Q3 Max QMK firmware (STM32F401 + LKBT51 SPI wireless co-MCU). Boots the real ELF, stubs the wireless co-MCU, injects matrix events from `info.json`, and captures HID reports.
 
-**Status:** Phase 0 (toolchain sanity).
+**Status:** Phase 3 partial (boot, matrix injection, OTG FS stub, USB_ACTIVE shortcut, HID report capture).
 
 **Design:** `docs/plans/2026-05-16-stm32f4-qmk-emulator-design.md`
 **Implementation plan:** `docs/plans/2026-05-16-stm32f4-qmk-emulator-impl.md`
+**Boot journal:** `docs/boot_path.md`
+
+## What works
+
+- **Boot:** Unmodified firmware reaches QMK main loop with matrix_scan running.
+- **Matrix injection:** `sysbus.matrix ControlWrite` from scenarios injects keypresses; firmware's matrix scan sees them.
+- **USB:** OTG FS PythonPeripheral handles W1C registers + GRSTCTL self-clear. USB_ACTIVE forced via `usb_endpoint_in_send` hook (v1.0 shortcut).
+- **HID report capture:** `obqWriteTimeout` hook logs report bytes as hex strings.
+- **Symbol resolution:** Firmware addresses resolved from ELF at runtime via `arm-none-eabi-nm` — no hard-coded addresses in scenarios.
+
+## What does not work yet
+
+- **LKBT51 SPI wiring:** Deferred (Task 2.3). `spiSend`/`spiExchange` patched to no-op; protocol stub (`Lkbt51Protocol`) exists but not wired to Renode SPI1.
+- **Full USB enumeration:** Shortcutted (USB_ACTIVE forced on GAHBCFG.GINTMSK=1). No real bus-reset / SET_ADDRESS / SET_CONFIGURATION sequence.
+- **HID report decoding:** Reports logged as hex strings only; no USB report descriptor parsing.
+- **Real USB device on host OS:** Out of scope for v1.0. Planned for v2.0 via USB/IP.
 
 ## v1.0 scope
 
@@ -73,16 +89,14 @@ Emu-diagnostic build (extra logging via `CONSOLE_ENABLE` + `DEBUG_MATRIX_SCAN_RA
 
 ## Running scenarios
 
-(Populated as Phases 2–5 land.)
-
 ```sh
-# Phase 2:
-python emulator/scenarios/boot_smoke.py
-# Phase 4:
-python emulator/scenarios/type_hello.py
-# Phase 5:
-python emulator/scenarios/combo_test.py
+# Boot smoke test (Phase 2):
+python3 emulator/scenarios/boot_smoke.py
+# End-to-end keypress → HID report (Phase 3):
+python3 emulator/scenarios/type_hello.py
 ```
+
+Scenarios resolve firmware symbol addresses from the ELF at runtime via `arm-none-eabi-nm`, so they survive firmware rebuilds without manual address updates.
 
 ## Layout
 
