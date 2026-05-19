@@ -227,6 +227,8 @@ firmware build itself.
 
 - `keyboards/keychron/common/module/multi-module-plan.md` — original
   multi-module hook plan (flash side).
+- `docs/setup/pipeline-sram-module-architecture.md` — end-to-end
+  architecture for SRAM-loaded pipeline modules.
 - `keyboards/keychron/common/module/pipeline_env.h` — env table fields.
 - `quantum/features/README.md` — when to use SM-driven pipeline features.
 - `qmk-tools/qmk/QMKata/module_examples/pipeline_sticky_combo/README.md` —
