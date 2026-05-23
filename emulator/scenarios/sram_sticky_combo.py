@@ -61,7 +61,7 @@ def main():
             return 2
         print("Building firmware...")
         r = subprocess.run(
-            ["qmk", "compile", "-kb", "keychron/q3_max/ansi_encoder", "-km", "keychron"],
+            ["qmk", "compile", "-kb", "keychron/q3_max/ansi_encoder", "-km", "emu"],
             cwd=str(ROOT),
         )
         if r.returncode != 0:

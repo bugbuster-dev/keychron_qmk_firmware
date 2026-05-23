@@ -25,7 +25,10 @@
 
 /* Emulator dprintf via USART2 (0x40004404).
  * USART2 CR1 pre-enabled by .resc. Renode accepts DR writes unconditionally.
- * QMKata's sendchar() tees here, so xprintf/dprintf reach Renode analyzer. */
+ * QMKata's sendchar() tees here, so xprintf/dprintf reach Renode analyzer.
+ * Under EMULATOR_BUILD: real functions writing to USART2.
+ * Otherwise: static inline no-ops eliminated by the compiler. */
+#ifdef EMULATOR_BUILD
 void dbg_putc(char c) {
     *(volatile uint32_t *)0x40004404 = c;
 }
@@ -35,6 +38,11 @@ void dbg_hex8(uint8_t v) {
     dbg_putc(h[(v >> 4) & 0xf]);
     dbg_putc(h[v & 0xf]);
 }
+#else
+static inline void dbg_putc(char c) { (void)c; }
+static inline void dbg_print(const char *s) { (void)s; }
+static inline void dbg_hex8(uint8_t v) { (void)v; }
+#endif
 
 #ifdef MODULE_SRAM_ENABLE
 /* Emulator runtime command byte for module load/unload from the Renode
@@ -93,8 +101,9 @@ static void emu_module_poll(void) {
 }
 #endif
 
-/* Log cooked matrix[3] to UART only when it changes */
+/* Log cooked matrix[3] to UART only when it changes (emulator only) */
 void matrix_scan_kb(void) {
+#ifdef EMULATOR_BUILD
     extern matrix_row_t matrix[MATRIX_ROWS];
     static uint32_t prev = 0;
     uint32_t v = matrix[3];
@@ -106,6 +115,7 @@ void matrix_scan_kb(void) {
         dbg_hex8((v >> 16) & 0xff); dbg_putc(' ');
         dbg_hex8((v >> 24) & 0xff);
     }
+#endif
 #ifdef MODULE_SRAM_ENABLE
     emu_module_poll();
 #endif

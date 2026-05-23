@@ -85,7 +85,13 @@ text  data   bss
 105K   3K   61K
 ```
 
-Emu-diagnostic build (extra logging via `CONSOLE_ENABLE` + `DEBUG_MATRIX_SCAN_RATE_ENABLE`): see `build/README.md` (added in Phase 1, Task 1.5).
+Emu-diagnostic build (enables `EMULATOR_BUILD`, activates USART2 dbg_* tracing):
+```sh
+qmk compile -kb keychron/q3_max/ansi_encoder -km emu
+```
+The `emu` keymap is identical to `keychron` but adds `OPT_DEFS += -DEMULATOR_BUILD`.
+Scenarios that assert on USART2 output (`REG`, `MAT`, `emu: load/unload`) require
+this build. The stock `keychron` keymap produces no UART output in Renode.
 
 ## Running scenarios
 
@@ -108,8 +114,9 @@ emulator/
 ├── otg_fs/                 C# OTG FS device extension
 ├── scenarios/              Python demo & test scenarios
 ├── traces/                 reference USBmon captures from real hardware
-├── build/                  emu-diagnostic build profile
 └── docs/                   boot path notes, troubleshooting
+
+keyboards/.../ansi_encoder/keymaps/emu/   (EMU_BUILD keymap, symlinks to keychron/)
 ```
 
 Nothing under `emulator/` is consumed by the QMK build system. Everything outside `emulator/` is untouched.

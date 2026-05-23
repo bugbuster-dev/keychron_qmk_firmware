@@ -11,6 +11,12 @@
 
 Each test starts a fresh Renode instance, boots firmware, loads the
 SRAM module post-boot, runs a gesture, then exits.
+
+PREREQUISITE: firmware must be built with EMULATOR_BUILD flag so that
+dbg_* UART tracing (REG/MAT output) is active. Use the emu keymap:
+    qmk compile -kb keychron/q3_max/ansi_encoder -km emu
+The stock keychron keymap (without EMULATOR_BUILD) will produce no
+UART output and these tests will fail their gesture assertions.
 """
 
 import os

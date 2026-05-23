@@ -928,10 +928,11 @@ void process_action(keyrecord_t *record, action_t action) {
  * FIXME: Needs documentation.
  */
 __attribute__((weak)) void register_code(uint8_t code) {
-    /* Emulator dprintf: trace keycode to USART2 */
+#ifdef EMULATOR_BUILD
     extern void dbg_print(const char*);
     extern void dbg_hex8(uint8_t);
     if (code != KC_NO) { dbg_print("\r\nREG "); dbg_hex8(code); }
+#endif
     if (code == KC_NO) {
         return;
 
