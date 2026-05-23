@@ -48,6 +48,13 @@ void pipeline_reset(void) {
 
 void pipeline_tick(void) {
     extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
+    /* Light LEDs encoding machine_count + first machine validity */
+    debug_led_on(40, machine_count > 0 ? 255 : 0, 0, 0);  // red if any machine
+    if (machine_count > 0 && machines[0]) {
+        debug_led_on(41, machines[0]->tick ? 255 : 0, 0, 0);  // red if tick set
+        debug_led_on(42, machines[0]->handle ? 255 : 0, 0, 0);
+        debug_led_on(43, machines[0]->instance ? 255 : 0, 0, 0);
+    }
     for (int i = 0; i < machine_count; i++) {
         if (machines[i]->tick) {
             debug_led_on(30, 255, 255, 255);  // LED 30 = about to call tick
