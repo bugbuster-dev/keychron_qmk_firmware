@@ -14,6 +14,16 @@
 #endif
 #include "print.h"
 
+/* Cortex-M function pointers need the thumb bit (bit 0) set for BX calls.
+   Module offsets from the slot base don't include it, so we add it here. */
+static inline uint32_t _module_thumb_addr(uint32_t slot_addr, uint32_t off) {
+#ifdef THUMB_PRESENT
+    return (slot_addr + off) | 1;
+#else
+    return slot_addr + off;
+#endif
+}
+
 /* Helper for init_fn() callers — returns the env pointer when the
    pipeline is built, NULL otherwise. Old (non-pipeline) modules ignore
    the argument; new pipeline modules require KEY_PROCESSING_SM_ENABLE
@@ -262,7 +272,7 @@ static bool module_install_hooks_and_init(uint8_t slot_id, uint32_t slot_addr,
             continue;
         }
         if (hdr->hook_bitmap & (1U << i)) {
-            void* func = (void*)(slot_addr + hook_table_data[i]);
+            void* func = (void*)(_module_thumb_addr(slot_addr, hook_table_data[i]));
             if (!claim_hook(i, slot_id, func)) {
                 for (uint32_t j = 0; j < i; j++) {
                     if (!is_lifecycle_hook(j) && (hdr->hook_bitmap & (1U << j))) {
@@ -275,7 +285,7 @@ static bool module_install_hooks_and_init(uint8_t slot_id, uint32_t slot_addr,
     }
 
     if (hdr->init_off > 0) {
-        module_init_fn_t init_fn = (module_init_fn_t)(slot_addr + hdr->init_off);
+        module_init_fn_t init_fn = (module_init_fn_t)(_module_thumb_addr(slot_addr, hdr->init_off));
         xprintf("%s slot=%u init_fn=0x%lx\n",
                 trace_prefix, (unsigned)slot_id,
                 (unsigned long)(uintptr_t)init_fn);
@@ -382,7 +392,7 @@ static bool module_unload_sram(uint8_t slot_id) {
         header->deinit_off >= sizeof(module_header_t) &&
         header->deinit_off < header->code_size) {
         module_deinit_fn_t deinit_fn =
-            (module_deinit_fn_t)(slot_addr + header->deinit_off);
+            (module_deinit_fn_t)(_module_thumb_addr(slot_addr, header->deinit_off));
         uint32_t rc = deinit_fn();
         xprintf("mod unload sram slot=%u deinit rc=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)rc);
@@ -507,7 +517,7 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
         }
 
         if (hdr->hook_bitmap & (1U << i)) {
-            void* func = (void*)(slot_addr + hook_table_data[i]);
+            void* func = (void*)(_module_thumb_addr(slot_addr, hook_table_data[i]));
             if (!claim_hook(i, slot_id, func)) {
                 for (uint32_t j = 0; j < i; j++) {
                     if (!is_lifecycle_hook(j) && (hdr->hook_bitmap & (1U << j))) {
@@ -528,7 +538,7 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
        authoritative evidence that the hook-table / Thumb-bit / XIP path
        is working end-to-end. */
     if (hdr->init_off > 0) {
-        module_init_fn_t init_fn = (module_init_fn_t)(slot_addr + hdr->init_off);
+        module_init_fn_t init_fn = (module_init_fn_t)(_module_thumb_addr(slot_addr, hdr->init_off));
         xprintf("mod load slot=%u init_fn=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
         uint32_t rc = init_fn(module_init_env());
@@ -591,7 +601,7 @@ bool module_unload(uint8_t slot_id) {
        parity with init, but not checked — at this point hooks are about
        to be released and the module invalidated regardless. */
     if (header.deinit_off > 0 && header.deinit_off >= sizeof(module_header_t) && header.deinit_off < header.code_size) {
-        module_deinit_fn_t deinit_fn = (module_deinit_fn_t)(slot_addr + header.deinit_off);
+        module_deinit_fn_t deinit_fn = (module_deinit_fn_t)(_module_thumb_addr(slot_addr, header.deinit_off));
         uint32_t rc = deinit_fn();
         xprintf("mod unload slot=%u deinit rc=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)rc);
@@ -702,7 +712,7 @@ void module_boot_scan(void) {
             }
 
             if (header.hook_bitmap & (1U << i)) {
-                void* func = (void*)(slot_addr + hook_table[i]);
+                void* func = (void*)(_module_thumb_addr(slot_addr, hook_table[i]));
                 claim_hook(i, slot_id, func);
             }
         }
@@ -712,7 +722,7 @@ void module_boot_scan(void) {
            non-fatal — the module is already in flash and its hooks are
            already claimed, and boot-scan is intentionally read-only. */
         if (header.init_off > 0) {
-        module_init_fn_t init_fn = (module_init_fn_t)(slot_addr + header.init_off);
+        module_init_fn_t init_fn = (module_init_fn_t)(_module_thumb_addr(slot_addr, header.init_off));
         xprintf("mod boot slot=%u init_fn=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
         uint32_t rc = init_fn(module_init_env());
