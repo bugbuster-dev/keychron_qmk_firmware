@@ -61,14 +61,25 @@ void pipeline_tick(void) {
         if (machines[i]->tick) {
             uintptr_t tick_addr = (uintptr_t)(void *)machines[i]->tick;
             uintptr_t mach_addr = (uintptr_t)(void *)machines[i];
-            /* LED 44 (A): tick < 0x10000  → module-relative offset */
-            /* LED 45 (S): tick in [0x08000000, 0x10000000) → Flash */
-            /* LED 46 (D): tick >= 0x20000000 → SRAM */
-            debug_led_on(44, tick_addr < 0x10000 ? 255 : 0, 0, 0);
-            debug_led_on(45, (tick_addr >= 0x08000000 && tick_addr < 0x10000000) ? 255 : 0, 0, 0);
-            debug_led_on(46, tick_addr >= 0x20000000 ? 255 : 0, 0, 0);
-            /* LED 47 (F): mach >= 0x20000000 → SRAM */
-            debug_led_on(47, mach_addr >= 0x20000000 ? 255 : 0, 0, 0);
+            /* Second byte (bits 16-23) of tick_addr:
+               LED 32: second byte == 0 (addr in 0x00000000-0x0000FFFF)
+               LED 33: second byte == 0 (duplicate, confirms)
+               LED 44: bit 4 of second byte (0x10)
+               LED 45: bit 3 of second byte (0x08)
+               LED 46: bit 2 of second byte (0x04)
+               LED 47: bit 1 of second byte (0x02)
+               LED 48: bit 0 of second byte (0x01)
+               LED 49: bit 7 of second byte (0x80) */
+            uint8_t tick_b1 = (uint8_t)(tick_addr >> 16);
+            uint8_t mach_b1 = (uint8_t)(mach_addr >> 16);
+            debug_led_on(32, tick_b1 == 0 ? 255 : 0, 0, 0);
+            debug_led_on(33, mach_b1 == 0 ? 255 : 0, 0, 0);
+            debug_led_on(44, tick_b1 & 0x10 ? 255 : 0, 0, 0);
+            debug_led_on(45, tick_b1 & 0x08 ? 255 : 0, 0, 0);
+            debug_led_on(46, tick_b1 & 0x04 ? 255 : 0, 0, 0);
+            debug_led_on(47, tick_b1 & 0x02 ? 255 : 0, 0, 0);
+            debug_led_on(48, tick_b1 & 0x01 ? 255 : 0, 0, 0);
+            debug_led_on(49, tick_b1 & 0x80 ? 255 : 0, 0, 0);
             debug_led_on(30, 255, 255, 255);  // LED 30 = about to call tick
             machines[i]->tick(machines[i]->instance);
             debug_led_on(31, 255, 255, 255);  // LED 31 = tick returned
