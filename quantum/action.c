@@ -137,10 +137,10 @@ void action_exec(keyevent_t event) {
     }
 #    endif
 #    ifdef KEY_PROCESSING_SM_ENABLE
-   // Pipeline pre-tap phase: SMs can intercept and consume key events
+    // Pipeline pre-tap phase: SMs can intercept and consume key events
     // (e.g., vim modal mode translates h→Left and consumes the original).
     if (!IS_NOEVENT(record.event)) {
-        xprintf("pre_tap: kc=0x%04x\n", record.keycode);
+        xprintf("pre_tap: kc=0x%04x type=%d p=%d\n", record.keycode, record.event.type, record.event.pressed);
         if (pipeline_process_pre_tap(&event, &record)) {
             return;  // event consumed, skip further processing
         }
