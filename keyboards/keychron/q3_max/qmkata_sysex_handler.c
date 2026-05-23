@@ -1064,9 +1064,9 @@ _QMKATA_HANDLE_CMD_SET(module) {
         if (module_loading_slot != 0xFF) {
             size_t write_len = (module_loading_offset + 3) & ~3;
             extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
-            debug_led_on(0, 200, 100, 0);  // orange = about to call module_load
+            debug_led_on(5, 255, 255, 255);  // LED 5 = about to call module_load
             success = module_load(module_loading_slot, module_chunk_buf, write_len);
-            debug_led_on(0, 0, 100, 200);  // purple = module_load returned
+            debug_led_on(6, 255, 255, 255);  // LED 6 = module_load returned
             DBG_USR(qmkata, "module:load %s\n", success ? "OK" : "FAIL");
             module_loading_slot = 0xFF;
             module_loading_offset = 0;
