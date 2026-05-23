@@ -91,6 +91,7 @@ void pipeline_tick(void) {
 bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
     extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
     debug_led_on(20, 255, 255, 255);  // LED 20 = pipeline_process_pre_tap entered
+    xprintf("pipe: mc=%d\n", machine_count);
     for (int i = 0; i < machine_count; i++) {
         if (machines[i]->phase == PHASE_PRE_TAP && machines[i]->handle) {
             debug_led_on(21, 255, 255, 255);  // LED 21 = found PRE_TAP machine
