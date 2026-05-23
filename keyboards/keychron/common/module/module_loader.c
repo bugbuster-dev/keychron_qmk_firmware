@@ -295,8 +295,10 @@ static bool module_install_hooks_and_init(uint8_t slot_id, uint32_t slot_addr,
         xprintf("%s slot=%u init_fn=0x%lx\n",
                 trace_prefix, (unsigned)slot_id,
                 (unsigned long)(uintptr_t)init_fn);
+        struct pipeline_env *env = module_init_env();
+        if (env) env->module_base = slot_addr;
         _mod_led(3, true);  // LED 3 = about to call init
-        uint32_t rc = init_fn(module_init_env());
+        uint32_t rc = init_fn(env);
         _mod_led(3, false);  // LED 3 off = init returned
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("%s slot=%u init OK rc=0x%lx\n",
@@ -541,19 +543,21 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
         }
     }
 
-    /* Call init function if present. ABI: returns uint32_t; the module
-       must return MODULE_INIT_MAGIC to confirm the call reached module
-       code and ran to completion. Mismatch is logged as a warning but
-       does not fail the load — flash is already written and hooks are
-       already claimed at this point, and rolling back would cascade
-       into a spurious sibling-erase on retry. The trace line is the
-       authoritative evidence that the hook-table / Thumb-bit / XIP path
-       is working end-to-end. */
+  /* Call init function if present. ABI: returns uint32_t; the module
+        must return MODULE_INIT_MAGIC to confirm the call reached module
+        code and ran to completion. Mismatch is logged as a warning but
+        does not fail the load — flash is already written and hooks are
+        already claimed at this point, and rolling back would cascade
+        into a spurious sibling-erase on retry. The trace line is the
+        authoritative evidence that the hook-table / Thumb-bit / XIP path
+        is working end-to-end. */
     if (hdr->init_off > 0) {
         module_init_fn_t init_fn = (module_init_fn_t)(_module_thumb_addr(slot_addr, hdr->init_off));
         xprintf("mod load slot=%u init_fn=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
-        uint32_t rc = init_fn(module_init_env());
+        struct pipeline_env *env = module_init_env();
+        if (env) env->module_base = slot_addr;
+        uint32_t rc = init_fn(env);
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("mod load slot=%u init OK rc=0x%lx\n",
                     (unsigned)slot_id, (unsigned long)rc);
@@ -729,15 +733,17 @@ void module_boot_scan(void) {
             }
         }
 
-        /* Call init function if present. Same ABI + magic contract as
-           module_load(); see comment there. Boot-scan mismatch is also
-           non-fatal — the module is already in flash and its hooks are
-           already claimed, and boot-scan is intentionally read-only. */
+  /* Call init function if present. Same ABI + magic contract as
+            module_load(); see comment there. Boot-scan mismatch is also
+            non-fatal — the module is already in flash and its hooks are
+            already claimed, and boot-scan is intentionally read-only. */
         if (header.init_off > 0) {
         module_init_fn_t init_fn = (module_init_fn_t)(_module_thumb_addr(slot_addr, header.init_off));
         xprintf("mod boot slot=%u init_fn=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
-        uint32_t rc = init_fn(module_init_env());
+        struct pipeline_env *env = module_init_env();
+        if (env) env->module_base = slot_addr;
+        uint32_t rc = init_fn(env);
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("mod boot slot=%u init OK rc=0x%lx\n",
                         (unsigned)slot_id, (unsigned long)rc);
