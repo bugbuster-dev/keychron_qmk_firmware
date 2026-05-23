@@ -93,9 +93,11 @@ bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
     debug_led_on(20, 255, 255, 255);  // LED 20 = pipeline_process_pre_tap entered
     xprintf("pipe: mc=%d\n", machine_count);
     for (int i = 0; i < machine_count; i++) {
+        xprintf("pipe[%d]: phase=%d handle=%p\n", i, machines[i]->phase, (void*)machines[i]->handle);
         if (machines[i]->phase == PHASE_PRE_TAP && machines[i]->handle) {
             debug_led_on(21, 255, 255, 255);  // LED 21 = found PRE_TAP machine
             debug_led_on(22, 255, 255, 255);  // LED 22 = about to call handle()
+            xprintf("pipe: calling handle %p inst %p\n", (void*)machines[i]->handle, machines[i]->instance);
             sm_result_t r = machines[i]->handle(machines[i]->instance, event, record);
             debug_led_on(23, 255, 255, 255);  // LED 23 = handle() returned
             if (r == SM_CONSUME) {
