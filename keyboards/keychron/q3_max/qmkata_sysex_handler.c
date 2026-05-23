@@ -1063,16 +1063,18 @@ _QMKATA_HANDLE_CMD_SET(module) {
         bool success = false;
         if (module_loading_slot != 0xFF) {
             size_t write_len = (module_loading_offset + 3) & ~3;
+            extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
+            debug_led_on(5, 255, 255, 255);  // LED 5 = about to call module_load
             success = module_load(module_loading_slot, module_chunk_buf, write_len);
-            /* NOTE: do NOT call DBG_USR/xprintf here. xprintf -> QMKata
-             * sendchar -> s_console_stream.write from inside the QMKata
-             * sysex receive handler wedges the main loop. The host gets
-             * the real result via the qmkata_send_sysex response below. */
+            debug_led_on(6, 255, 255, 255);  // LED 6 = module_load returned
             module_loading_slot = 0xFF;
             module_loading_offset = 0;
         }
         uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, success ? 0 : 1 };
+        extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
+        debug_led_on(10, 255, 255, 255);  // LED 10 = about to send sysex
         qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+        debug_led_on(11, 255, 255, 255);  // LED 11 = sysex sent
         return;
     }
 

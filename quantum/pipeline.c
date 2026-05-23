@@ -47,20 +47,33 @@ void pipeline_reset(void) {
 }
 
 void pipeline_tick(void) {
+    extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
     for (int i = 0; i < machine_count; i++) {
-        if (machines[i]->tick) machines[i]->tick(machines[i]->instance);
+        if (machines[i]->tick) {
+            debug_led_on(30, 255, 255, 255);  // LED 30 = about to call tick
+            machines[i]->tick(machines[i]->instance);
+            debug_led_on(31, 255, 255, 255);  // LED 31 = tick returned
+        }
     }
 }
 
 // Returns true if pipeline consumed the event (caller should skip further processing).
 bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
+    extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
+    debug_led_on(20, 255, 255, 255);  // LED 20 = pipeline_process_pre_tap entered
     for (int i = 0; i < machine_count; i++) {
         if (machines[i]->phase == PHASE_PRE_TAP && machines[i]->handle) {
-            if (machines[i]->handle(machines[i]->instance, event, record) == SM_CONSUME) {
+            debug_led_on(21, 255, 255, 255);  // LED 21 = found PRE_TAP machine
+            debug_led_on(22, 255, 255, 255);  // LED 22 = about to call handle()
+            sm_result_t r = machines[i]->handle(machines[i]->instance, event, record);
+            debug_led_on(23, 255, 255, 255);  // LED 23 = handle() returned
+            if (r == SM_CONSUME) {
+                debug_led_on(24, 255, 255, 255);  // LED 24 = consumed
                 return true;
             }
         }
     }
+    debug_led_on(25, 255, 255, 255);  // LED 25 = pipeline returned (no consume)
     return false;
 }
 
