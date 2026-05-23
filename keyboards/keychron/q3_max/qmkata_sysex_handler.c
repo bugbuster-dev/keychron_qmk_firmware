@@ -1068,11 +1068,14 @@ _QMKATA_HANDLE_CMD_SET(module) {
             success = module_load(module_loading_slot, module_chunk_buf, write_len);
             debug_led_on(6, 255, 255, 255);  // LED 6 = module_load returned
             DBG_USR(qmkata, "module:load %s\n", success ? "OK" : "FAIL");
+            debug_led_on(9, 255, 255, 255);  // LED 9 = DBG_USR done
             module_loading_slot = 0xFF;
             module_loading_offset = 0;
         }
         uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, success ? 0 : 1 };
+        debug_led_on(10, 255, 255, 255);  // LED 10 = about to send sysex
         qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+        debug_led_on(11, 255, 255, 255);  // LED 11 = sysex sent
         return;
     }
 
