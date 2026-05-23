@@ -1,6 +1,4 @@
 #include "pipeline.h"
-#include "print.h"
-#include <stdint.h>
 #include <string.h>
 
 #define MAX_MACHINES 16
@@ -49,64 +47,22 @@ void pipeline_reset(void) {
 }
 
 void pipeline_tick(void) {
-    extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
-    /* Light LEDs encoding machine_count + first machine validity */
-    debug_led_on(40, machine_count > 0 ? 255 : 0, 0, 0);  // red if any machine
-    if (machine_count > 0 && machines[0]) {
-        debug_led_on(41, machines[0]->tick ? 255 : 0, 0, 0);  // red if tick set
-        debug_led_on(42, machines[0]->handle ? 255 : 0, 0, 0);
-        debug_led_on(43, machines[0]->instance ? 255 : 0, 0, 0);
-    }
     for (int i = 0; i < machine_count; i++) {
         if (machines[i]->tick) {
-            uintptr_t tick_addr = (uintptr_t)(void *)machines[i]->tick;
-            uintptr_t mach_addr = (uintptr_t)(void *)machines[i];
-            /* Second byte (bits 16-23) of tick_addr:
-               LED 32: second byte == 0 (addr in 0x00000000-0x0000FFFF)
-               LED 33: second byte == 0 (duplicate, confirms)
-               LED 44: bit 4 of second byte (0x10)
-               LED 45: bit 3 of second byte (0x08)
-               LED 46: bit 2 of second byte (0x04)
-               LED 47: bit 1 of second byte (0x02)
-               LED 48: bit 0 of second byte (0x01)
-               LED 49: bit 7 of second byte (0x80) */
-            uint8_t tick_b1 = (uint8_t)(tick_addr >> 16);
-            uint8_t mach_b1 = (uint8_t)(mach_addr >> 16);
-            debug_led_on(32, tick_b1 == 0 ? 255 : 0, 0, 0);
-            debug_led_on(33, mach_b1 == 0 ? 255 : 0, 0, 0);
-            debug_led_on(44, tick_b1 & 0x10 ? 255 : 0, 0, 0);
-            debug_led_on(45, tick_b1 & 0x08 ? 255 : 0, 0, 0);
-            debug_led_on(46, tick_b1 & 0x04 ? 255 : 0, 0, 0);
-            debug_led_on(47, tick_b1 & 0x02 ? 255 : 0, 0, 0);
-            debug_led_on(48, tick_b1 & 0x01 ? 255 : 0, 0, 0);
-            debug_led_on(49, tick_b1 & 0x80 ? 255 : 0, 0, 0);
-            debug_led_on(30, 255, 255, 255);  // LED 30 = about to call tick
             machines[i]->tick(machines[i]->instance);
-            debug_led_on(31, 255, 255, 255);  // LED 31 = tick returned
         }
     }
 }
 
 // Returns true if pipeline consumed the event (caller should skip further processing).
 bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
-    extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
-    debug_led_on(20, 255, 255, 255);  // LED 20 = pipeline_process_pre_tap entered
-    xprintf("pipe: mc=%d\n", machine_count);
     for (int i = 0; i < machine_count; i++) {
-        xprintf("pipe[%d]: mach=%p phase=%d handle=%p\n", i, (void*)machines[i], machines[i]->phase, (void*)machines[i]->handle);
         if (machines[i]->phase == PHASE_PRE_TAP && machines[i]->handle) {
-            debug_led_on(21, 255, 255, 255);  // LED 21 = found PRE_TAP machine
-            debug_led_on(22, 255, 255, 255);  // LED 22 = about to call handle()
-            xprintf("pipe: calling handle %p inst %p\n", (void*)machines[i]->handle, machines[i]->instance);
-            sm_result_t r = machines[i]->handle(machines[i]->instance, event, record);
-            debug_led_on(23, 255, 255, 255);  // LED 23 = handle() returned
-            if (r == SM_CONSUME) {
-                debug_led_on(24, 255, 255, 255);  // LED 24 = consumed
+            if (machines[i]->handle(machines[i]->instance, event, record) == SM_CONSUME) {
                 return true;
             }
         }
     }
-    debug_led_on(25, 255, 255, 255);  // LED 25 = pipeline returned (no consume)
     return false;
 }
 
