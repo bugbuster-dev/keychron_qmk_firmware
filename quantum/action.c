@@ -145,9 +145,6 @@ void action_exec(keyevent_t event) {
         }
     }
 #    endif
-    // Debug: LED 8 = action_exec reached (key event being processed)
-    { extern void debug_led_on(int, uint8_t, uint8_t, uint8_t);
-      debug_led_on(8, 255, 255, 255); }
     if (IS_NOEVENT(record.event) || pre_process_record_quantum(&record)) {
         action_tapping_process(record);
     }

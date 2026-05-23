@@ -24,15 +24,6 @@ static inline uint32_t _module_thumb_addr(uint32_t slot_addr, uint32_t off) {
 #endif
 }
 
-/* Debug LED trace for module loading. Each step lights a different LED
- * position white (LED 0 = Esc, 1 = 1, 2 = 2, ...). Unlit = not reached.
- * 0=entry, 1=validation OK, 2=SRAM write OK, 3=init called,
- * 4=init returned, 5=load complete */
-static inline void _mod_led(uint8_t pos, bool on) {
-    extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
-    debug_led_on(pos, on ? 255 : 0, on ? 255 : 0, on ? 255 : 0);
-}
-
 /* Helper for init_fn() callers — returns the env pointer when the
    pipeline is built, NULL otherwise. Old (non-pipeline) modules ignore
    the argument; new pipeline modules require KEY_PROCESSING_SM_ENABLE
@@ -298,9 +289,7 @@ static bool module_install_hooks_and_init(uint8_t slot_id, uint32_t slot_addr,
         xprintf("%s slot=%u init_fn=0x%lx\n",
                 trace_prefix, (unsigned)slot_id,
                 (unsigned long)(uintptr_t)init_fn);
-        _mod_led(3, true);  // LED 3 = about to call init
         uint32_t rc = init_fn(module_init_env());
-        _mod_led(3, false);  // LED 3 off = init returned
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("%s slot=%u init OK rc=0x%lx\n",
                     trace_prefix, (unsigned)slot_id, (unsigned long)rc);
@@ -318,7 +307,6 @@ static bool module_install_hooks_and_init(uint8_t slot_id, uint32_t slot_addr,
    sector semantics). The host applies relocations against the SRAM slot
    address before upload, same as flash. */
 static bool module_load_sram(uint8_t slot_id, const uint8_t* data, size_t len) {
-    _mod_led(0, true);  // LED 0 = entry
     if (!module_sram_is_sram_slot(slot_id)) return false;
     if (len < sizeof(module_header_t)) return false;
 
@@ -335,7 +323,6 @@ static bool module_load_sram(uint8_t slot_id, const uint8_t* data, size_t len) {
     const uint32_t* hook_table_data = (const uint32_t*)(data + hdr->hook_table_off);
     if (!validate_dispatch_hook_offsets(hdr, hook_table_data)) return false;
     if (!validate_module_crc(data, hdr)) return false;
-    _mod_led(1, true);  // LED 1 = validation OK
 
     /* If this slot already has a module loaded, unload it first so its
        hooks are released and any new conflicts are detected against
@@ -366,13 +353,11 @@ static bool module_load_sram(uint8_t slot_id, const uint8_t* data, size_t len) {
                 (unsigned)slot_id, (unsigned long)slot_addr, (unsigned)write_len);
         return false;
     }
-    _mod_led(2, true);  // LED 2 = SRAM write OK
 
     if (!module_install_hooks_and_init(slot_id, slot_addr, hdr, "mod load sram")) {
         module_sram_clear(slot_id);
         return false;
     }
-    _mod_led(4, true);  // LED 4 = load complete
 
     module_sram_slot_set_loaded(slot_id, true);
     return true;

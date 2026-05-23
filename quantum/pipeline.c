@@ -56,10 +56,7 @@ void pipeline_tick(void) {
 bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
     for (int i = 0; i < machine_count; i++) {
         if (machines[i]->phase == PHASE_PRE_TAP && machines[i]->handle) {
-            extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
-            debug_led_on(7, 255, 255, 255);  // LED 7 = entering machine handle
             if (machines[i]->handle(machines[i]->instance, event, record) == SM_CONSUME) {
-                debug_led_on(7, 0, 0, 0);  // LED 7 off = handle returned
                 return true;
             }
         }
