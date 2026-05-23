@@ -61,20 +61,14 @@ void pipeline_tick(void) {
         if (machines[i]->tick) {
             uintptr_t tick_addr = (uintptr_t)(void *)machines[i]->tick;
             uintptr_t mach_addr = (uintptr_t)(void *)machines[i];
-            /* Encode top byte of tick_addr in LEDs 44-47 (bits 7-4 of top byte):
-               Top byte 0x20 (SRAM)  → LED 46
-               Top byte 0x08 (Flash) → LED 47
-               Top byte 0x00         → all off */
-            uint8_t top = (uint8_t)(tick_addr >> 24);
-            debug_led_on(44, top & 0x80 ? 255 : 0, 0, 0);
-            debug_led_on(45, top & 0x40 ? 255 : 0, 0, 0);
-            debug_led_on(46, top & 0x20 ? 255 : 0, 0, 0);
-            debug_led_on(47, top & 0x10 ? 255 : 0, 0, 0);
-            /* Encode top byte of machines[0] pointer in LEDs 48-49 (bits 7-6): */
-            uint8_t mach_top = (uint8_t)(mach_addr >> 24);
-            debug_led_on(48, mach_top & 0x80 ? 255 : 0, 0, 0);
-            debug_led_on(49, mach_top & 0x40 ? 255 : 0, 0, 0);
-            xprintf("tick=0x%lx mach=0x%lx\n", (unsigned long)tick_addr, (unsigned long)mach_addr);
+            /* LED 44 (A): tick < 0x10000  → module-relative offset */
+            /* LED 45 (S): tick in [0x08000000, 0x10000000) → Flash */
+            /* LED 46 (D): tick >= 0x20000000 → SRAM */
+            debug_led_on(44, tick_addr < 0x10000 ? 255 : 0, 0, 0);
+            debug_led_on(45, (tick_addr >= 0x08000000 && tick_addr < 0x10000000) ? 255 : 0, 0, 0);
+            debug_led_on(46, tick_addr >= 0x20000000 ? 255 : 0, 0, 0);
+            /* LED 47 (F): mach >= 0x20000000 → SRAM */
+            debug_led_on(47, mach_addr >= 0x20000000 ? 255 : 0, 0, 0);
             debug_led_on(30, 255, 255, 255);  // LED 30 = about to call tick
             machines[i]->tick(machines[i]->instance);
             debug_led_on(31, 255, 255, 255);  // LED 31 = tick returned
