@@ -1,4 +1,5 @@
 #include "pipeline.h"
+#include <stdint.h>
 #include <string.h>
 
 #define MAX_MACHINES 16
@@ -57,6 +58,12 @@ void pipeline_tick(void) {
     }
     for (int i = 0; i < machine_count; i++) {
         if (machines[i]->tick) {
+            uintptr_t tick_addr = (uintptr_t)(void *)machines[i]->tick;
+            /* Encode tick address range in LEDs 44-45:
+               LED 44 (A): tick_addr < 0x10000  (module-relative, WRONG)
+               LED 45 (S): tick_addr >= 0x20000000 (SRAM range, CORRECT) */
+            debug_led_on(44, tick_addr < 0x10000 ? 255 : 0, 0, 0);
+            debug_led_on(45, tick_addr >= 0x20000000 ? 255 : 0, 0, 0);
             debug_led_on(30, 255, 255, 255);  // LED 30 = about to call tick
             machines[i]->tick(machines[i]->instance);
             debug_led_on(31, 255, 255, 255);  // LED 31 = tick returned
