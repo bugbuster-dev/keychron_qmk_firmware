@@ -295,8 +295,10 @@ static bool module_install_hooks_and_init(uint8_t slot_id, uint32_t slot_addr,
         xprintf("%s slot=%u init_fn=0x%lx\n",
                 trace_prefix, (unsigned)slot_id,
                 (unsigned long)(uintptr_t)init_fn);
-        struct pipeline_env *env = module_init_env();
+       struct pipeline_env *env = module_init_env();
         if (env) env->module_base = slot_addr;
+        xprintf("loader: env=%p base=0x%lx slot=0x%lx\n",
+            (void*)env, (unsigned long)env->module_base, (unsigned long)slot_addr);
         _mod_led(3, true);  // LED 3 = about to call init
         uint32_t rc = init_fn(env);
         _mod_led(3, false);  // LED 3 off = init returned
