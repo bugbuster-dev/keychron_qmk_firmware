@@ -1067,8 +1067,12 @@ _QMKATA_HANDLE_CMD_SET(module) {
             debug_led_on(5, 255, 255, 255);  // LED 5 = about to call module_load
             success = module_load(module_loading_slot, module_chunk_buf, write_len);
             debug_led_on(6, 255, 255, 255);  // LED 6 = module_load returned
-            DBG_USR(qmkata, "module:load %s\n", success ? "OK" : "FAIL");
-            debug_led_on(9, 255, 255, 255);  // LED 9 = DBG_USR done
+            /* Removed: DBG_USR(qmkata, "module:load %s\n", ...) — hangs the
+             * keyboard when called from inside the QMKata sysex receive
+             * handler. xprintf -> sendchar -> s_console_stream.write can
+             * wedge while QMKata is already processing an inbound message.
+             * Host gets the real result via qmkata_send_sysex below. */
+            debug_led_on(9, 255, 255, 255);  // LED 9 = DBG_USR skipped
             module_loading_slot = 0xFF;
             module_loading_offset = 0;
         }
