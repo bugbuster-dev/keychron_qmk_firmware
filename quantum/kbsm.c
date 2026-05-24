@@ -40,10 +40,6 @@ void kbsm_init(void) {
     memset(machines, 0, sizeof(machines));
 }
 
-void kbsm_reset(void) {
-    kbsm_init();
-}
-
 void kbsm_tick(void) {
     for (int i = 0; i < machine_count; i++) {
         if (machines[i]->tick) {

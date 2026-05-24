@@ -4,8 +4,8 @@
 
 typedef enum {
     KBSM_PHASE_PRE_TAP
-    /* KBSM_PHASE_POST_TAP and KBSM_PHASE_POST_EXEC are reserved but not yet wired.
-       Add them back here when kbsm_process_post_tap() gets a real
+    /* KBSM_PHASE_POST_TAP and KBSM_PHASE_POST_EXEC are reserved for future
+       expansion; add them here when kbsm_process_post_tap() gets a real
        call site. */
 } kbsm_phase_t;
 
@@ -27,7 +27,6 @@ struct kbsm {
 };
 
 void kbsm_init(void);
-void kbsm_reset(void);
 void kbsm_register(kbsm_t *machine);
 
 /* Remove a previously registered machine. Safe to call with a machine

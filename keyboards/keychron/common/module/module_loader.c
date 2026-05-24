@@ -30,7 +30,14 @@ static inline uint32_t _module_thumb_addr(uint32_t slot_addr, uint32_t off) {
    to be set at firmware build time, which is enforced indirectly: a
    behavior module's init will call env->kbsm_register, segfaulting
    immediately if env is NULL. That's louder than silently doing
-   nothing, so it's the right failure mode. */
+   nothing, so it's the right failure mode.
+
+   Note: the return type `struct kbsm_env *` is an incomplete type when
+   KEY_BEHAVIOR_SM_ENABLE is not defined (kbsm_env.h is not included).
+   This is legal for a pointer declaration. The caller may assign the
+   result to a local variable and pass it to init_fn(), but must not
+   dereference it — the `env->module_base` access is guarded by
+   #ifdef KEY_BEHAVIOR_SM_ENABLE at each call site. */
 static inline struct kbsm_env *module_init_env(void) {
 #ifdef KEY_BEHAVIOR_SM_ENABLE
     return kbsm_env_get();

@@ -18,7 +18,7 @@ using testing::InSequence;
 class StickyCombo : public TestFixture {
     void SetUp() override {
         TestFixture::SetUp();
-        kbsm_reset();
+        kbsm_init();
     }
 };
 

@@ -50,7 +50,7 @@ state_id, the SM probably isn't earning its keep. Use plain C instead.
 static struct { bool active; uint16_t timer; } my_state;
 static kbsm_t my_machine;
 
-static sm_result_t my_handle(void *self, keyevent_t *event, keyrecord_t *record) {
+static kbsm_result_t my_handle(void *self, keyevent_t *event, keyrecord_t *record) {
     // your logic here — return KBSM_PASS to forward, KBSM_CONSUME to suppress
     return KBSM_PASS;
 }
@@ -125,7 +125,7 @@ This produces `MyFeature.c` and `MyFeature.h` with the generated state machine.
 
 static struct { MyFeature sm; /* other state */ } my_state;
 
-static sm_result_t my_handle(void *self, keyevent_t *event, keyrecord_t *record) {
+static kbsm_result_t my_handle(void *self, keyevent_t *event, keyrecord_t *record) {
     typeof(my_state) *st = self;
     switch (st->sm.state_id) {
         case MyFeature_StateId_IDLE:   return handle_idle(st, ...);
@@ -150,11 +150,11 @@ static sm_result_t my_handle(void *self, keyevent_t *event, keyrecord_t *record)
 ```c
 struct kbsm {
     void               *instance;     // your state struct
-    sm_result_t         (*handle)(void *self, keyevent_t *event, keyrecord_t *record);
+    kbsm_result_t       (*handle)(void *self, keyevent_t *event, keyrecord_t *record);
     void                (*tick)(void *self);   // optional, called each loop
     void                (*reset)(void *self);  // optional, called on reset
     const char          *name;        // for debugging
-    pipeline_phase_t    phase;        // KBSM_PHASE_PRE_TAP (others reserved)
+    kbsm_phase_t        phase;        // KBSM_PHASE_PRE_TAP (others reserved)
     uint8_t             priority;     // lower runs first within phase
 };
 ```

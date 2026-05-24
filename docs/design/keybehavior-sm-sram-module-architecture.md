@@ -127,17 +127,17 @@ mod load sram slot=8 init_fn=0x20003e55
 mod load sram slot=8 init OK rc=0x600dbeef
 ```
 
-If `env` is `NULL`, the firmware lacks pipeline support; modules should
+If `env` is `NULL`, the firmware lacks kbsm support; modules should
 return a non-magic error value.
 
 ## `kbsm_env_t`
 
-Pipeline modules cannot link directly against arbitrary firmware
+Behavior modules cannot link directly against arbitrary firmware
 symbols. Instead, firmware passes a table of function pointers:
 
 ```c
 typedef struct kbsm_env {
-    /* Pipeline registration. unregister() is needed for SRAM modules so
+    /* Behavior machine registration. unregister() is needed for SRAM modules so
        that unloading cleans up the machine pointer; the registered
        kbsm_t lives in module memory and becomes invalid after
        module_sram_clear(). */
@@ -195,7 +195,7 @@ modules. Removing or reordering fields requires a header-version bump.
 QMKata `sendchar()` path that is tee'd to USART2 in Renode, so module
 diagnostics can appear in the `usart2` analyzer.
 
-## Pipeline registration
+## Behavior machine registration
 
 A behavior module sets up an `kbsm_t` in `module_init`:
 

@@ -1,4 +1,4 @@
-# SRAM-Loadable Pipeline Modules
+# SRAM-Loadable Behavior Modules
 
 > Status: implemented in feat/sram-modules branch (Phases 1-6).
 > Volatility: lost on reset. Use for iteration, not permanent features.
@@ -32,7 +32,7 @@ What's different in SRAM:
 
 A 4 KB SRAM module on Q3 Max (STM32F401xC, 64 KB SRAM total) consumes
 ~4 KB of `.bss` and shrinks `.heap` correspondingly. After Phase 3 with
-module loader + pipeline env, the build still has ~30 KB heap remaining.
+module loader + kbsm env, the build still has ~30 KB heap remaining.
 Growing `MODULE_SRAM_TOTAL_SIZE`
 past what the keyboard can spare triggers a hard link error:
 
@@ -98,13 +98,13 @@ Minimal skeleton:
 static kbsm_t g_machine;
 static struct { /* your state */ kbsm_env_t *env; } g_state;
 
-static sm_result_t my_handle(void *self, keyevent_t *e, keyrecord_t *r) {
+static kbsm_result_t my_handle(void *self, keyevent_t *e, keyrecord_t *r) {
     /* … translate keys, call env->tap_code16, etc. … */
     return KBSM_PASS;
 }
 
 static uint32_t module_init(kbsm_env_t *env) {
-    if (!env) return 0xDEADBEEFu;     /* firmware doesn't support pipeline */
+    if (!env) return 0xDEADBEEFu;     /* firmware doesn't support kbsm */
     g_state.env = env;
 
     g_machine.instance = &g_state;
@@ -130,16 +130,17 @@ MODULE_HOOK_TABLE
 const void *module_hook_table[MODULE_HOOK_MAX] = {
     [MODULE_HOOK_INIT]                 = module_init,
     [MODULE_HOOK_DEINIT]               = module_deinit,
-    [MODULE_PIPELINE_HOOK_GET_MACHINE] = machine_get,
+    [MODULE_KBSM_HOOK_GET_MACHINE] = machine_get,
 };
 ```
 
 ## ABI version
 
-Module header version is **3** (firmware: `MODULE_HEADER_VERSION = 3`).
-The bump from v2 was triggered by adding the `kbsm_env_t *env`
-argument to `module_init_fn_t`. v2 modules are rejected with a console
-message and must be rebuilt.
+Module header version is **4** (firmware: `MODULE_HEADER_VERSION = 4`).
+The bump from v3 was triggered by renaming the pipeline subsystem to kbsm
+(key behavior state machine): `pipeline_env_t` → `kbsm_env_t`,
+`sm_machine_t` → `kbsm_t`, `pipeline_register` → `kbsm_register`, etc.
+v3 modules are rejected with a console message and must be rebuilt.
 
 When does the version bump again?
 
@@ -227,9 +228,9 @@ firmware build itself.
 
 - `keyboards/keychron/common/module/multi-module-plan.md` — original
   multi-module hook plan (flash side).
-- `docs/design/pipeline-sram-module-architecture.md` — end-to-end
+- `docs/design/keybehavior-sm-sram-module-architecture.md` — end-to-end
   architecture for SRAM-loaded behavior modules.
 - `keyboards/keychron/common/module/kbsm_env.h` — env table fields.
-- `quantum/features/README.md` — when to use SM-driven pipeline features.
+- `quantum/features/README.md` — when to use SM-driven behavior features.
 - `qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/README.md` —
   worked example.
