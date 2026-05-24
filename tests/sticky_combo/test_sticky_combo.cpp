@@ -100,13 +100,52 @@ TEST_F(StickyCombo, armed_both_release_both_returns_to_idle) {
     KeymapKey  key_k(0, 0, 1, KC_K);
     set_keymap({key_j, key_k});
 
-    // Arm + release both: combo_action is KC_NO, so nothing on host
     EXPECT_NO_REPORT(driver);
 
     key_j.press(); run_one_scan_loop();
     key_k.press(); run_one_scan_loop();
     key_j.release(); run_one_scan_loop();
     key_k.release(); idle_for(20);
+
+    VERIFY_AND_CLEAR(driver);
+}
+
+TEST_F(StickyCombo, armed_hold_key2_tap_key1_emits_up) {
+    TestDriver driver;
+    KeymapKey  key_j(0, 0, 0, KC_J);
+    KeymapKey  key_k(0, 0, 1, KC_K);
+    set_keymap({key_j, key_k});
+
+    // Hold K, tap J → UP (tap_action_1)
+    EXPECT_REPORT(driver, (KC_UP));
+    EXPECT_EMPTY_REPORT(driver);
+
+    key_j.press(); run_one_scan_loop();
+    key_k.press(); run_one_scan_loop();
+    key_j.release(); run_one_scan_loop();
+    key_j.press(); run_one_scan_loop();
+    key_j.release(); run_one_scan_loop();
+    key_k.release(); idle_for(20);
+
+    VERIFY_AND_CLEAR(driver);
+}
+
+TEST_F(StickyCombo, armed_hold_key1_tap_key2_emits_down) {
+    TestDriver driver;
+    KeymapKey  key_j(0, 0, 0, KC_J);
+    KeymapKey  key_k(0, 0, 1, KC_K);
+    set_keymap({key_j, key_k});
+
+    // Hold J, tap K → DOWN (tap_action_2)
+    EXPECT_REPORT(driver, (KC_DOWN));
+    EXPECT_EMPTY_REPORT(driver);
+
+    key_j.press(); run_one_scan_loop();
+    key_k.press(); run_one_scan_loop();
+    key_k.release(); run_one_scan_loop();
+    key_k.press(); run_one_scan_loop();
+    key_k.release(); run_one_scan_loop();
+    key_j.release(); idle_for(20);
 
     VERIFY_AND_CLEAR(driver);
 }
@@ -118,7 +157,6 @@ TEST_F(StickyCombo, armed_third_key_passes_through) {
     KeymapKey  key_l(0, 0, 2, KC_L);
     set_keymap({key_j, key_k, key_l});
 
-    // Arm, then press L - L should pass through
     EXPECT_REPORT(driver, (KC_L));
     EXPECT_EMPTY_REPORT(driver);
 
