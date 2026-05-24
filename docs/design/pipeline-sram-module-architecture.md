@@ -14,7 +14,7 @@ module source
   → Renode stages blob into g_emu_module_stage
   → firmware module_load(8, g_emu_module_stage, len)
   → module_sram_clear(8)
-  → module_sram_write(g_module_sram, staged_bytes, len)
+  → module_sram_write(slot_addr, staged_bytes, len)   /* slot_addr = module_sram_slot_addr(8) */
   → module_init(pipeline_env_t *env)
   → env->pipeline_register(&machine)
   → action_exec calls pipeline_process_pre_tap()
@@ -104,6 +104,8 @@ The current header version is `MODULE_HEADER_VERSION = 3`.
 Version 3 changes module init to receive a `pipeline_env_t *`:
 
 ```c
+typedef uint32_t (*module_init_fn_t)(struct pipeline_env *env);
+typedef uint32_t (*module_deinit_fn_t)(void);
 ```
 
 The module must return:
@@ -129,25 +131,55 @@ symbols. Instead, firmware passes a table of function pointers:
 
 ```c
 typedef struct pipeline_env {
+    /* Pipeline registration. unregister() is needed for SRAM modules so
+       that unloading cleans up the machine pointer; the registered
+       sm_machine_t lives in module memory and becomes invalid after
+       module_sram_clear(). */
     void     (*pipeline_register)(sm_machine_t *machine);
     void     (*pipeline_unregister)(sm_machine_t *machine);
+
+    /* Key actions — wrappers for QMK's register/unregister/tap families.
+       Modules must NOT call register_code16 directly; the symbol may not
+       be resolvable from the module's load address. */
     void     (*tap_code16)(uint16_t kc);
     void     (*register_code16)(uint16_t kc);
     void     (*unregister_code16)(uint16_t kc);
     void     (*tap_code)(uint8_t kc);
     void     (*register_code)(uint8_t kc);
     void     (*unregister_code)(uint8_t kc);
+
+    /* Timing — QMK's timer_read returns ms since boot wrapped to 16 bits;
+       timer_elapsed returns ms since `since`. */
     uint16_t (*timer_read)(void);
     uint16_t (*timer_elapsed)(uint16_t since);
+
+    /* Keycode resolution. Modules typically call this on the record they
+       were handed to convert event.key into the keycode for the current
+       layer. */
     uint16_t (*get_record_keycode)(keyrecord_t *r, bool update_layer_cache);
+
+    /* Diagnostic. */
     int      (*xprintf)(const char *fmt, ...);
+
+    /* Reserved for future expansion. Cast to whatever callback table
+       (e.g. dynld_math_funcs_t) the module needs but firmware hasn't
+       baked into this struct yet. NULL when unused. */
     void     *extension;
+
+    /* Slot load address (diagnostics / future expansion only —
+       see prose below; do NOT use for pointer rebasing). */
     uintptr_t module_base;
 } pipeline_env_t;
+```
 
-`module_base` is set by the loader before calling `init()` so the module
-can rebase its own internal pointers (compiled at ORIGIN=0) to the actual
-runtime load address.
+`module_base` is populated by the loader with the slot's absolute load
+address (`env->module_base = slot_addr` in `module_loader.c`). It is
+provided for diagnostics and future expansion. Modules MUST NOT use it
+to rebase pointers — the host toolchain already applies `R_ARM_ABS32`
+relocations during upload (see `module-build-pipeline.md`), so module C
+code references its own `.rodata` through plain compiler-emitted
+addresses. Adding `module_base` arithmetic on top would double-relocate.
+See `module_loader.h` ABI comments for the full rationale.
 
 The module stores `env` in its local state and routes all firmware calls
 through it. Adding new fields at the end is ABI-compatible for old

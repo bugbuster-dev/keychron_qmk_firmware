@@ -55,14 +55,16 @@ typedef struct pipeline_env {
     /* Diagnostic. */
     int      (*xprintf)(const char *fmt, ...);
 
-  /* Reserved for future expansion. Cast to whatever callback table
-        (e.g. dynld_math_funcs_t) the module needs but firmware hasn't
-        baked into this struct yet. NULL when unused. */
+    /* Reserved for future expansion. Cast to whatever callback table
+       (e.g. dynld_math_funcs_t) the module needs but firmware hasn't
+       baked into this struct yet. NULL when unused. */
     void     *extension;
 
-    /* Module load base address. Set by the loader before calling init()
-        so the module can rebase its own internal pointers (compiled at
-        ORIGIN=0) to the actual runtime address. */
+    /* Slot load address. Populated by the loader before calling init().
+       Provided for diagnostics and future expansion only. Modules MUST
+       NOT use this to rebase pointers — host-side R_ARM_ABS32 relocations
+       already adjust literal-pool addresses before upload. See
+       module_loader.h for the full ABI rationale. */
     uintptr_t module_base;
 } pipeline_env_t;
 
