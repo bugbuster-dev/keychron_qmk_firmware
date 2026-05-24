@@ -99,7 +99,7 @@ typedef uint32_t (*module_deinit_fn_t)(void);
    orchestrator (quantum/kbsm.c). A behavior module exports a single
    kbsm_t* via GET_MACHINE, then calls env->kbsm_register on
    it in its init function. Unload calls env->kbsm_unregister. */
-#define MODULE_PIPELINE_HOOK_GET_MACHINE          21
+#define MODULE_KBSM_HOOK_GET_MACHINE          21
 
 #define MODULE_HOOK_MAX                           32
 
