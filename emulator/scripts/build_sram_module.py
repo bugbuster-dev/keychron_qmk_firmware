@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Build the sticky_combo SRAM behavior module and stage it for Renode.
+"""Build an SRAM kbsm module example and stage it for Renode.
 
 Workflow:
   1. Resolve the g_module_sram address from the firmware ELF (built by
      `qmk compile -kb keychron/q3_max/ansi_encoder -km keychron`).
-  2. Invoke qmk-tools ModuleBuild on
-     qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/sticky_combo_module.c.
+  2. Invoke qmk-tools ModuleBuild on the chosen example's module source.
   3. Apply R_ARM_ABS32 relocations against the slot base, recompute CRC.
-  4. Write the result to .build/kbsm_sticky_combo.bin.
-  5. Write .build/kbsm_sticky_combo.json with the slot_addr it was
-     relocated against (the scenario uses this to detect staleness).
+  4. Write the result to .build/<output_stem>.bin.
+  5. Write .build/<output_stem>.json with the slot_addr it was relocated
+     against (the scenario uses this to detect staleness).
 
+Select feature via --feature (default: sticky_combo for back-compat).
 Re-run after either the firmware OR the module source has changed.
 """
 
@@ -33,6 +33,30 @@ from ModuleBuild import ModuleBuild  # noqa: E402
 from keyboards.KeychronQ3Max import KeychronQ3Max  # noqa: E402
 
 
+# Per-feature configuration for kbsm SRAM module examples.
+#
+# Each entry describes how to build one example from
+# qmk-tools/qmk/QMKata/module_examples/<dir>/. The build pipeline itself
+# (ELF resolution, libc seeding, linker patching, relocation, CRC) is
+# identical across features.
+#
+# Conventions:
+#   - sources[0] is the generated StateSmith .c (concatenated first)
+#   - sources[1] is the adapter/module .c (concatenated second)
+#   - headers are copied to .build/ so #include "..." statements resolve
+#   - strip_include removes the standalone-build #include of the SM .c
+#     from the combined source (the SM content is already prepended)
+FEATURES = {
+    "sticky_combo": {
+        "dir":           "kbsm_sticky_combo",
+        "sources":       ["StickyCombo.c", "sticky_combo_module.c"],
+        "headers":       ["StickyCombo.h", "combos_def.h"],
+        "strip_include": '#include "StickyCombo.c"\n',
+        "output_stem":   "kbsm_sticky_combo",
+    },
+}
+
+
 def resolve_g_module_sram(elf_path):
     """Return the absolute address of g_module_sram from the ELF."""
     out = subprocess.run(
@@ -49,16 +73,27 @@ def resolve_g_module_sram(elf_path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
+        "--feature",
+        default="sticky_combo",
+        choices=list(FEATURES.keys()),
+        help="kbsm SRAM module example to build (default: sticky_combo)",
+    )
+    ap.add_argument(
         "--source",
-        default=str(QMK_TOOLS / "module_examples/kbsm_sticky_combo/sticky_combo_module.c"),
-        help="Module C source",
+        default=None,
+        help="Module C source (default: derived from --feature)",
     )
     ap.add_argument(
         "--output",
-        default=str(ROOT / ".build/kbsm_sticky_combo.bin"),
-        help="Output binary path",
+        default=None,
+        help="Output binary path (default: derived from --feature)",
     )
     args = ap.parse_args()
+
+    cfg = FEATURES[args.feature]
+    stem = cfg["output_stem"]
+    if args.output is None:
+        args.output = str(ROOT / f".build/{stem}.bin")
 
     elf = ROOT / ".build/keychron_q3_max_ansi_encoder_keychron.elf"
     if not elf.exists():
@@ -67,37 +102,38 @@ def main():
         return 2
 
     slot_addr = resolve_g_module_sram(elf)
+    print(f"  feature: {args.feature}")
     print(f"  firmware ELF: {elf}")
     print(f"  g_module_sram resolved: 0x{slot_addr:08x}")
 
-    # ModuleBuild only compiles a single .c. The kbsm_sticky_combo
-    # example has two source files (StickyCombo.c + sticky_combo_module.c)
-    # plus two headers. We concatenate the C sources into a single
-    # translation unit and copy the headers to .build/ so the
-    # `#include "StickyCombo.h"` etc. resolve. Then point ModuleBuild at
-    # the combined file. The example source dir is added to include
-    # paths via the toolchain config.
-    example_dir = QMK_TOOLS / "module_examples/kbsm_sticky_combo"
-    combined = ROOT / ".build/kbsm_sticky_combo_combined.c"
+    # ModuleBuild only compiles a single .c. kbsm SRAM examples typically
+    # have two source files (generated StateSmith .c + adapter .c) plus
+    # headers. We concatenate the C sources into a single translation
+    # unit and copy the headers to .build/ so the `#include "..."`
+    # statements resolve. Then point ModuleBuild at the combined file.
+    example_dir = QMK_TOOLS / "module_examples" / cfg["dir"]
+    combined = ROOT / f".build/{stem}_combined.c"
     combined.parent.mkdir(parents=True, exist_ok=True)
     combined.write_bytes(
-        (example_dir / "StickyCombo.c").read_bytes()
+        (example_dir / cfg["sources"][0]).read_bytes()
         + b"\n"
-        + (example_dir / "sticky_combo_module.c").read_bytes()
+        + (example_dir / cfg["sources"][1]).read_bytes()
     )
-    # Strip #include "StickyCombo.c" from the combined source — the content
-    # is already prepended above. The #include is needed for standalone
-    # ModuleBuild invocations (where the example dir is in the include path).
+    # Strip the standalone-build #include of the SM .c from the combined
+    # source — the content is already prepended above. The #include is
+    # needed for standalone ModuleBuild invocations (where the example
+    # dir is in the include path).
     combined.write_bytes(
         combined.read_bytes().replace(
-            b'#include "StickyCombo.c"\n', b''
+            cfg["strip_include"].encode(), b''
         )
     )
     # Copy headers next to the combined source so the #include "..."
     # statements in the original sources resolve.
-    for hdr in ["StickyCombo.h", "combos_def.h"]:
+    for hdr in cfg["headers"]:
         (ROOT / ".build" / hdr).write_bytes((example_dir / hdr).read_bytes())
-    args.source = str(combined)
+    if args.source is None:
+        args.source = str(combined)
     print(f"  source: {args.source} (concatenated)")
 
     # Build module.
