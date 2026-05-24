@@ -27,10 +27,20 @@ PUMLS := $(wildcard quantum/features/*.puml)
 GENERATED_C := $(patsubst quantum/features/%.puml,quantum/features/%.c,$(PUMLS))
 
 # Generate C from .puml files (only when .puml is newer than generated .c)
-# StateSmith outputs <Diagram>.c where Diagram is taken from @startuml line
+# StateSmith outputs <Diagram>.c where Diagram is taken from @startuml line.
+# Auto-append GCC pragma guard to generated .c (StateSmith emits unused-function
+# warnings that are -Werror in QMK strict builds). Linux-only (uses GNU sed/grep-perl).
 .PHONY: statesmith-gen
 statesmith-gen:
-	@for f in $(PUMLS); do $(STATESMITH) run --lang C99 --no-csx --no-ask $$f; done
+	@for f in $(PUMLS); do \
+	    $(STATESMITH) run --lang C99 --no-csx --no-ask $$f || exit 1; \
+	    cls=$$(grep -oP '^@startuml\s+\K\w+' $$f); \
+	    gen=quantum/features/$$cls.c; \
+	    if [ -f $$gen ] && ! grep -q "pragma GCC diagnostic push" $$gen; then \
+	        sed -i '1s/^/#ifdef __GNUC__\n#pragma GCC diagnostic push\n#pragma GCC diagnostic ignored "-Wunused-function"\n#endif\n/' $$gen; \
+	        printf '\n#ifdef __GNUC__\n#pragma GCC diagnostic pop\n#endif\n' >> $$gen; \
+	    fi; \
+	done
 
 # SRAM module support (volatile, no flash wear). Opt-in per keymap.
 # Lives here (not in module_loader.mk) because keymap-level rules.mk

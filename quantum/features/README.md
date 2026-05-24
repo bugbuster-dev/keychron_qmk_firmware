@@ -193,6 +193,26 @@ See [docs/sram-modules.md](../../docs/sram-modules.md) for
 how to package a feature as an SRAM module, and the worked example at
 `qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/`.
 
+## Future cleanup
+
+### VimModal: assess promoting `enabled` into the SM model
+
+The `vim_modal_state_t.enabled` flag is currently adapter-side. It is
+arguably a master gate rather than a mode discriminator, so the current
+placement is defensible. For consistency, consider:
+
+- Adding an ENABLED super-state wrapping NORMAL/INSERT/VISUAL/COMMAND/REPLACE,
+  with a sibling DISABLED state.
+- Dropping `enabled` from the adapter; treat `sm.state_id == DISABLED` as off.
+
+Trade-off: cleaner model vs. an extra state with no internal behavior.
+Defer until there is a second reason to touch this file.
+
+Note: this cannot use `$VARS`-style field declarations because StateSmith
+PlantUML mode does not support them (see
+[docs/installing-statesmith.md](../../docs/installing-statesmith.md)).
+The cleanup would only need state topology changes, no new struct fields.
+
 ## See also
 
 - [Pipeline outcome doc](../../docs/plans/2026-05-11-key-processing-pipeline-outcome.md) — design rationale and lessons learned

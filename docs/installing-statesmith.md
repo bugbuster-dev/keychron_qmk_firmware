@@ -118,7 +118,11 @@ Iterates over `quantum/features/*.puml` and regenerates each.
 ## Generated code: post-processing
 
 Generated `.c` files trigger `-Werror=unused-function` warnings in QMK's strict
-build. After regeneration, add the pragma guard:
+build, so a `#pragma GCC diagnostic` guard must wrap the file. The
+`make statesmith-gen` target applies this automatically after each
+regeneration — no manual step needed.
+
+If you invoke `statesmith` directly (not via `make`), apply the guard manually:
 
 ```bash
 for f in quantum/features/*Sm.c; do
@@ -129,8 +133,6 @@ for f in quantum/features/*Sm.c; do
 done
 ```
 
-(The `make statesmith-gen` target should ideally do this automatically — TODO.)
-
 ## Diagram syntax notes
 
 StateSmith uses a **subset** of PlantUML. Key differences from standard PlantUML:
@@ -138,7 +140,16 @@ StateSmith uses a **subset** of PlantUML. Key differences from standard PlantUML
 - ✅ `state name`, `[*] -> state`, `state --> state : event`
 - ✅ Entry actions: `state : entry / action()`
 - ❌ No `and`/`or` in transition labels — use one event per transition
-- ❌ No `[guard]` syntax in basic transitions — handle guards in adapter code
+- ⚠️  `[guard]` syntax on basic transitions: use `<<choice>>` pseudo-states.
+  See https://github.com/StateSmith/StateSmith/wiki/PlantUML#layout-tip-extra-choice-states
+  Example: `ROUTE -down-> TARGET : [my_guard_expr]`. The choice state itself
+  is optimized away by StateSmith.
+- ❌ `$VARS` block — StateSmith's variable declaration syntax for adding
+  fields to the generated SM struct is **not supported in PlantUML mode**
+  (verified with v0.21.0-alpha-1: parser rejects `$` at line start). It is
+  a draw.io / `.csx` feature. If you need state beyond `state_id`, keep it
+  in the wrapping adapter struct, not the generated SM struct. Derive
+  redundant fields from `state_id` via inline helpers when possible.
 - ✅ Comments: `'` single line, `/' ... '/` block
 - ✅ State styles: `state foo <<red>>` with `skinparam state { ... }`
 
