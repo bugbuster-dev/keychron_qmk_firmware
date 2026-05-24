@@ -2,7 +2,7 @@
     Module SRAM Infrastructure - Header
 
     Provides a fixed, executable SRAM region for modules that need to be
-    hot-loaded without flash wear (e.g. pipeline state-machine features
+    hot-loaded without flash wear (e.g. kbsm state-machine features
     during development). Modules loaded into SRAM are volatile — lost on
     reset — but otherwise behave identically to flash modules: same
     module_header_t, same hook registration, same init/deinit lifecycle.

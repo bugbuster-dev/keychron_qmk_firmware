@@ -1,6 +1,6 @@
 // Vim Modal Layer for QMK
 //
-// Demonstrates the pipeline orchestrator + StateSmith integration for a
+// Demonstrates the kbsm orchestrator + StateSmith integration for a
 // feature that GENUINELY benefits from state machine modeling:
 // - 5 distinct modes (Normal, Insert, Visual, Command, Replace)
 // - Each mode translates keys differently
