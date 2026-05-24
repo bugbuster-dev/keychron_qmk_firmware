@@ -120,7 +120,7 @@ static uint32_t module_init(kbsm_env_t *env) {
 }
 
 static uint32_t module_deinit(void) {
-    if (g_state.env) g_state.env->pipeline_unregister(&g_machine);
+    if (g_state.env) g_state.env->kbsm_unregister(&g_machine);
     return 0;
 }
 
@@ -229,7 +229,7 @@ firmware build itself.
   multi-module hook plan (flash side).
 - `docs/design/pipeline-sram-module-architecture.md` — end-to-end
   architecture for SRAM-loaded behavior modules.
-- `keyboards/keychron/common/module/pipeline_env.h` — env table fields.
+- `keyboards/keychron/common/module/kbsm_env.h` — env table fields.
 - `quantum/features/README.md` — when to use SM-driven pipeline features.
 - `qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/README.md` —
   worked example.

@@ -110,7 +110,7 @@ The current header version is `MODULE_HEADER_VERSION = 4`.
 Version 3 changes module init to receive a `kbsm_env_t *`:
 
 ```c
-typedef uint32_t (*module_init_fn_t)(struct pipeline_env *env);
+typedef uint32_t (*module_init_fn_t)(struct kbsm_env *env);
 typedef uint32_t (*module_deinit_fn_t)(void);
 ```
 
@@ -136,13 +136,13 @@ Pipeline modules cannot link directly against arbitrary firmware
 symbols. Instead, firmware passes a table of function pointers:
 
 ```c
-typedef struct pipeline_env {
+typedef struct kbsm_env {
     /* Pipeline registration. unregister() is needed for SRAM modules so
        that unloading cleans up the machine pointer; the registered
        kbsm_t lives in module memory and becomes invalid after
        module_sram_clear(). */
     void     (*kbsm_register)(kbsm_t *machine);
-    void     (*pipeline_unregister)(kbsm_t *machine);
+    void     (*kbsm_unregister)(kbsm_t *machine);
 
     /* Key actions — wrappers for QMK's register/unregister/tap families.
        Modules must NOT call register_code16 directly; the symbol may not
