@@ -61,6 +61,13 @@ FEATURES = {
         "strip_include": '#include "Dyad.c"\n',
         "output_stem":   "kbsm_dyad",
     },
+    "autotext": {
+        "dir":           "kbsm_autotext",
+        "sources":       ["Autotext.c", "autotext_module.c"],
+        "headers":       ["Autotext.h", "autotext_def.h"],
+        "strip_include": '#include "Autotext.c"\n',
+        "output_stem":   "kbsm_autotext",
+    },
 }
 
 
