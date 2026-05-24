@@ -3,9 +3,10 @@
 #include "quantum.h"
 
 typedef enum {
-    PHASE_PRE_TAP,
-    PHASE_POST_TAP,
-    PHASE_POST_EXEC
+    PHASE_PRE_TAP
+    /* PHASE_POST_TAP and PHASE_POST_EXEC are reserved but not yet wired.
+       Add them back here when pipeline_process_post_tap() gets a real
+       call site. */
 } pipeline_phase_t;
 
 typedef enum {
@@ -37,10 +38,6 @@ void pipeline_unregister(sm_machine_t *machine);
 // Phase-specific entry points (called from action_exec)
 // Returns true if event was consumed (caller should skip further processing)
 bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record);
-void pipeline_process_post_tap(keyevent_t *event, keyrecord_t *record);
 
 // Called from keyboard_task() for timer handling
 void pipeline_tick(void);
-
-// Called on layer change, reset, etc.
-void pipeline_reset(void);

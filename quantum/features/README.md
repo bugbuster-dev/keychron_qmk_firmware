@@ -141,8 +141,9 @@ static sm_result_t my_handle(void *self, keyevent_t *event, keyrecord_t *record)
 | Phase | When it runs | Can consume? | Use for |
 |-------|--------------|--------------|---------|
 | `PHASE_PRE_TAP` | Before tap/hold resolution, raw matrix events | ✅ Yes | Modal layers, gaming macros, key translators |
-| `PHASE_POST_TAP` | After tap/hold resolved, keycode is final | ✅ Yes | Sequence matchers, leader-key-like features |
-| `PHASE_POST_EXEC` | After HID report sent | ❌ No (observe only) | Analytics, logging, side effects |
+
+> `PHASE_POST_TAP` and `PHASE_POST_EXEC` are reserved for future use but
+> not yet wired. The framework currently dispatches only `PHASE_PRE_TAP`.
 
 ## sm_machine_t interface
 
@@ -153,17 +154,17 @@ struct sm_machine {
     void                (*tick)(void *self);   // optional, called each loop
     void                (*reset)(void *self);  // optional, called on reset
     const char          *name;        // for debugging
-    pipeline_phase_t    phase;        // PHASE_PRE_TAP / POST_TAP / POST_EXEC
+    pipeline_phase_t    phase;        // PHASE_PRE_TAP (others reserved)
     uint8_t             priority;     // lower runs first within phase
 };
 ```
 
 ## Current features
 
-| Feature | File | Phase | Type |
-|---------|------|-------|------|
-| Vim modal | `vim_modal_*` | PRE_TAP | SM (5 states) |
-| Sticky combo | `sticky_combo_*` | PRE_TAP | SM (4 states) |
+| Feature | File | Phase | Type | Enabled in Q3 Max? |
+|---------|------|-------|------|--------------------|
+| Vim modal | `vim_modal_*` | PRE_TAP | SM (5 states) | ❌ (disabled — would intercept J/K and conflict with sticky-combo SRAM module) |
+| Sticky combo | `sticky_combo_*` | PRE_TAP | SM (4 states) | ❌ (replaced by SRAM pipeline module — see below) |
 
 ## StateSmith installation
 

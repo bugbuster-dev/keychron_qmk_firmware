@@ -40,12 +40,6 @@ void pipeline_init(void) {
     memset(machines, 0, sizeof(machines));
 }
 
-void pipeline_reset(void) {
-    for (int i = 0; i < machine_count; i++) {
-        if (machines[i]->reset) machines[i]->reset(machines[i]->instance);
-    }
-}
-
 void pipeline_tick(void) {
     for (int i = 0; i < machine_count; i++) {
         if (machines[i]->tick) {
@@ -64,21 +58,4 @@ bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
         }
     }
     return false;
-}
-
-void pipeline_process_post_tap(keyevent_t *event, keyrecord_t *record) {
-    // POST_TAP machines (can consume)
-    for (int i = 0; i < machine_count; i++) {
-        if (machines[i]->phase == PHASE_POST_TAP && machines[i]->handle) {
-            if (machines[i]->handle(machines[i]->instance, event, record) == SM_CONSUME) return;
-        }
-    }
-    // EXECUTE
-    process_record_handler(record);
-    // POST_EXEC (observe only)
-    for (int i = 0; i < machine_count; i++) {
-        if (machines[i]->phase == PHASE_POST_EXEC && machines[i]->handle) {
-            machines[i]->handle(machines[i]->instance, event, record);
-        }
-    }
 }
