@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 #define QMKATA_MAJOR_VERSION 0
-#define QMKATA_MINOR_VERSION 4
+#define QMKATA_MINOR_VERSION 5
 
 // set/get/add/del pub/sub commands should cover all the scenarios for now
 // extension by adding more "ids" to set/get/...
