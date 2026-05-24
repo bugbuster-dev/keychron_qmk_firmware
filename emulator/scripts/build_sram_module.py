@@ -50,7 +50,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--source",
-        default=str(QMK_TOOLS / "module_examples/kbsm_sticky_combo/src/sticky_combo_module.c"),
+        default=str(QMK_TOOLS / "module_examples/kbsm_sticky_combo/sticky_combo_module.c"),
         help="Module C source",
     )
     ap.add_argument(
@@ -77,13 +77,13 @@ def main():
     # `#include "StickyCombo.h"` etc. resolve. Then point ModuleBuild at
     # the combined file. The example source dir is added to include
     # paths via the toolchain config.
-    src_dir = QMK_TOOLS / "module_examples/kbsm_sticky_combo/src"
+    example_dir = QMK_TOOLS / "module_examples/kbsm_sticky_combo"
     combined = ROOT / ".build/kbsm_sticky_combo_combined.c"
     combined.parent.mkdir(parents=True, exist_ok=True)
     combined.write_bytes(
-        (src_dir / "StickyCombo.c").read_bytes()
+        (example_dir / "StickyCombo.c").read_bytes()
         + b"\n"
-        + (src_dir / "sticky_combo_module.c").read_bytes()
+        + (example_dir / "sticky_combo_module.c").read_bytes()
     )
     # Strip #include "StickyCombo.c" from the combined source — the content
     # is already prepended above. The #include is needed for standalone
@@ -96,7 +96,7 @@ def main():
     # Copy headers next to the combined source so the #include "..."
     # statements in the original sources resolve.
     for hdr in ["StickyCombo.h", "combos_def.h"]:
-        (ROOT / ".build" / hdr).write_bytes((src_dir / hdr).read_bytes())
+        (ROOT / ".build" / hdr).write_bytes((example_dir / hdr).read_bytes())
     args.source = str(combined)
     print(f"  source: {args.source} (concatenated)")
 
