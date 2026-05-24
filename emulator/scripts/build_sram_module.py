@@ -85,6 +85,14 @@ def main():
         + b"\n"
         + (example_dir / "sticky_combo_module.c").read_bytes()
     )
+    # Strip #include "StickyCombo.c" from the combined source — the content
+    # is already prepended above. The #include is needed for standalone
+    # ModuleBuild invocations (where the example dir is in the include path).
+    combined.write_bytes(
+        combined.read_bytes().replace(
+            b'#include "StickyCombo.c"\n', b''
+        )
+    )
     # Copy headers next to the combined source so the #include "..."
     # statements in the original sources resolve.
     for hdr in ["StickyCombo.h", "combos_def.h"]:
