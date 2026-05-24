@@ -6,8 +6,8 @@
 #include <string.h>
 #include "module_loader.h"
 #include "module_flash.h"
-#ifdef KEY_PROCESSING_SM_ENABLE
-#    include "pipeline_env.h"
+#ifdef KEY_BEHAVIOR_SM_ENABLE
+#    include "kbsm_env.h"
 #endif
 #ifdef MODULE_SRAM_ENABLE
 #    include "module_sram.h"
@@ -25,15 +25,15 @@ static inline uint32_t _module_thumb_addr(uint32_t slot_addr, uint32_t off) {
 }
 
 /* Helper for init_fn() callers — returns the env pointer when the
-   pipeline is built, NULL otherwise. Old (non-pipeline) modules ignore
-   the argument; new pipeline modules require KEY_PROCESSING_SM_ENABLE
+   kbsm is built, NULL otherwise. Old (non-kbsm) modules ignore
+   the argument; new behavior modules require KEY_BEHAVIOR_SM_ENABLE
    to be set at firmware build time, which is enforced indirectly: a
-   pipeline module's init will call env->pipeline_register, segfaulting
+   behavior module's init will call env->kbsm_register, segfaulting
    immediately if env is NULL. That's louder than silently doing
    nothing, so it's the right failure mode. */
-static inline struct pipeline_env *module_init_env(void) {
-#ifdef KEY_PROCESSING_SM_ENABLE
-    return pipeline_env_get();
+static inline struct kbsm_env *module_init_env(void) {
+#ifdef KEY_BEHAVIOR_SM_ENABLE
+    return kbsm_env_get();
 #else
     return NULL;
 #endif
@@ -289,8 +289,10 @@ static bool module_install_hooks_and_init(uint8_t slot_id, uint32_t slot_addr,
         xprintf("%s slot=%u init_fn=0x%lx\n",
                 trace_prefix, (unsigned)slot_id,
                 (unsigned long)(uintptr_t)init_fn);
-        struct pipeline_env *env = module_init_env();
+        struct kbsm_env *env = module_init_env();
+#ifdef KEY_BEHAVIOR_SM_ENABLE
         if (env) env->module_base = slot_addr;
+#endif
         uint32_t rc = init_fn(env);
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("%s slot=%u init OK rc=0x%lx\n",
@@ -543,8 +545,10 @@ bool module_load(uint8_t slot_id, const uint8_t* data, size_t len) {
         module_init_fn_t init_fn = (module_init_fn_t)(_module_thumb_addr(slot_addr, hdr->init_off));
         xprintf("mod load slot=%u init_fn=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
-        struct pipeline_env *env = module_init_env();
+        struct kbsm_env *env = module_init_env();
+#ifdef KEY_BEHAVIOR_SM_ENABLE
         if (env) env->module_base = slot_addr;
+#endif
         uint32_t rc = init_fn(env);
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("mod load slot=%u init OK rc=0x%lx\n",
@@ -729,8 +733,10 @@ void module_boot_scan(void) {
         module_init_fn_t init_fn = (module_init_fn_t)(_module_thumb_addr(slot_addr, header.init_off));
         xprintf("mod boot slot=%u init_fn=0x%lx\n",
                 (unsigned)slot_id, (unsigned long)(uintptr_t)init_fn);
-        struct pipeline_env *env = module_init_env();
+        struct kbsm_env *env = module_init_env();
+#ifdef KEY_BEHAVIOR_SM_ENABLE
         if (env) env->module_base = slot_addr;
+#endif
         uint32_t rc = init_fn(env);
         if (rc == MODULE_INIT_MAGIC) {
             xprintf("mod boot slot=%u init OK rc=0x%lx\n",

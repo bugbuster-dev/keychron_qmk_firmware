@@ -1,5 +1,5 @@
 /*
-    Pipeline Environment — callback table for SRAM-loaded pipeline modules.
+    KB SM Environment — callback table for SRAM-loaded behavior modules.
 
     A module loaded into SRAM (or flash) cannot link directly against
     firmware symbols — the host has no way to resolve BL relocations into
@@ -7,10 +7,10 @@
     keyboards/keychron/q3_max/dynld_func.h for RGB animations) is:
 
       1. Firmware exports a single struct of function pointers
-         (g_pipeline_env, defined in pipeline_env.c).
+         (g_kbsm_env, defined in kbsm_env.c).
       2. Module init() receives the env pointer as its argument.
       3. Module stores the env in its module-local state and routes all
-         firmware calls (tap_code16, pipeline_register, etc.) through it.
+         firmware calls (tap_code16, kbsm_register, etc.) through it.
 
     Adding a new callable to this struct does NOT require a header-version
     bump — old modules that never reference the new field continue to
@@ -22,15 +22,15 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "quantum.h"
-#include "pipeline.h"
+#include "kbsm.h"
 
-typedef struct pipeline_env {
-    /* Pipeline registration. unregister() is needed for SRAM modules so
+typedef struct kbsm_env {
+    /* Behavior machine registration. unregister() is needed for SRAM modules so
        that unloading cleans up the machine pointer; the registered
-       sm_machine_t lives in module memory and becomes invalid after
+       kbsm_t lives in module memory and becomes invalid after
        module_sram_clear(). */
-    void     (*pipeline_register)(sm_machine_t *machine);
-    void     (*pipeline_unregister)(sm_machine_t *machine);
+    void     (*kbsm_register)(kbsm_t *machine);
+    void     (*kbsm_unregister)(kbsm_t *machine);
 
     /* Key actions — wrappers for QMK's register/unregister/tap families.
        Modules must NOT call register_code16 directly; the symbol may not
@@ -66,9 +66,9 @@ typedef struct pipeline_env {
        already adjust literal-pool addresses before upload. See
        module_loader.h for the full ABI rationale. */
     uintptr_t module_base;
-} pipeline_env_t;
+} kbsm_env_t;
 
 /* Firmware accessor — the single env instance populated with the live
    function pointers. Returned by reference so it can be passed to
    module init functions without copying. */
-pipeline_env_t *pipeline_env_get(void);
+kbsm_env_t *kbsm_env_get(void);

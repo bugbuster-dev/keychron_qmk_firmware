@@ -2,7 +2,7 @@
 #pragma once
 
 #include <stdint.h>
-#include "pipeline.h"
+#include "kbsm.h"
 
 // User-provided definition of a sticky combo.
 // key1 + key2 pressed simultaneously fires combo_action.
@@ -21,5 +21,5 @@ typedef struct {
 extern const sticky_combo_def_t sticky_combos[];
 extern const uint8_t sticky_combo_count;
 
-// Pipeline registration entry point.
-sm_machine_t *sticky_combo_machine_get(void);
+// Behavior machine registration entry point.
+kbsm_t *sticky_combo_kbsm_get(void);

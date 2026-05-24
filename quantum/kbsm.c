@@ -1,12 +1,12 @@
-#include "pipeline.h"
+#include "kbsm.h"
 #include <string.h>
 
 #define MAX_MACHINES 16
 
-static sm_machine_t *machines[MAX_MACHINES] = {0};
+static kbsm_t *machines[MAX_MACHINES] = {0};
 static int machine_count = 0;
 
-void pipeline_register(sm_machine_t *machine) {
+void kbsm_register(kbsm_t *machine) {
     if (!machine || machine_count >= MAX_MACHINES) return;
     machines[machine_count++] = machine;
     // Insertion sort by phase, then priority
@@ -14,13 +14,13 @@ void pipeline_register(sm_machine_t *machine) {
         int cur = (int)machines[i]->phase * 256 + machines[i]->priority;
         int prev = (int)machines[i-1]->phase * 256 + machines[i-1]->priority;
         if (cur >= prev) break;
-        sm_machine_t *tmp = machines[i];
+        kbsm_t *tmp = machines[i];
         machines[i] = machines[i-1];
         machines[i-1] = tmp;
     }
 }
 
-void pipeline_unregister(sm_machine_t *machine) {
+void kbsm_unregister(kbsm_t *machine) {
     if (!machine) return;
     // Find the entry and compact the array.
     for (int i = 0; i < machine_count; i++) {
@@ -35,12 +35,16 @@ void pipeline_unregister(sm_machine_t *machine) {
     }
 }
 
-void pipeline_init(void) {
+void kbsm_init(void) {
     machine_count = 0;
     memset(machines, 0, sizeof(machines));
 }
 
-void pipeline_tick(void) {
+void kbsm_reset(void) {
+    kbsm_init();
+}
+
+void kbsm_tick(void) {
     for (int i = 0; i < machine_count; i++) {
         if (machines[i]->tick) {
             machines[i]->tick(machines[i]->instance);
@@ -48,11 +52,11 @@ void pipeline_tick(void) {
     }
 }
 
-// Returns true if pipeline consumed the event (caller should skip further processing).
-bool pipeline_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
+// Returns true if kbsm consumed the event (caller should skip further processing).
+bool kbsm_process_pre_tap(keyevent_t *event, keyrecord_t *record) {
     for (int i = 0; i < machine_count; i++) {
-        if (machines[i]->phase == PHASE_PRE_TAP && machines[i]->handle) {
-            if (machines[i]->handle(machines[i]->instance, event, record) == SM_CONSUME) {
+        if (machines[i]->phase == KBSM_PHASE_PRE_TAP && machines[i]->handle) {
+            if (machines[i]->handle(machines[i]->instance, event, record) == KBSM_CONSUME) {
                 return true;
             }
         }

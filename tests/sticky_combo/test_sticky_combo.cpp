@@ -9,7 +9,7 @@
 #include "test_keymap_key.hpp"
 
 extern "C" {
-#include "pipeline.h"
+#include "kbsm.h"
 }
 
 using testing::_;
@@ -18,7 +18,7 @@ using testing::InSequence;
 class StickyCombo : public TestFixture {
     void SetUp() override {
         TestFixture::SetUp();
-        pipeline_reset();
+        kbsm_reset();
     }
 };
 

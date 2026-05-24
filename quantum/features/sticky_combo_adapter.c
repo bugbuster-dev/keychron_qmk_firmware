@@ -1,6 +1,6 @@
 // quantum/features/sticky_combo_adapter.c
 #include "sticky_combo_adapter.h"
-#include "pipeline.h"
+#include "kbsm.h"
 #include "timer.h"
 #include "quantum_keycodes.h"
 #include "action.h"
@@ -25,7 +25,7 @@ typedef struct {
 } sticky_combo_state_t;
 
 static sticky_combo_state_t sc_state = {.active_combo = -1, .pending_combo = -1};
-static sm_machine_t sticky_combo_machine;
+static kbsm_t sticky_combo_machine;
 
 // Lookup: does this keycode appear as key1 or key2 in any defined combo?
 static int8_t find_combo_for_key(uint16_t kc, bool *is_key1, bool *is_key2) {
@@ -36,7 +36,7 @@ static int8_t find_combo_for_key(uint16_t kc, bool *is_key1, bool *is_key2) {
     return -1;
 }
 
-static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_t *record) {
+static kbsm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_t *record) {
     sticky_combo_state_t *st = self;
     uint16_t kc = get_record_keycode(record, true);
 
@@ -52,9 +52,9 @@ static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_
                 }
                 st->pending_combo = -1;
                 st->pending_pressed_on_host = false;
-                return SM_CONSUME;
+                return KBSM_CONSUME;
             }
-            return SM_PASS;
+            return KBSM_PASS;
         }
 
         bool is_key1 = false, is_key2 = false;
@@ -68,7 +68,7 @@ static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_
                 st->pending_pressed_on_host = true;
             }
             st->pending_combo = -1;
-            return SM_PASS;
+            return KBSM_PASS;
         }
 
         // Check if this completes a simultaneous press with pending
@@ -87,7 +87,7 @@ static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_
                 tap_code16(action);
             }
             StickyCombo_dispatch_event(&st->sm, StickyCombo_EventId_ON_COMBO_PRESS);
-            return SM_CONSUME;
+            return KBSM_CONSUME;
         }
 
         // A different combo key arrived while we had a pending press.
@@ -107,20 +107,20 @@ static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_
         st->pending_is_key1 = is_key1;
         st->pending_time = timer_read();
         st->pending_pressed_on_host = false;
-       return SM_CONSUME;
+       return KBSM_CONSUME;
     }
 
     // ---------------- ARMED_BOTH ----------------
     if (st->sm.state_id == StickyCombo_StateId_ARMED_BOTH) {
-        if (st->active_combo < 0) return SM_PASS;
+        if (st->active_combo < 0) return KBSM_PASS;
 
         uint16_t key1 = sticky_combos[st->active_combo].key1;
         uint16_t key2 = sticky_combos[st->active_combo].key2;
 
-        if (kc != key1 && kc != key2) return SM_PASS;  // third key
+        if (kc != key1 && kc != key2) return KBSM_PASS;  // third key
 
         if (event->pressed) {
-            return SM_CONSUME;  // re-press, ignore
+            return KBSM_CONSUME;  // re-press, ignore
         }
 
         // Release of an active combo key
@@ -141,13 +141,13 @@ static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_
                 st->active_combo = -1;
             }
         }
-        return SM_CONSUME;
+        return KBSM_CONSUME;
     }
 
     // ---------------- ARMED_FOR_KEY1 ----------------
     // key2 is held; tapping key1 fires tap_action_1; releasing key2 exits.
     if (st->sm.state_id == StickyCombo_StateId_ARMED_FOR_KEY1) {
-        if (st->active_combo < 0) return SM_PASS;
+        if (st->active_combo < 0) return KBSM_PASS;
         uint16_t key1 = sticky_combos[st->active_combo].key1;
         uint16_t key2 = sticky_combos[st->active_combo].key2;
 
@@ -157,22 +157,22 @@ static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_
                 if (action != KC_NO) tap_code16(action);
                 StickyCombo_dispatch_event(&st->sm, StickyCombo_EventId_ON_TAP_KEY1);
             }
-            return SM_CONSUME;
+            return KBSM_CONSUME;
         }
 
         if (kc == key2 && !event->pressed) {
             st->key2_held = false;
             StickyCombo_dispatch_event(&st->sm, StickyCombo_EventId_ON_RELEASE_KEY2);
             st->active_combo = -1;
-            return SM_CONSUME;
+            return KBSM_CONSUME;
         }
 
-        return SM_PASS;  // third key passes through
+        return KBSM_PASS;  // third key passes through
     }
 
     // ---------------- ARMED_FOR_KEY2 ----------------
     if (st->sm.state_id == StickyCombo_StateId_ARMED_FOR_KEY2) {
-        if (st->active_combo < 0) return SM_PASS;
+        if (st->active_combo < 0) return KBSM_PASS;
         uint16_t key1 = sticky_combos[st->active_combo].key1;
         uint16_t key2 = sticky_combos[st->active_combo].key2;
 
@@ -182,20 +182,20 @@ static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_
                 if (action != KC_NO) tap_code16(action);
                 StickyCombo_dispatch_event(&st->sm, StickyCombo_EventId_ON_TAP_KEY2);
             }
-            return SM_CONSUME;
+            return KBSM_CONSUME;
         }
 
         if (kc == key1 && !event->pressed) {
             st->key1_held = false;
             StickyCombo_dispatch_event(&st->sm, StickyCombo_EventId_ON_RELEASE_KEY1);
             st->active_combo = -1;
-            return SM_CONSUME;
+            return KBSM_CONSUME;
         }
 
-        return SM_PASS;
+        return KBSM_PASS;
     }
 
-    return SM_PASS;
+    return KBSM_PASS;
 }
 
 static void sticky_combo_tick(void *self) {
@@ -223,7 +223,7 @@ static void sticky_combo_reset(void *self) {
     st->pending_pressed_on_host = false;
 }
 
-sm_machine_t *sticky_combo_machine_get(void) {
+kbsm_t *sticky_combo_kbsm_get(void) {
     StickyCombo_ctor(&sc_state.sm);
     StickyCombo_start(&sc_state.sm);
     sticky_combo_machine.instance = &sc_state;
@@ -231,7 +231,7 @@ sm_machine_t *sticky_combo_machine_get(void) {
     sticky_combo_machine.tick = sticky_combo_tick;
     sticky_combo_machine.reset = sticky_combo_reset;
     sticky_combo_machine.name = "sticky_combo";
-    sticky_combo_machine.phase = PHASE_PRE_TAP;
+    sticky_combo_machine.phase = KBSM_PHASE_PRE_TAP;
     sticky_combo_machine.priority = 40;  // before vim_modal at 50
     return &sticky_combo_machine;
 }

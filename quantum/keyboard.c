@@ -149,8 +149,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifdef CONNECTION_ENABLE
 #    include "connection.h"
 #endif
-#ifdef KEY_PROCESSING_SM_ENABLE
-#    include "pipeline.h"
+#ifdef KEY_BEHAVIOR_SM_ENABLE
+#    include "kbsm.h"
 #    ifdef VIM_MODAL_ENABLE
 #        include "vim_modal_adapter.h"
 #    endif
@@ -349,13 +349,13 @@ __attribute__((weak)) void keyboard_post_init_modules(void) {}
 
 void keyboard_post_init_quantum(void) {
     keyboard_post_init_modules();
-#ifdef KEY_PROCESSING_SM_ENABLE
-    pipeline_init();
+#ifdef KEY_BEHAVIOR_SM_ENABLE
+    kbsm_init();
 #    ifdef VIM_MODAL_ENABLE
-    pipeline_register(vim_modal_machine_get());
+    kbsm_register(vim_modal_kbsm_get());
 #    endif
 #    ifdef STICKY_COMBO_ENABLE
-    pipeline_register(sticky_combo_machine_get());
+    kbsm_register(sticky_combo_kbsm_get());
 #    endif
 #endif
     keyboard_post_init_kb();
@@ -694,8 +694,8 @@ void quantum_task(void) {
     leader_task();
 #endif
 
-#ifdef KEY_PROCESSING_SM_ENABLE
-    pipeline_tick();
+#ifdef KEY_BEHAVIOR_SM_ENABLE
+    kbsm_tick();
 #endif
 
 #ifdef WPM_ENABLE

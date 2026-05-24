@@ -1,4 +1,4 @@
 #pragma once
-#include "pipeline.h"
+#include "kbsm.h"
 
-sm_machine_t *vim_modal_machine_get(void);
+kbsm_t *vim_modal_kbsm_get(void);

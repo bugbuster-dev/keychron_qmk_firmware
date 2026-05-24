@@ -25,8 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "led.h"
 #include "action_layer.h"
 #include "action_tapping.h"
-#ifdef KEY_PROCESSING_SM_ENABLE
-#    include "pipeline.h"
+#ifdef KEY_BEHAVIOR_SM_ENABLE
+#    include "kbsm.h"
 #endif
 #include "action_util.h"
 #include "action.h"
@@ -136,11 +136,11 @@ void action_exec(keyevent_t event) {
         retroshift_poll_time(&event);
     }
 #    endif
-#    ifdef KEY_PROCESSING_SM_ENABLE
-     // Pipeline pre-tap phase: SMs can intercept and consume key events
+#    ifdef KEY_BEHAVIOR_SM_ENABLE
+     // KB SM pre-tap phase: behavior machines can intercept and consume key events
     // (e.g., vim modal mode translates h→Left and consumes the original).
     if (!IS_NOEVENT(record.event)) {
-        if (pipeline_process_pre_tap(&event, &record)) {
+        if (kbsm_process_pre_tap(&event, &record)) {
             return;  // event consumed, skip further processing
         }
     }

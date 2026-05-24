@@ -12,12 +12,10 @@
 
 /* Module Header Constants */
 #define MODULE_HEADER_MAGIC 0x4D4F444C  /* "MODL" */
-/* Version 3: introduces pipeline modules. module_init_fn_t now takes a
-   pipeline_env_t* argument so SRAM-loaded pipeline modules can call
-   firmware functions through the env table. Adds MODULE_PIPELINE_HOOK_*
-   indices for pipeline-feature modules. v2 modules rejected — must be
-   rebuilt against the new init ABI. See sram-modules.md. */
-#define MODULE_HEADER_VERSION 3
+/* Version 4: renames pipeline subsystem to kbsm (key behavior state
+   machine). module_init_fn_t takes a kbsm_env_t* argument. v3 modules
+   rejected — must be rebuilt against the new init ABI. See sram-modules.md. */
+#define MODULE_HEADER_VERSION 4
 
 /* Value a module's init function must return for the loader to consider
    the init call successful. Any other return value is logged as a
@@ -28,14 +26,14 @@
    (host) or this header (firmware) to get the canonical value. */
 #define MODULE_INIT_MAGIC 0x600DBEEFu
 
-/* init / deinit ABI: init takes a pipeline_env_t* (NULL for legacy
-   non-pipeline modules); deinit takes no arguments. Both return uint32_t.
+/* init / deinit ABI: init takes a kbsm_env_t* (NULL for legacy
+   non-kbsm modules); deinit takes no arguments. Both return uint32_t.
    Init must return MODULE_INIT_MAGIC; deinit's return value is logged
    but not checked.
 
    Modules that don't need any callbacks (e.g. existing combo modules)
-   ignore the env argument. Pipeline modules store it in module-local
-   state so their handlers can call pipeline_register, tap_code16, etc.
+   ignore the env argument. Behavior modules store it in module-local
+   state so their handlers can call kbsm_register, tap_code16, etc.
 
    Module code does not receive its load address. R_ARM_ABS32
    relocations are applied host-side during upload (see qmk-tools
@@ -47,8 +45,8 @@
    for logging and bounds validation, but passing it into the module
    would only invite the now-broken "module_base + (uintptr_t)sym" PIC
    pattern to double-relocate an already-rebased address. */
-struct pipeline_env;
-typedef uint32_t (*module_init_fn_t)(struct pipeline_env *env);
+struct kbsm_env;
+typedef uint32_t (*module_init_fn_t)(struct kbsm_env *env);
 typedef uint32_t (*module_deinit_fn_t)(void);
 
 /* Hook Indices.
@@ -97,10 +95,10 @@ typedef uint32_t (*module_deinit_fn_t)(void);
 #define MODULE_HOOK_HOUSEKEEPING                  19
 #define MODULE_HOOK_SHUTDOWN                      20
 
-/* Pipeline hooks — for modules that plug into the SM pipeline
-   orchestrator (quantum/pipeline.c). A pipeline module exports a single
-   sm_machine_t* via GET_MACHINE, then calls env->pipeline_register on
-   it in its init function. Unload calls env->pipeline_unregister. */
+/* Behavior machine hooks — for modules that plug into the kbsm
+   orchestrator (quantum/kbsm.c). A behavior module exports a single
+   kbsm_t* via GET_MACHINE, then calls env->kbsm_register on
+   it in its init function. Unload calls env->kbsm_unregister. */
 #define MODULE_PIPELINE_HOOK_GET_MACHINE          21
 
 #define MODULE_HOOK_MAX                           32

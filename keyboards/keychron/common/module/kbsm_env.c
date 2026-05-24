@@ -1,10 +1,10 @@
 /*
-    Pipeline Environment — implementation.
-    See pipeline_env.h for design notes.
+    KB SM Environment — implementation.
+    See kbsm_env.h for design notes.
 */
 
-#include "pipeline_env.h"
-#include "pipeline.h"
+#include "kbsm_env.h"
+#include "kbsm.h"
 #include "timer.h"
 #include "action.h"
 #include "quantum.h"
@@ -29,9 +29,9 @@ static int env_xprintf(const char *fmt, ...) {
     return n;
 }
 
-static pipeline_env_t g_pipeline_env = {
-    .pipeline_register   = pipeline_register,
-    .pipeline_unregister = pipeline_unregister,
+static kbsm_env_t g_kbsm_env = {
+    .kbsm_register   = kbsm_register,
+    .kbsm_unregister = kbsm_unregister,
     .tap_code16          = tap_code16,
     .register_code16     = register_code16,
     .unregister_code16   = unregister_code16,
@@ -46,6 +46,6 @@ static pipeline_env_t g_pipeline_env = {
     .module_base         = 0,
 };
 
-pipeline_env_t *pipeline_env_get(void) {
-    return &g_pipeline_env;
+kbsm_env_t *kbsm_env_get(void) {
+    return &g_kbsm_env;
 }
