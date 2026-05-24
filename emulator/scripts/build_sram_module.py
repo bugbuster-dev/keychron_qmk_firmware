@@ -54,6 +54,13 @@ FEATURES = {
         "strip_include": '#include "StickyCombo.c"\n',
         "output_stem":   "kbsm_sticky_combo",
     },
+    "dyad": {
+        "dir":           "kbsm_dyad",
+        "sources":       ["Dyad.c", "dyad_module.c"],
+        "headers":       ["Dyad.h", "dyad_def.h"],
+        "strip_include": '#include "Dyad.c"\n',
+        "output_stem":   "kbsm_dyad",
+    },
 }
 
 
