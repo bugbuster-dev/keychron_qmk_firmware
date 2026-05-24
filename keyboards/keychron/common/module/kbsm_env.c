@@ -42,6 +42,7 @@ static kbsm_env_t g_kbsm_env = {
     .timer_elapsed       = timer_elapsed,
     .get_record_keycode  = get_record_keycode,
     .xprintf             = env_xprintf,
+    .send_string         = send_string,
     .extension           = NULL,
     .module_base         = 0,
 };

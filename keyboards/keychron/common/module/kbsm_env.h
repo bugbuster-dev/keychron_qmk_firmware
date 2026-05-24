@@ -52,12 +52,18 @@ typedef struct kbsm_env {
        layer. */
     uint16_t (*get_record_keycode)(keyrecord_t *r, bool update_layer_cache);
 
-    /* Diagnostic. */
+   /* Diagnostic. */
     int      (*xprintf)(const char *fmt, ...);
 
+    /* String output — sends a null-terminated string to the host via
+        QMK's send_string. Available in ABI v5+. Modules that need to
+        output multi-character expansions (e.g. autotext) use this
+        instead of looping tap_code16 calls. */
+    void     (*send_string)(const char *str);
+
     /* Reserved for future expansion. Cast to whatever callback table
-       (e.g. dynld_math_funcs_t) the module needs but firmware hasn't
-       baked into this struct yet. NULL when unused. */
+        (e.g. dynld_math_funcs_t) the module needs but firmware hasn't
+        baked into this struct yet. NULL when unused. */
     void     *extension;
 
     /* Slot load address. Populated by the loader before calling init().

@@ -12,10 +12,10 @@
 
 /* Module Header Constants */
 #define MODULE_HEADER_MAGIC 0x4D4F444C  /* "MODL" */
-/* Version 4: renames pipeline subsystem to kbsm (key behavior state
-   machine). module_init_fn_t takes a kbsm_env_t* argument. v3 modules
-   rejected — must be rebuilt against the new init ABI. See sram-modules.md. */
-#define MODULE_HEADER_VERSION 4
+/* Version 5: added send_string to kbsm_env_t for multi-character
+   string output (autotext module). v4 modules continue to work — the
+   new field is at the end of the struct and old modules never reference it. */
+#define MODULE_HEADER_VERSION 5
 
 /* Value a module's init function must return for the loader to consider
    the init call successful. Any other return value is logged as a
