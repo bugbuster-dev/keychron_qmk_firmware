@@ -41,8 +41,9 @@ static pipeline_env_t g_pipeline_env = {
     .timer_read          = timer_read,
     .timer_elapsed       = timer_elapsed,
     .get_record_keycode  = get_record_keycode,
-    .xprintf             = env_xprintf,
+   .xprintf             = env_xprintf,
     .extension           = NULL,
+    .module_base         = 0,
 };
 
 pipeline_env_t *pipeline_env_get(void) {

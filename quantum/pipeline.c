@@ -48,7 +48,9 @@ void pipeline_reset(void) {
 
 void pipeline_tick(void) {
     for (int i = 0; i < machine_count; i++) {
-        if (machines[i]->tick) machines[i]->tick(machines[i]->instance);
+        if (machines[i]->tick) {
+            machines[i]->tick(machines[i]->instance);
+        }
     }
 }
 

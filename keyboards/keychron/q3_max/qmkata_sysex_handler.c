@@ -1063,13 +1063,18 @@ _QMKATA_HANDLE_CMD_SET(module) {
         bool success = false;
         if (module_loading_slot != 0xFF) {
             size_t write_len = (module_loading_offset + 3) & ~3;
+            extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
+            debug_led_on(5, 255, 255, 255);  // LED 5 = about to call module_load
             success = module_load(module_loading_slot, module_chunk_buf, write_len);
-            DBG_USR(qmkata, "module:load %s\n", success ? "OK" : "FAIL");
+            debug_led_on(6, 255, 255, 255);  // LED 6 = module_load returned
             module_loading_slot = 0xFF;
             module_loading_offset = 0;
         }
         uint8_t resp[3] = { seqnum, QMKATA_ID_MODULE, success ? 0 : 1 };
+        extern void debug_led_on(int led, uint8_t r, uint8_t g, uint8_t b);
+        debug_led_on(10, 255, 255, 255);  // LED 10 = about to send sysex
         qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+        debug_led_on(11, 255, 255, 255);  // LED 11 = sysex sent
         return;
     }
 
@@ -1141,7 +1146,7 @@ _QMKATA_HANDLE_CMD_SET(module) {
     qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
 }
 
-// GET: buf[0]=slot_id (0-7), buf[1..]=offset (uint16_t LE, optional).
+// GET: buf[0]=slot_id (0-7 flash, 8+ SRAM), buf[1..]=offset (uint16_t LE, optional).
 //      No offset or offset=0 with len==1: return header summary (backward compat).
 //      offset>=0 with len>=3: return one chunk of slot binary data at that offset.
 //      slot_id=0xFF: return summary for all slots (backward compat).
@@ -1150,25 +1155,105 @@ _QMKATA_HANDLE_CMD_GET(module) {
     uint8_t slot_id = buf[0];
 
     if (slot_id == 0xFF) {
-        /* Return summary for all slots */
-        uint8_t resp[3 + MODULE_FLASH_SLOT_COUNT * 4];
-        resp[0] = seqnum;
-        resp[1] = QMKATA_ID_MODULE;
-        resp[2] = 0xFF; /* Summary */
+        /* Return summary for all slots: flash + SRAM (if enabled) */
+#ifdef MODULE_SRAM_ENABLE
+        uint8_t total_slots = MODULE_FLASH_SLOT_COUNT + 1;
+#else
+        uint8_t total_slots = MODULE_FLASH_SLOT_COUNT;
+#endif
+        uint8_t resp[3 + total_slots * 4];
+        uint8_t off = 0;
+        resp[off++] = seqnum;
+        resp[off++] = QMKATA_ID_MODULE;
+        resp[off++] = 0xFF; /* Summary */
         for (uint8_t i = 0; i < MODULE_FLASH_SLOT_COUNT; i++) {
             uint32_t slot_addr = MODULE_FLASH_GET_SLOT_ADDR(i);
             uint32_t magic = *(volatile uint32_t *)slot_addr;
-            resp[3 + i * 4 + 0] = (magic >> 0) & 0xFF;
-            resp[3 + i * 4 + 1] = (magic >> 8) & 0xFF;
-            resp[3 + i * 4 + 2] = (magic >> 16) & 0xFF;
-            resp[3 + i * 4 + 3] = (magic >> 24) & 0xFF;
+            resp[off++] = (magic >> 0) & 0xFF;
+            resp[off++] = (magic >> 8) & 0xFF;
+            resp[off++] = (magic >> 16) & 0xFF;
+            resp[off++] = (magic >> 24) & 0xFF;
         }
-        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+#ifdef MODULE_SRAM_ENABLE
+        {
+            uint32_t sram_addr = module_sram_slot_addr(MODULE_SRAM_SLOT_BASE_ID);
+            if (sram_addr != 0 && module_sram_slot_is_loaded(MODULE_SRAM_SLOT_BASE_ID)) {
+                uint32_t magic = *(volatile uint32_t *)sram_addr;
+                resp[off++] = (magic >> 0) & 0xFF;
+                resp[off++] = (magic >> 8) & 0xFF;
+                resp[off++] = (magic >> 16) & 0xFF;
+                resp[off++] = (magic >> 24) & 0xFF;
+            } else {
+                resp[off++] = 0xFF; resp[off++] = 0xFF;
+                resp[off++] = 0xFF; resp[off++] = 0xFF;
+            }
+        }
+#endif
+        qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, off);
         return;
     }
 
+    /* SRAM slot handling */
     if (slot_id >= MODULE_FLASH_SLOT_COUNT) {
+#ifdef MODULE_SRAM_ENABLE
+        if (!module_sram_is_sram_slot(slot_id)) return;
+        uint32_t sram_addr = module_sram_slot_addr(slot_id);
+        if (sram_addr == 0) return;
+
+        /* Chunked binary read from SRAM */
+        if (len >= 3) {
+            uint16_t read_off = buf[1] | (buf[2] << 8);
+            if (read_off < MODULE_SRAM_SLOT_SIZE) {
+                #define MODULE_GET_MAX_CHUNK 48
+                uint16_t chunk = MODULE_SRAM_SLOT_SIZE - read_off;
+                if (chunk > MODULE_GET_MAX_CHUNK) chunk = MODULE_GET_MAX_CHUNK;
+                uint8_t resp[6 + MODULE_GET_MAX_CHUNK];
+                resp[0] = seqnum;
+                resp[1] = QMKATA_ID_MODULE;
+                resp[2] = slot_id;
+                resp[3] = read_off & 0xFF;
+                resp[4] = (read_off >> 8) & 0xFF;
+                resp[5] = chunk;
+                const uint8_t *src = (const uint8_t *)sram_addr;
+                memcpy(&resp[6], src + read_off, chunk);
+                qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, 6 + chunk);
+                #undef MODULE_GET_MAX_CHUNK
+                return;
+            }
+        }
+
+        /* SRAM header summary */
+        DBG_USR(qmkata, "module:get sram slot=%u\n", slot_id);
+        {
+            uint32_t magic = *(volatile uint32_t *)sram_addr;
+            uint16_t flags = 0;
+            uint32_t hook_bitmap = 0;
+            if (magic == MODULE_HEADER_MAGIC) {
+                module_header_t hdr;
+                memcpy(&hdr, (const void *)sram_addr, sizeof(hdr));
+                flags = hdr.flags;
+                hook_bitmap = hdr.hook_bitmap;
+            }
+            uint8_t resp[13];
+            resp[0] = seqnum;
+            resp[1] = QMKATA_ID_MODULE;
+            resp[2] = slot_id;
+            resp[3]  = (magic >> 0) & 0xFF;
+            resp[4]  = (magic >> 8) & 0xFF;
+            resp[5]  = (magic >> 16) & 0xFF;
+            resp[6]  = (magic >> 24) & 0xFF;
+            resp[7]  = (flags >> 0) & 0xFF;
+            resp[8]  = (flags >> 8) & 0xFF;
+            resp[9]  = (hook_bitmap >> 0) & 0xFF;
+            resp[10] = (hook_bitmap >> 8) & 0xFF;
+            resp[11] = (hook_bitmap >> 16) & 0xFF;
+            resp[12] = (hook_bitmap >> 24) & 0xFF;
+            qmkata_send_sysex(QMKATA_CMD_RESPONSE, resp, sizeof(resp));
+        }
         return;
+#else
+        return;
+#endif
     }
 
     /* Chunked binary read: host requests a slice of the slot's flash contents.

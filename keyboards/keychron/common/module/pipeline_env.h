@@ -55,10 +55,15 @@ typedef struct pipeline_env {
     /* Diagnostic. */
     int      (*xprintf)(const char *fmt, ...);
 
-    /* Reserved for future expansion. Cast to whatever callback table
-       (e.g. dynld_math_funcs_t) the module needs but firmware hasn't
-       baked into this struct yet. NULL when unused. */
+  /* Reserved for future expansion. Cast to whatever callback table
+        (e.g. dynld_math_funcs_t) the module needs but firmware hasn't
+        baked into this struct yet. NULL when unused. */
     void     *extension;
+
+    /* Module load base address. Set by the loader before calling init()
+        so the module can rebase its own internal pointers (compiled at
+        ORIGIN=0) to the actual runtime address. */
+    uintptr_t module_base;
 } pipeline_env_t;
 
 /* Firmware accessor — the single env instance populated with the live
