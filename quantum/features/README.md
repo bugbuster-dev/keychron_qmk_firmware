@@ -170,7 +170,7 @@ struct sm_machine {
 The CLI is needed only when regenerating C code from `.puml` diagrams. Generated
 files are committed to the repo, so end users don't need StateSmith installed.
 
-See [docs/setup/installing-statesmith.md](../../docs/setup/installing-statesmith.md)
+See [docs/installing-statesmith.md](../../docs/installing-statesmith.md)
 for installation instructions, usage, troubleshooting, and diagram syntax notes.
 
 Quick regeneration of all SMs:
@@ -188,13 +188,13 @@ A pipeline feature can ship in two forms:
 | Built into firmware (e.g. `STICKY_COMBO_ENABLE = yes`) | Survives reset | Rebuild + flash to change | Stable, shipped behaviour |
 | SRAM module (loaded via QMKata) | Lost on reset | Edit + rebuild + upload, no flash | Active development, experimentation |
 
-See [docs/setup/sram-modules.md](../../docs/setup/sram-modules.md) for
+See [docs/sram-modules.md](../../docs/sram-modules.md) for
 how to package a feature as an SRAM module, and the worked example at
 `qmk-tools/qmk/QMKata/module_examples/pipeline_sticky_combo/`.
 
 ## See also
 
 - [Pipeline outcome doc](../../docs/plans/2026-05-11-key-processing-pipeline-outcome.md) — design rationale and lessons learned
-- [SRAM modules doc](../../docs/setup/sram-modules.md) — hot-loadable pipeline features
+- [SRAM modules doc](../../docs/sram-modules.md) — hot-loadable pipeline features
 - [StateSmith docs](https://github.com/StateSmith/StateSmith/wiki)
 - [Vim modal demo](vim_modal.puml) — example of when SM use is justified
