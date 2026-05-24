@@ -128,7 +128,7 @@ void action_exec(keyevent_t event) {
 #endif
 
 #ifndef NO_ACTION_TAPPING
-#ifdef KEY_PROCESSING_SM_ENABLE
+#ifdef KEY_BEHAVIOR_SM_ENABLE
     // Pipeline pre-tap phase: SMs can intercept and consume key events
     // (e.g., vim modal mode translates h→Left and consumes the original)
     if (!IS_NOEVENT(record.event)) {
@@ -819,7 +819,7 @@ A key event can be consumed (short-circuited) at any processor that returns `fal
 
 | Processor | When It Consumes |
 |-----------|-----------------|
-| `pipeline_process_pre_tap()` | `#ifdef KEY_PROCESSING_SM_ENABLE`; loaded SM intercepts the key |
+| `pipeline_process_pre_tap()` | `#ifdef KEY_BEHAVIOR_SM_ENABLE`; loaded SM intercepts the key |
 | `pre_process_record_modules()` | Loaded module intercepts the key |
 | `process_combo()` | `#ifdef COMBO_ENABLE`; combo triggers and replaces the key |
 | `process_record_user()` | Keychron common handles custom keycode (KC_SIRI, KC_MCTRL, etc.) |
@@ -846,4 +846,4 @@ When a processor returns `false`, `process_record_quantum()` exits immediately a
 | `NKRO_ENABLE` | Yes | `send_keyboard_report()` chooses NKRO vs 6KRO |
 | `DIP_SWITCH_ENABLE` | Yes | `dip_switch_task()` in `quantum_task()`; `dip_switch_update_kb()` on toggle |
 | `ENCODER_ENABLE` | Yes | Separate pipeline via `encoder_task()` → `encoder_update()` |
-| `KEY_PROCESSING_SM_ENABLE` | Yes | `pipeline_process_pre_tap()` in `action_exec()` — SMs can intercept events |
+| `KEY_BEHAVIOR_SM_ENABLE` | Yes | `pipeline_process_pre_tap()` in `action_exec()` — SMs can intercept events |

@@ -1,7 +1,13 @@
-# Pipeline SRAM Module Architecture
+# Key Behavior SM (kbsm) — SRAM Module Architecture
+
+> **Historical note:** This subsystem was previously called the *pipeline*.
+> See `docs/plans/2026-05-10-key-processing-statesmith-*.md` and
+> `docs/plans/2026-05-11-key-processing-pipeline-outcome.md` for the
+> historical design record (those documents retain the old terminology).
+> Internally abbreviated `kbsm` (key behavior state machine).
 
 This document explains the end-to-end architecture for state-machine
-pipeline modules loaded into SRAM, using the `pipeline_sticky_combo`
+behavior modules loaded into SRAM, using the `kbsm_sticky_combo`
 example as the reference implementation.
 
 ## End-to-end flow
@@ -15,9 +21,9 @@ module source
   → firmware module_load(8, g_emu_module_stage, len)
   → module_sram_clear(8)
   → module_sram_write(slot_addr, staged_bytes, len)   /* slot_addr = module_sram_slot_addr(8) */
-  → module_init(pipeline_env_t *env)
-  → env->pipeline_register(&machine)
-  → action_exec calls pipeline_process_pre_tap()
+  → module_init(kbsm_env_t *env)
+  → env->kbsm_register(&machine)
+  → action_exec calls kbsm_process_pre_tap()
   → machine->handle(instance, event, record)
   → env->tap_code16()/register_code()/etc.
   → HID report
@@ -71,7 +77,7 @@ for a 4 KB top-of-RAM carve-out. In the Q3 Max firmware, however,
 `g_module_sram` lives in `.bss` and moves whenever `.bss` layout changes.
 
 `emulator/scripts/build_sram_module.py` resolves the current symbol and
-records it in `.build/sticky_combo_module.json`. The interactive
+records it in `.build/kbsm_sticky_combo.json`. The interactive
 scenario refuses stale binaries whose sidecar was relocated against a
 different address.
 
@@ -81,12 +87,12 @@ The stock qmk-tools `ModuleBuild` rejects writable globals and the
 default linker script discards `.data` and `.bss`. That is correct for
 flash/XIP modules, where writable state inside flash would be invalid.
 
-State-machine pipeline modules are different: they need persistent
+State-machine behavior modules are different: they need persistent
 state across callbacks, e.g.
 
 ```c
 static sticky_state_t g_state;
-static sm_machine_t g_machine;
+static kbsm_t g_machine;
 ```
 
 For emulator SRAM builds, `build_sram_module.py` uses a generated linker
@@ -99,9 +105,9 @@ SRAM-linker output for flash module slots.
 
 ## Loader ABI
 
-The current header version is `MODULE_HEADER_VERSION = 3`.
+The current header version is `MODULE_HEADER_VERSION = 4`.
 
-Version 3 changes module init to receive a `pipeline_env_t *`:
+Version 3 changes module init to receive a `kbsm_env_t *`:
 
 ```c
 typedef uint32_t (*module_init_fn_t)(struct pipeline_env *env);
@@ -124,7 +130,7 @@ mod load sram slot=8 init OK rc=0x600dbeef
 If `env` is `NULL`, the firmware lacks pipeline support; modules should
 return a non-magic error value.
 
-## `pipeline_env_t`
+## `kbsm_env_t`
 
 Pipeline modules cannot link directly against arbitrary firmware
 symbols. Instead, firmware passes a table of function pointers:
@@ -133,10 +139,10 @@ symbols. Instead, firmware passes a table of function pointers:
 typedef struct pipeline_env {
     /* Pipeline registration. unregister() is needed for SRAM modules so
        that unloading cleans up the machine pointer; the registered
-       sm_machine_t lives in module memory and becomes invalid after
+       kbsm_t lives in module memory and becomes invalid after
        module_sram_clear(). */
-    void     (*pipeline_register)(sm_machine_t *machine);
-    void     (*pipeline_unregister)(sm_machine_t *machine);
+    void     (*kbsm_register)(kbsm_t *machine);
+    void     (*pipeline_unregister)(kbsm_t *machine);
 
     /* Key actions — wrappers for QMK's register/unregister/tap families.
        Modules must NOT call register_code16 directly; the symbol may not
@@ -169,7 +175,7 @@ typedef struct pipeline_env {
     /* Slot load address (diagnostics / future expansion only —
        see prose below; do NOT use for pointer rebasing). */
     uintptr_t module_base;
-} pipeline_env_t;
+} kbsm_env_t;
 ```
 
 `module_base` is populated by the loader with the slot's absolute load
@@ -191,7 +197,7 @@ diagnostics can appear in the `usart2` analyzer.
 
 ## Pipeline registration
 
-A pipeline module sets up an `sm_machine_t` in `module_init`:
+A behavior module sets up an `kbsm_t` in `module_init`:
 
 ```c
 g_machine.instance = &g_state;
@@ -199,10 +205,10 @@ g_machine.handle   = sticky_handle;
 g_machine.tick     = sticky_tick;
 g_machine.reset    = sticky_reset;
 g_machine.name     = "sticky_combo_sram";
-g_machine.phase    = PHASE_PRE_TAP;
+g_machine.phase    = KBSM_PHASE_PRE_TAP;
 g_machine.priority = 40;
 
-env->pipeline_register(&g_machine);
+env->kbsm_register(&g_machine);
 return MODULE_INIT_MAGIC;
 ```
 
@@ -210,17 +216,17 @@ The firmware dispatch path is:
 
 ```
 action_exec()
-  → pipeline_process_pre_tap(event, record)
+  → kbsm_process_pre_tap(event, record)
   → machine->handle(instance, event, record)
 ```
 
 Return values:
 
-- `SM_PASS` — continue normal QMK processing.
-- `SM_CONSUME` — skip later QMK processing for this event.
+- `KBSM_PASS` — continue normal QMK processing.
+- `KBSM_CONSUME` — skip later QMK processing for this event.
 
-The sticky combo module uses `SM_CONSUME` for combo-arm and handled tap
-events, and `SM_PASS` for unrelated keys.
+The sticky combo module uses `KBSM_CONSUME` for combo-arm and handled tap
+events, and `KBSM_PASS` for unrelated keys.
 
 ## Sticky combo reference behaviour
 
@@ -257,7 +263,7 @@ Firmware exposes three emulator-only symbols:
 Manual sequence:
 
 ```
-sysbus LoadBinary @.build/sticky_combo_module.bin <g_emu_module_stage>
+sysbus LoadBinary @.build/kbsm_sticky_combo.bin <g_emu_module_stage>
 sysbus WriteWord <g_emu_module_stage_len> 0x0410
 sysbus WriteByte <g_emu_module_cmd> 1     # load
 ```

@@ -49,7 +49,7 @@ usage on hardware.
 In the keymap's `rules.mk`:
 
 ```makefile
-KEY_PROCESSING_SM_ENABLE = yes
+KEY_BEHAVIOR_SM_ENABLE = yes
 MODULE_LOADER_ENABLE     = yes   # (already enabled on Q3 Max)
 MODULE_SRAM_ENABLE       = yes
 ```
@@ -76,15 +76,15 @@ builds place `g_module_sram` in `.bss`, so the address moves when
 g_module_sram` or `emulator/scripts/build_sram_module.py`, which
 resolves it automatically.
 
-## Authoring a pipeline module
+## Authoring a behavior module
 
 The complete example lives at:
-`qmk-tools/qmk/QMKata/module_examples/pipeline_sticky_combo/`.
+`qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/`.
 
 The stock `ModuleBuild` rejects writable globals and the default module
 linker script discards `.data`/`.bss`. That is safe for flash/XIP
-modules but not enough for stateful SRAM pipeline modules like
-`pipeline_sticky_combo`, which need `g_machine` and feature state to
+modules but not enough for stateful SRAM behavior modules like
+`kbsm_sticky_combo`, which need `g_machine` and feature state to
 persist across callbacks. The emulator helper
 `emulator/scripts/build_sram_module.py` uses a SRAM-only linker-script
 variant that keeps `.data` and `.bss` inside the 4 KB module blob, then
@@ -95,15 +95,15 @@ Minimal skeleton:
 ```c
 #include "module_api.h"
 
-static sm_machine_t g_machine;
-static struct { /* your state */ pipeline_env_t *env; } g_state;
+static kbsm_t g_machine;
+static struct { /* your state */ kbsm_env_t *env; } g_state;
 
 static sm_result_t my_handle(void *self, keyevent_t *e, keyrecord_t *r) {
     /* … translate keys, call env->tap_code16, etc. … */
-    return SM_PASS;
+    return KBSM_PASS;
 }
 
-static uint32_t module_init(pipeline_env_t *env) {
+static uint32_t module_init(kbsm_env_t *env) {
     if (!env) return 0xDEADBEEFu;     /* firmware doesn't support pipeline */
     g_state.env = env;
 
@@ -112,10 +112,10 @@ static uint32_t module_init(pipeline_env_t *env) {
     g_machine.tick     = NULL;
     g_machine.reset    = NULL;
     g_machine.name     = "my_feature";
-    g_machine.phase    = PHASE_PRE_TAP;
+    g_machine.phase    = KBSM_PHASE_PRE_TAP;
     g_machine.priority = 50;
 
-    env->pipeline_register(&g_machine);
+    env->kbsm_register(&g_machine);
     return MODULE_INIT_MAGIC;
 }
 
@@ -124,7 +124,7 @@ static uint32_t module_deinit(void) {
     return 0;
 }
 
-static sm_machine_t *machine_get(void) { return &g_machine; }
+static kbsm_t *machine_get(void) { return &g_machine; }
 
 MODULE_HOOK_TABLE
 const void *module_hook_table[MODULE_HOOK_MAX] = {
@@ -137,7 +137,7 @@ const void *module_hook_table[MODULE_HOOK_MAX] = {
 ## ABI version
 
 Module header version is **3** (firmware: `MODULE_HEADER_VERSION = 3`).
-The bump from v2 was triggered by adding the `pipeline_env_t *env`
+The bump from v2 was triggered by adding the `kbsm_env_t *env`
 argument to `module_init_fn_t`. v2 modules are rejected with a console
 message and must be rebuilt.
 
@@ -147,9 +147,9 @@ When does the version bump again?
 - Reordering or removing `module_header_t` fields.
 - Changing the hook-table layout (size, alignment, ordering).
 
-Adding fields to `pipeline_env_t` (callbacks at the end) does **not**
+Adding fields to `kbsm_env_t` (callbacks at the end) does **not**
 require a bump — old modules that never reference the new field continue
-to work. Reordering or removing `pipeline_env_t` fields **does**.
+to work. Reordering or removing `kbsm_env_t` fields **does**.
 
 ## Debugging crashes
 
@@ -228,8 +228,8 @@ firmware build itself.
 - `keyboards/keychron/common/module/multi-module-plan.md` — original
   multi-module hook plan (flash side).
 - `docs/design/pipeline-sram-module-architecture.md` — end-to-end
-  architecture for SRAM-loaded pipeline modules.
+  architecture for SRAM-loaded behavior modules.
 - `keyboards/keychron/common/module/pipeline_env.h` — env table fields.
 - `quantum/features/README.md` — when to use SM-driven pipeline features.
-- `qmk-tools/qmk/QMKata/module_examples/pipeline_sticky_combo/README.md` —
+- `qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/README.md` —
   worked example.

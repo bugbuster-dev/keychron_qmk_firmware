@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Comprehensive SRAM pipeline sticky_combo tests.
+"""Comprehensive SRAM behavior sticky_combo tests.
 
   1. Combo arm (J+K within window → K consumed)
   2. Combo timeout (>500ms virt → ~105ms QMK → exceeds 50ms window)
@@ -51,7 +51,7 @@ def run_test(name, gesture_cmds, expect_regs=None, forbid_regs=None,
     """
     elf = ROOT / ".build/keychron_q3_max_ansi_encoder_keychron.elf"
     resc = ROOT / "emulator/renode/q3_max.resc"
-    mod_bin = ROOT / ".build/sticky_combo_module.bin"
+    mod_bin = ROOT / ".build/kbsm_sticky_combo.bin"
 
     row3 = nm_symbol("matrix") + 12
     stage_addr = nm_symbol("g_emu_module_stage")
@@ -271,7 +271,7 @@ def main():
     print("\n  === Test 5: Unload / reload ===")
     elf = ROOT / ".build/keychron_q3_max_ansi_encoder_keychron.elf"
     resc = ROOT / "emulator/renode/q3_max.resc"
-    mod_bin = ROOT / ".build/sticky_combo_module.bin"
+    mod_bin = ROOT / ".build/kbsm_sticky_combo.bin"
     stage_addr = nm_symbol("g_emu_module_stage")
     stage_len_addr = nm_symbol("g_emu_module_stage_len")
     cmd_addr = nm_symbol("g_emu_module_cmd")

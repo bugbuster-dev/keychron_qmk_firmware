@@ -1,8 +1,8 @@
-# Key Processing State Machine Pipeline
+# Key Behavior State Machines (kbsm)
 
 This directory contains user-extensible key processing features that plug into the
-**pipeline orchestrator** (`quantum/pipeline.c/h`). The pipeline is enabled via
-`KEY_PROCESSING_SM_ENABLE = yes` in your keymap's `rules.mk`.
+**kbsm orchestrator** (`quantum/kbsm.c/h`). Enabled via
+`KEY_BEHAVIOR_SM_ENABLE = yes` in your keymap's `rules.mk`.
 
 ## Why this exists
 
@@ -11,7 +11,7 @@ inconsistent hooks: some run in `pre_process_*`, others in `process_*`, others
 in `post_process_*`. Adding a new custom feature requires picking the right
 entry point and matching the existing pattern.
 
-The pipeline gives you **one uniform plugin interface** (`sm_machine_t`) with
+The kbsm gives you **one uniform plugin interface** (`kbsm_t`) with
 explicit phase boundaries:
 
 ```
@@ -19,7 +19,7 @@ event → PRE_TAP machines → [tap/hold resolution] → POST_TAP machines → [
 ```
 
 Each phase can have multiple machines, dispatched by priority. Any machine can
-return `SM_CONSUME` to short-circuit further processing in that phase.
+return `KBSM_CONSUME` to short-circuit further processing in that phase.
 
 ## When to use a state machine
 
@@ -45,23 +45,23 @@ state_id, the SM probably isn't earning its keep. Use plain C instead.
 1. Create `quantum/features/my_feature.c`:
 
 ```c
-#include "pipeline.h"
+#include "kbsm.h"
 
 static struct { bool active; uint16_t timer; } my_state;
-static sm_machine_t my_machine;
+static kbsm_t my_machine;
 
 static sm_result_t my_handle(void *self, keyevent_t *event, keyrecord_t *record) {
-    // your logic here — return SM_PASS to forward, SM_CONSUME to suppress
-    return SM_PASS;
+    // your logic here — return KBSM_PASS to forward, KBSM_CONSUME to suppress
+    return KBSM_PASS;
 }
 
-sm_machine_t *my_feature_machine_get(void) {
+kbsm_t *my_feature_machine_get(void) {
     my_machine.instance = &my_state;
     my_machine.handle = my_handle;
     my_machine.tick = NULL;   // optional: called every keyboard_task()
     my_machine.reset = NULL;  // optional: called on layer change etc.
     my_machine.name = "my_feature";
-    my_machine.phase = PHASE_PRE_TAP;  // or POST_TAP, POST_EXEC
+    my_machine.phase = KBSM_PHASE_PRE_TAP;  // or POST_TAP, POST_EXEC
     my_machine.priority = 100;          // lower = runs earlier
     return &my_machine;
 }
@@ -71,7 +71,7 @@ sm_machine_t *my_feature_machine_get(void) {
 
 ```c
 #ifdef MY_FEATURE_ENABLE
-    pipeline_register(my_feature_machine_get());
+    kbsm_register(my_feature_machine_get());
 #endif
 ```
 
@@ -87,7 +87,7 @@ endif
 4. Enable in your keymap's `rules.mk`:
 
 ```makefile
-KEY_PROCESSING_SM_ENABLE = yes
+KEY_BEHAVIOR_SM_ENABLE = yes
 MY_FEATURE_ENABLE = yes
 ```
 
@@ -140,21 +140,21 @@ static sm_result_t my_handle(void *self, keyevent_t *event, keyrecord_t *record)
 
 | Phase | When it runs | Can consume? | Use for |
 |-------|--------------|--------------|---------|
-| `PHASE_PRE_TAP` | Before tap/hold resolution, raw matrix events | ✅ Yes | Modal layers, gaming macros, key translators |
+| `KBSM_PHASE_PRE_TAP` | Before tap/hold resolution, raw matrix events | ✅ Yes | Modal layers, gaming macros, key translators |
 
 > `PHASE_POST_TAP` and `PHASE_POST_EXEC` are reserved for future use but
-> not yet wired. The framework currently dispatches only `PHASE_PRE_TAP`.
+> not yet wired. The framework currently dispatches only `KBSM_PHASE_PRE_TAP`.
 
-## sm_machine_t interface
+## kbsm_t interface
 
 ```c
-struct sm_machine {
+struct kbsm {
     void               *instance;     // your state struct
     sm_result_t         (*handle)(void *self, keyevent_t *event, keyrecord_t *record);
     void                (*tick)(void *self);   // optional, called each loop
     void                (*reset)(void *self);  // optional, called on reset
     const char          *name;        // for debugging
-    pipeline_phase_t    phase;        // PHASE_PRE_TAP (others reserved)
+    pipeline_phase_t    phase;        // KBSM_PHASE_PRE_TAP (others reserved)
     uint8_t             priority;     // lower runs first within phase
 };
 ```
@@ -164,7 +164,7 @@ struct sm_machine {
 | Feature | File | Phase | Type | Enabled in Q3 Max? |
 |---------|------|-------|------|--------------------|
 | Vim modal | `vim_modal_*` | PRE_TAP | SM (5 states) | ❌ (disabled — would intercept J/K and conflict with sticky-combo SRAM module) |
-| Sticky combo | `sticky_combo_*` | PRE_TAP | SM (4 states) | ❌ (replaced by SRAM pipeline module — see below) |
+| Sticky combo | `sticky_combo_*` | PRE_TAP | SM (4 states) | ❌ (replaced by SRAM behavior module — see below) |
 
 ## StateSmith installation
 
@@ -182,7 +182,7 @@ make statesmith-gen
 
 ## Deployment: built-in vs SRAM module
 
-A pipeline feature can ship in two forms:
+A behavior feature can ship in two forms:
 
 | Deployment | Persistence | Iteration speed | When to use |
 |------------|-------------|-----------------|-------------|
@@ -191,11 +191,11 @@ A pipeline feature can ship in two forms:
 
 See [docs/sram-modules.md](../../docs/sram-modules.md) for
 how to package a feature as an SRAM module, and the worked example at
-`qmk-tools/qmk/QMKata/module_examples/pipeline_sticky_combo/`.
+`qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/`.
 
 ## See also
 
 - [Pipeline outcome doc](../../docs/plans/2026-05-11-key-processing-pipeline-outcome.md) — design rationale and lessons learned
-- [SRAM modules doc](../../docs/sram-modules.md) — hot-loadable pipeline features
+- [SRAM modules doc](../../docs/sram-modules.md) — hot-loadable behavior features
 - [StateSmith docs](https://github.com/StateSmith/StateSmith/wiki)
 - [Vim modal demo](vim_modal.puml) — example of when SM use is justified

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sram_sticky_combo.py — interactive Renode debug of the SRAM pipeline module.
+"""sram_sticky_combo.py — interactive Renode debug of the SRAM behavior module.
 
 Workflow:
   1. Optionally auto-build firmware and module if missing.
@@ -49,8 +49,8 @@ def main():
     args = ap.parse_args()
 
     elf = ROOT / ".build/keychron_q3_max_ansi_encoder_keychron.elf"
-    mod_bin = ROOT / ".build/sticky_combo_module.bin"
-    mod_json = ROOT / ".build/sticky_combo_module.json"
+    mod_bin = ROOT / ".build/kbsm_sticky_combo.bin"
+    mod_json = ROOT / ".build/kbsm_sticky_combo.json"
     resc = ROOT / "emulator/renode/q3_max.resc"
 
     # ------------------------------------------------------------------
@@ -160,7 +160,7 @@ def main():
     # Print banner.
     banner = f"""
 ================================================================
-Sticky combo SRAM pipeline module — Renode interactive debug
+Sticky combo SRAM behavior module — Renode interactive debug
 ================================================================
   Firmware ELF : {elf}
   Module bin   : {mod_bin}{' (NOT loaded: --no-load)' if args.no_load else ''}

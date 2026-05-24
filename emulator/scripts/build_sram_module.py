@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Build the sticky_combo SRAM pipeline module and stage it for Renode.
+"""Build the sticky_combo SRAM behavior module and stage it for Renode.
 
 Workflow:
   1. Resolve the g_module_sram address from the firmware ELF (built by
      `qmk compile -kb keychron/q3_max/ansi_encoder -km keychron`).
   2. Invoke qmk-tools ModuleBuild on
-     qmk-tools/qmk/QMKata/module_examples/pipeline_sticky_combo/sticky_combo_module.c.
+     qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/sticky_combo_module.c.
   3. Apply R_ARM_ABS32 relocations against the slot base, recompute CRC.
-  4. Write the result to .build/sticky_combo_module.bin.
-  5. Write .build/sticky_combo_module.json with the slot_addr it was
+  4. Write the result to .build/kbsm_sticky_combo.bin.
+  5. Write .build/kbsm_sticky_combo.json with the slot_addr it was
      relocated against (the scenario uses this to detect staleness).
 
 Re-run after either the firmware OR the module source has changed.
@@ -50,12 +50,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--source",
-        default=str(QMK_TOOLS / "module_examples/pipeline_sticky_combo/sticky_combo_module.c"),
+        default=str(QMK_TOOLS / "module_examples/kbsm_sticky_combo/sticky_combo_module.c"),
         help="Module C source",
     )
     ap.add_argument(
         "--output",
-        default=str(ROOT / ".build/sticky_combo_module.bin"),
+        default=str(ROOT / ".build/kbsm_sticky_combo.bin"),
         help="Output binary path",
     )
     args = ap.parse_args()
@@ -70,15 +70,15 @@ def main():
     print(f"  firmware ELF: {elf}")
     print(f"  g_module_sram resolved: 0x{slot_addr:08x}")
 
-    # ModuleBuild only compiles a single .c. The pipeline_sticky_combo
+    # ModuleBuild only compiles a single .c. The kbsm_sticky_combo
     # example has two source files (StickyCombo.c + sticky_combo_module.c)
     # plus two headers. We concatenate the C sources into a single
     # translation unit and copy the headers to .build/ so the
     # `#include "StickyCombo.h"` etc. resolve. Then point ModuleBuild at
     # the combined file. The example source dir is added to include
     # paths via the toolchain config.
-    example_dir = QMK_TOOLS / "module_examples/pipeline_sticky_combo"
-    combined = ROOT / ".build/sticky_combo_combined.c"
+    example_dir = QMK_TOOLS / "module_examples/kbsm_sticky_combo"
+    combined = ROOT / ".build/kbsm_sticky_combo_combined.c"
     combined.parent.mkdir(parents=True, exist_ok=True)
     combined.write_bytes(
         (example_dir / "StickyCombo.c").read_bytes()
@@ -121,7 +121,7 @@ def main():
 
     # SRAM-modules-only override: place .data and .bss into the MODULE
     # region instead of discarding them, so writable globals are kept.
-    # The pipeline_sticky_combo example (and any pipeline module that
+    # The kbsm_sticky_combo example (and any behavior module that
     # holds state across calls) needs this. Flash modules can't tolerate
     # writable globals, but we're targeting SRAM where the slot is
     # writable RAM.
