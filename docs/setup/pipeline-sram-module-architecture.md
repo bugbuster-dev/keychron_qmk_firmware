@@ -142,8 +142,12 @@ typedef struct pipeline_env {
     uint16_t (*get_record_keycode)(keyrecord_t *r, bool update_layer_cache);
     int      (*xprintf)(const char *fmt, ...);
     void     *extension;
+    uintptr_t module_base;
 } pipeline_env_t;
-```
+
+`module_base` is set by the loader before calling `init()` so the module
+can rebase its own internal pointers (compiled at ORIGIN=0) to the actual
+runtime load address.
 
 The module stores `env` in its local state and routes all firmware calls
 through it. Adding new fields at the end is ABI-compatible for old
