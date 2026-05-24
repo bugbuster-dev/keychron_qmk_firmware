@@ -21,6 +21,7 @@ typedef struct {
     int8_t   pending_combo;       // which combo's key was first pressed; -1 if none
     bool     pending_is_key1;     // true if pending is key1 of pending_combo
     uint16_t pending_time;
+    bool     pending_pressed_on_host;  // true once register_code16 fired for pending
 } sticky_combo_state_t;
 
 static sticky_combo_state_t sc_state = {.active_combo = -1, .pending_combo = -1};
@@ -39,23 +40,47 @@ static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_
     sticky_combo_state_t *st = self;
     uint16_t kc = get_record_keycode(record, true);
 
-    // ---------------- IDLE ----------------
+  // ---------------- IDLE ----------------
     if (st->sm.state_id == StickyCombo_StateId_IDLE) {
-        if (!event->pressed) return SM_PASS;  // releases pass through
+        if (!event->pressed) {
+            // Release of a pending first key
+            if (st->pending_combo >= 0 && kc == st->pending_keycode) {
+                if (st->pending_pressed_on_host) {
+                    unregister_code16(kc);
+                } else {
+                    tap_code16(kc);
+                }
+                st->pending_combo = -1;
+                st->pending_pressed_on_host = false;
+                return SM_CONSUME;
+            }
+            return SM_PASS;
+        }
 
         bool is_key1 = false, is_key2 = false;
         int8_t combo = find_combo_for_key(kc, &is_key1, &is_key2);
-        if (combo < 0) return SM_PASS;  // not a combo key
+
+        // Third (non-combo) key arrived while we had a pending first press.
+        // Flush pending as a real held keydown, then pass the third key through.
+        if (combo < 0) {
+            if (st->pending_combo >= 0 && !st->pending_pressed_on_host) {
+                register_code16(st->pending_keycode);
+                st->pending_pressed_on_host = true;
+            }
+            st->pending_combo = -1;
+            return SM_PASS;
+        }
 
         // Check if this completes a simultaneous press with pending
         if (st->pending_combo == combo &&
             timer_elapsed(st->pending_time) <= STICKY_COMBO_WINDOW_MS &&
             ((st->pending_is_key1 && is_key2) || (!st->pending_is_key1 && is_key1))) {
-            // Simultaneous press detected
+            // Simultaneous press detected - arm the combo
             st->active_combo = combo;
             st->key1_held = true;
             st->key2_held = true;
             st->pending_combo = -1;
+            st->pending_pressed_on_host = false;
 
             uint16_t action = sticky_combos[combo].combo_action;
             if (action != KC_NO) {
@@ -65,12 +90,24 @@ static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_
             return SM_CONSUME;
         }
 
-        // Not simultaneous; remember this as new pending
+        // A different combo key arrived while we had a pending press.
+        // Flush the old pending and start a new pending with this key.
+        if (st->pending_combo >= 0) {
+            if (!st->pending_pressed_on_host) {
+                register_code16(st->pending_keycode);
+                st->pending_pressed_on_host = true;
+            }
+            st->pending_combo = -1;
+            st->pending_pressed_on_host = false;
+        }
+
+        // Remember this as new pending and CONSUME (do not leak to host)
         st->pending_combo = combo;
         st->pending_keycode = kc;
         st->pending_is_key1 = is_key1;
         st->pending_time = timer_read();
-        return SM_PASS;  // let normal processing happen
+        st->pending_pressed_on_host = false;
+       return SM_CONSUME;
     }
 
     // ---------------- ARMED_BOTH ----------------
@@ -163,10 +200,15 @@ static sm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecord_
 
 static void sticky_combo_tick(void *self) {
     sticky_combo_state_t *st = self;
-    // Clear stale pending press
-    if (st->pending_combo >= 0 &&
-        timer_elapsed(st->pending_time) > STICKY_COMBO_WINDOW_MS) {
-        st->pending_combo = -1;
+    if (st->pending_combo < 0) return;
+    if (timer_elapsed(st->pending_time) <= STICKY_COMBO_WINDOW_MS) return;
+
+    // Window expired without partner key. Commit as real keydown if we
+    // haven't already. Keep pending state set so the eventual release
+    // knows to unregister.
+    if (!st->pending_pressed_on_host) {
+        register_code16(st->pending_keycode);
+        st->pending_pressed_on_host = true;
     }
 }
 
@@ -178,6 +220,7 @@ static void sticky_combo_reset(void *self) {
     st->pending_combo = -1;
     st->key1_held = false;
     st->key2_held = false;
+    st->pending_pressed_on_host = false;
 }
 
 sm_machine_t *sticky_combo_machine_get(void) {
