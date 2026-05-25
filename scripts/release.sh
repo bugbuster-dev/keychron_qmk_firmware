@@ -71,16 +71,18 @@ if $DO_TAG; then
 fi
 
 if $DO_RELEASE; then
+    REPO="$(git remote get-url origin | sed 's|.*github.com[:\/]||; s|\.git$||')"
     if command -v gh &>/dev/null; then
         echo "=== Creating GitHub release $VERSION ==="
         gh release create "$VERSION" \
+            --repo "$REPO" \
             "$OUTDIR"/*.bin \
             "$OUTDIR/$ARCHIVE" \
             --title "$VERSION" \
             --notes "Firmware + kbsm SRAM module examples (dyad, autotext, holdseq)"
     else
         echo "gh CLI not installed. Create the release manually at:"
-        echo "  https://github.com/$(git remote get-url origin | sed 's/.*github.com.//' | sed 's/\.git$//')/releases/new?tag=$VERSION"
+        echo "  https://github.com/$REPO/releases/new?tag=$VERSION"
         echo "Attach: $OUTDIR/$ARCHIVE"
     fi
 fi
