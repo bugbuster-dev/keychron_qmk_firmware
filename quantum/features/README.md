@@ -163,7 +163,7 @@ struct kbsm {
 
 | Feature | File | Phase | Type | Enabled in Q3 Max? |
 |---------|------|-------|------|--------------------|
-| Vim modal | `vim_modal_*` | PRE_TAP | SM (5 states) | ❌ (disabled — would intercept J/K and conflict with sticky-combo SRAM module) |
+| Vim modal | `vim_modal_*` / SRAM-module; see `qmk-tools/.../kbsm_vim_modal/` | PRE_TAP | SM (5 states) | ❌ (SRAM module only; no firmware-tree integration) |
 | Sticky combo | `sticky_combo_*` | PRE_TAP | SM (4 states) | ❌ (replaced by SRAM behavior module — see below) |
 | Dyad | SRAM-module-only; see `qmk-tools/qmk/QMKata/module_examples/kbsm_dyad/` | PRE_TAP | SM (3 states) | ❌ (SRAM module only; no firmware-tree integration) |
 | Autotext | SRAM-module-only; see `qmk-tools/qmk/QMKata/module_examples/kbsm_autotext/` | PRE_TAP | SM (2 states) | ❌ (SRAM module only; no firmware-tree integration) |

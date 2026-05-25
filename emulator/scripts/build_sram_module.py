@@ -75,6 +75,13 @@ FEATURES = {
         "strip_include": '#include "Holdseq.c"\n',
         "output_stem":   "kbsm_holdseq",
     },
+    "vim_modal": {
+        "dir":           "kbsm_vim_modal",
+        "sources":       ["VimModal.c", "vim_modal_module.c"],
+        "headers":       ["VimModal.h", "vim_modal_def.h"],
+        "strip_include": '#include "VimModal.c"\n',
+        "output_stem":   "kbsm_vim_modal",
+    },
 }
 
 
