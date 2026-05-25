@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Build all firmware variants and SRAM modules for a GitHub release.
+#
+# Usage:
+#   ./scripts/release.sh              # build + package only
+#   ./scripts/release.sh --tag v0.2.0 # also create tag + push
+#   ./scripts/release.sh --release v0.2.0  # also create GitHub release (needs gh)
+#
+# Output: .release/keychron-q3-max-<date>.tar.gz
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_ROOT"
+
+VERSION=""
+DO_TAG=false
+DO_RELEASE=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --tag)     VERSION="$2"; DO_TAG=true; shift 2 ;;
+        --release) VERSION="$2"; DO_TAG=true; DO_RELEASE=true; shift 2 ;;
+        *) echo "unknown flag: $1"; exit 1 ;;
+    esac
+done
+
+OUTDIR=".release"
+mkdir -p "$OUTDIR"
+
+echo "=== Building firmware ==="
+make keychron/q3_max/ansi_encoder:keychron
+make keychron/q3_max/iso_encoder:keychron
+
+echo "=== Building SRAM modules ==="
+python3 emulator/scripts/build_sram_module.py --feature sticky_combo
+python3 emulator/scripts/build_sram_module.py --feature dyad
+python3 emulator/scripts/build_sram_module.py --feature autotext
+python3 emulator/scripts/build_sram_module.py --feature holdseq
+
+echo "=== Packaging ==="
+STAMP="$(date +%Y%m%d)"
+
+cp .build/keychron_q3_max_ansi_encoder_keychron.bin   "$OUTDIR/"
+cp .build/keychron_q3_max_iso_encoder_keychron.bin    "$OUTDIR/"
+cp .build/kbsm_sticky_combo.bin                       "$OUTDIR/"
+cp .build/kbsm_dyad.bin                               "$OUTDIR/"
+cp .build/kbsm_autotext.bin                           "$OUTDIR/"
+cp .build/kbsm_holdseq.bin                            "$OUTDIR/"
+
+ARCHIVE="keychron-q3-max-${STAMP}.tar.gz"
+tar czf "$OUTDIR/$ARCHIVE" -C "$OUTDIR" \
+    keychron_q3_max_ansi_encoder_keychron.bin \
+    keychron_q3_max_iso_encoder_keychron.bin \
+    kbsm_sticky_combo.bin \
+    kbsm_dyad.bin \
+    kbsm_autotext.bin \
+    kbsm_holdseq.bin
+
+echo "=== Done: $OUTDIR/$ARCHIVE ==="
+ls -la "$OUTDIR/$ARCHIVE"
+
+echo
+echo "Contents:"
+tar tzf "$OUTDIR/$ARCHIVE"
+
+if $DO_TAG; then
+    echo "=== Tagging $VERSION ==="
+    git tag -a "$VERSION" -m "Release $VERSION"
+    git push origin "$VERSION"
+fi
+
+if $DO_RELEASE; then
+    if command -v gh &>/dev/null; then
+        echo "=== Creating GitHub release $VERSION ==="
+        gh release create "$VERSION" \
+            "$OUTDIR"/*.bin \
+            "$OUTDIR/$ARCHIVE" \
+            --title "$VERSION" \
+            --notes "Firmware + kbsm SRAM module examples (dyad, autotext, holdseq)"
+    else
+        echo "gh CLI not installed. Create the release manually at:"
+        echo "  https://github.com/$(git remote get-url origin | sed 's/.*github.com.//' | sed 's/\.git$//')/releases/new?tag=$VERSION"
+        echo "Attach: $OUTDIR/$ARCHIVE"
+    fi
+fi
