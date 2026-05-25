@@ -136,11 +136,10 @@ const void *module_hook_table[MODULE_HOOK_MAX] = {
 
 ## ABI version
 
-Module header version is **4** (firmware: `MODULE_HEADER_VERSION = 4`).
-The bump from v3 was triggered by renaming the pipeline subsystem to kbsm
-(key behavior state machine): `pipeline_env_t` → `kbsm_env_t`,
-`sm_machine_t` → `kbsm_t`, `pipeline_register` → `kbsm_register`, etc.
-v3 modules are rejected with a console message and must be rebuilt.
+Module header version is **5** (firmware: `MODULE_HEADER_VERSION = 5`).
+v4→v5 added `send_string` to `kbsm_env_t` for multi-character string
+output (used by the autotext module). v4 modules continue to work — the
+new field is at the end of the struct and old modules never reference it.
 
 When does the version bump again?
 
