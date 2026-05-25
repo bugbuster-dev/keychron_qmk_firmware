@@ -68,6 +68,13 @@ FEATURES = {
         "strip_include": '#include "Autotext.c"\n',
         "output_stem":   "kbsm_autotext",
     },
+    "holdseq": {
+        "dir":           "kbsm_holdseq",
+        "sources":       ["Holdseq.c", "holdseq_module.c"],
+        "headers":       ["Holdseq.h", "holdseq_def.h"],
+        "strip_include": '#include "Holdseq.c"\n',
+        "output_stem":   "kbsm_holdseq",
+    },
 }
 
 
