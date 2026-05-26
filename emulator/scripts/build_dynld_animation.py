@@ -29,6 +29,10 @@ DYNLD_ANIMATIONS = {
         "source": "dynld_animation_examples/kb_dynld_game_of_life.c",
         "output": "kbsm_game_of_life_dynld",
     },
+    "spiral": {
+        "source": "dynld_animation_examples/kb_spiral_animation.c",
+        "output": "kbsm_spiral_dynld",
+    },
 }
 
 DYNLD_LINKER = QMK_TOOLS / "dynld_linker.ld"
