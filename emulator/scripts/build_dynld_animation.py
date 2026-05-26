@@ -87,14 +87,12 @@ def main():
                 }
 
     # Build via ModuleBuild pipeline (compile + link + resolve)
-    result = builder.build(source)
-    if result is None:
+    # Use build_dynld() — skips _assemble() which writes kbsm header.
+    # dynld_linker.ld puts .text at offset 0, no header corruption.
+    raw = builder.build_dynld(source)
+    if raw is None:
         print(f"E: build failed: {builder.last_error}")
         return 1
-
-    # dynld_linker.ld puts .text at offset 0 — no header, no hook table.
-    # The binary from ModuleBuild is already raw code. No stripping needed.
-    raw = result["binary"]
 
     # Write just the code portion
     Path(output).parent.mkdir(parents=True, exist_ok=True)
