@@ -27,11 +27,11 @@ from keyboards.KeychronQ3Max import KeychronQ3Max
 DYNLD_ANIMATIONS = {
     "game_of_life": {
         "source": "dynld_animation_examples/kb_dynld_game_of_life.c",
-        "output": "kbsm_game_of_life_dynld",
+        "output": "dynld_game_of_life",
     },
     "spiral": {
         "source": "dynld_animation_examples/kb_spiral_animation.c",
-        "output": "kbsm_spiral_dynld",
+        "output": "dynld_spiral",
     },
 }
 
