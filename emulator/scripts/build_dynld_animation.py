@@ -92,12 +92,9 @@ def main():
         print(f"E: build failed: {builder.last_error}")
         return 1
 
-    # The binary from ModuleBuild includes header + hook table.
-    # Strip them — dynld expects raw code at byte 0.
-    header_size = 32
-    hook_table_size = 128  # MODULE_HOOK_MAX * 4
-    offset = header_size + hook_table_size  # 160
-    raw = result["binary"][offset:]
+    # dynld_linker.ld puts .text at offset 0 — no header, no hook table.
+    # The binary from ModuleBuild is already raw code. No stripping needed.
+    raw = result["binary"]
 
     # Write just the code portion
     Path(output).parent.mkdir(parents=True, exist_ok=True)
