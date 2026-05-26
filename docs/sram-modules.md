@@ -79,7 +79,7 @@ resolves it automatically.
 ## Authoring a behavior module
 
 The complete example lives at:
-`qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/`.
+`qmk-tools/qmk/QMKata/kbsm_module_examples/kbsm_sticky_combo/`.
 
 The stock `ModuleBuild` rejects writable globals and the default module
 linker script discards `.data`/`.bss`. That is safe for flash/XIP
@@ -231,5 +231,5 @@ firmware build itself.
   architecture for SRAM-loaded behavior modules.
 - `keyboards/keychron/common/module/kbsm_env.h` — env table fields.
 - `quantum/features/README.md` — when to use SM-driven behavior features.
-- `qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/README.md` —
+- `qmk-tools/qmk/QMKata/kbsm_module_examples/kbsm_sticky_combo/README.md` —
   worked example.

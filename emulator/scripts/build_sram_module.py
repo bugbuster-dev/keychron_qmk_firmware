@@ -36,7 +36,7 @@ from keyboards.KeychronQ3Max import KeychronQ3Max  # noqa: E402
 # Per-feature configuration for kbsm SRAM module examples.
 #
 # Each entry describes how to build one example from
-# qmk-tools/qmk/QMKata/module_examples/<dir>/. The build pipeline itself
+# qmk-tools/qmk/QMKata/kbsm_module_examples/<dir>/. The build pipeline itself
 # (ELF resolution, libc seeding, linker patching, relocation, CRC) is
 # identical across features.
 #
@@ -139,7 +139,7 @@ def main():
     # headers. We concatenate the C sources into a single translation
     # unit and copy the headers to .build/ so the `#include "..."`
     # statements resolve. Then point ModuleBuild at the combined file.
-    example_dir = QMK_TOOLS / "module_examples" / cfg["dir"]
+    example_dir = QMK_TOOLS / "kbsm_module_examples" / cfg["dir"]
     combined = ROOT / f".build/{stem}_combined.c"
     combined.parent.mkdir(parents=True, exist_ok=True)
     combined.write_bytes(

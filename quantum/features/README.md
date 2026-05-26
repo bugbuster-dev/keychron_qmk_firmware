@@ -165,9 +165,9 @@ struct kbsm {
 |---------|------|-------|------|--------------------|
 | Vim modal | `vim_modal_*` / SRAM-module; see `qmk-tools/.../kbsm_vim_modal/` | PRE_TAP | SM (5 states) | ❌ (SRAM module only; no firmware-tree integration) |
 | Sticky combo | `sticky_combo_*` | PRE_TAP | SM (4 states) | ❌ (replaced by SRAM behavior module — see below) |
-| Dyad | SRAM-module-only; see `qmk-tools/qmk/QMKata/module_examples/kbsm_dyad/` | PRE_TAP | SM (3 states) | ❌ (SRAM module only; no firmware-tree integration) |
-| Autotext | SRAM-module-only; see `qmk-tools/qmk/QMKata/module_examples/kbsm_autotext/` | PRE_TAP | SM (2 states) | ❌ (SRAM module only; no firmware-tree integration) |
-| Holdseq | SRAM-module-only; see `qmk-tools/qmk/QMKata/module_examples/kbsm_holdseq/` | PRE_TAP | SM (3 states) | ❌ (SRAM module only; no firmware-tree integration) |
+| Dyad | SRAM-module-only; see `qmk-tools/qmk/QMKata/kbsm_module_examples/kbsm_dyad/` | PRE_TAP | SM (3 states) | ❌ (SRAM module only; no firmware-tree integration) |
+| Autotext | SRAM-module-only; see `qmk-tools/qmk/QMKata/kbsm_module_examples/kbsm_autotext/` | PRE_TAP | SM (2 states) | ❌ (SRAM module only; no firmware-tree integration) |
+| Holdseq | SRAM-module-only; see `qmk-tools/qmk/QMKata/kbsm_module_examples/kbsm_holdseq/` | PRE_TAP | SM (3 states) | ❌ (SRAM module only; no firmware-tree integration) |
 
 ## StateSmith installation
 
@@ -194,7 +194,7 @@ A behavior feature can ship in two forms:
 
 See [docs/sram-modules.md](../../docs/sram-modules.md) for
 how to package a feature as an SRAM module, and the worked example at
-`qmk-tools/qmk/QMKata/module_examples/kbsm_sticky_combo/`.
+`qmk-tools/qmk/QMKata/kbsm_module_examples/kbsm_sticky_combo/`.
 
 ## Future cleanup
 
