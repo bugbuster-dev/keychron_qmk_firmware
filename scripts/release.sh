@@ -37,6 +37,7 @@ python3 emulator/scripts/build_sram_module.py --feature sticky_combo
 python3 emulator/scripts/build_sram_module.py --feature dyad
 python3 emulator/scripts/build_sram_module.py --feature autotext
 python3 emulator/scripts/build_sram_module.py --feature holdseq
+python3 emulator/scripts/build_sram_module.py --feature vim_modal
 
 echo "=== Packaging ==="
 STAMP="$(date +%Y%m%d)"
@@ -47,6 +48,7 @@ cp .build/kbsm_sticky_combo.bin                       "$OUTDIR/"
 cp .build/kbsm_dyad.bin                               "$OUTDIR/"
 cp .build/kbsm_autotext.bin                           "$OUTDIR/"
 cp .build/kbsm_holdseq.bin                            "$OUTDIR/"
+cp .build/kbsm_vim_modal.bin                          "$OUTDIR/"
 
 ARCHIVE="keychron-q3-max-${STAMP}.tar.gz"
 tar czf "$OUTDIR/$ARCHIVE" -C "$OUTDIR" \
@@ -55,7 +57,8 @@ tar czf "$OUTDIR/$ARCHIVE" -C "$OUTDIR" \
     kbsm_sticky_combo.bin \
     kbsm_dyad.bin \
     kbsm_autotext.bin \
-    kbsm_holdseq.bin
+    kbsm_holdseq.bin \
+    kbsm_vim_modal.bin
 
 echo "=== Done: $OUTDIR/$ARCHIVE ==="
 ls -la "$OUTDIR/$ARCHIVE"
@@ -79,7 +82,7 @@ if $DO_RELEASE; then
             "$OUTDIR"/*.bin \
             "$OUTDIR/$ARCHIVE" \
             --title "$VERSION" \
-            --notes "Firmware + kbsm SRAM module examples (dyad, autotext, holdseq)"
+            --notes "Firmware + kbsm SRAM module examples (dyad, autotext, holdseq, vim_modal)"
     else
         echo "gh CLI not installed. Create the release manually at:"
         echo "  https://github.com/$REPO/releases/new?tag=$VERSION"
