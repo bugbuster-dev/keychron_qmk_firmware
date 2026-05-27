@@ -42,6 +42,20 @@ Use `scripts/release.sh` to build all firmware variants and SRAM modules, then p
 
 Packages: Q3 Max ANSI + ISO `.bin` firmware, and SRAM modules (`sticky_combo`, `dyad`, `autotext`, `holdseq`, `vim_modal`).
 
+## QMK Tools
+
+Host-side tooling repo: `~/qmk/qmk-tools/` (https://github.com/bugbuster-dev/qmk-tools)
+
+Contains: QMKata GUI, SRAM module build pipeline (`ModuleBuild.py`), module examples (`kbsm_dyad`, `kbsm_holdseq`, `kbsm_autotext`), and authoring documentation.
+
+```bash
+# Run QMKata GUI
+python3 ~/qmk/qmk-tools/qmk/QMKata/QMKata.py
+
+# Build SRAM module (from firmware repo)
+python3 emulator/scripts/build_sram_module.py --feature <name>
+```
+
 ## Q3 Max Quick Reference
 
 - **MCU**: STM32F401, **Bootloader**: stm32-dfu, **USB VID**: `0x3434`
