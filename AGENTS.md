@@ -25,6 +25,23 @@ Rule format: `make <keyboard>/<variant>:<keymap>[:target]`
 - `keymap` — folder under `keymaps/` (e.g. `keychron` for VIA, `default` for no VIA)
 - `target` — optional: `flash`, `clean`, `dfu`, etc.
 
+## Release Build
+
+Use `scripts/release.sh` to build all firmware variants and SRAM modules, then package for GitHub release.
+
+```bash
+# Build + package only → .release/keychron-q3-max-<date>.tar.gz
+./scripts/release.sh
+
+# Also create git tag and push
+./scripts/release.sh --tag v0.2.0
+
+# Also create GitHub release (requires gh CLI)
+./scripts/release.sh --release v0.2.0
+```
+
+Packages: Q3 Max ANSI + ISO `.bin` firmware, and SRAM modules (`sticky_combo`, `dyad`, `autotext`, `holdseq`, `vim_modal`).
+
 ## Q3 Max Quick Reference
 
 - **MCU**: STM32F401, **Bootloader**: stm32-dfu, **USB VID**: `0x3434`
