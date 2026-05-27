@@ -29,7 +29,7 @@ sys.path.insert(0, str(QMK_TOOLS))
 sys.path.insert(0, str(QMK_TOOLS.parent))  # for `from keyboards.KeychronQ3Max import ...`
 
 from GccToolchain import GccToolchain  # noqa: E402
-from ModuleBuild import ModuleBuild  # noqa: E402
+from ModuleBuild import ModuleBuild, MODULE_HEADER_FLAG_SRAM  # noqa: E402
 from keyboards.KeychronQ3Max import KeychronQ3Max  # noqa: E402
 
 
@@ -235,7 +235,8 @@ def main():
 
     # Apply relocations.
     final_bin = builder.apply_relocations_and_crc(
-        result["binary"], result["relocs"], slot_addr
+        result["binary"], result["relocs"], slot_addr,
+        flags=MODULE_HEADER_FLAG_SRAM,
     )
     print(f"  binary size (post-reloc): {len(final_bin)} bytes")
 
