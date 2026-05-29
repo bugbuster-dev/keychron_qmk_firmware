@@ -11,9 +11,11 @@ armed_both --> armed_for_key1 : on_release_key1
 armed_both --> armed_for_key2 : on_release_key2
 armed_both --> idle : on_release_both
 
+armed_for_key1 --> armed_both : on_combo_press
 armed_for_key1 --> armed_for_key1 : on_tap_key1
 armed_for_key1 --> idle : on_release_key2
 
+armed_for_key2 --> armed_both : on_combo_press
 armed_for_key2 --> armed_for_key2 : on_tap_key2
 armed_for_key2 --> idle : on_release_key1
 
