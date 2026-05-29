@@ -178,6 +178,31 @@ TEST_F(StickyCombo, armed_tap_key1_can_cross_over_to_tap_key2) {
     VERIFY_AND_CLEAR(driver);
 }
 
+TEST_F(StickyCombo, armed_tap_key2_can_cross_over_to_tap_key1_after_hold_release) {
+    TestDriver driver;
+    KeymapKey  key_j(0, 0, 0, KC_J);
+    KeymapKey  key_k(0, 0, 1, KC_K);
+    set_keymap({key_j, key_k});
+
+    // Hold J, tap K -> DOWN, then release J and tap J -> UP.
+    InSequence seq;
+    EXPECT_REPORT(driver, (KC_DOWN));
+    EXPECT_EMPTY_REPORT(driver);
+    EXPECT_REPORT(driver, (KC_UP));
+    EXPECT_EMPTY_REPORT(driver);
+
+    key_j.press(); run_one_scan_loop();
+    key_k.press(); run_one_scan_loop();
+    key_k.release(); run_one_scan_loop();
+    key_k.press(); run_one_scan_loop();
+    key_k.release(); run_one_scan_loop();
+    key_j.release(); run_one_scan_loop();
+    key_j.press(); run_one_scan_loop();
+    key_j.release(); idle_for(20);
+
+    VERIFY_AND_CLEAR(driver);
+}
+
 TEST_F(StickyCombo, armed_third_key_passes_through) {
     TestDriver driver;
     KeymapKey  key_j(0, 0, 0, KC_J);
