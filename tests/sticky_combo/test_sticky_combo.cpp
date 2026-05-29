@@ -112,6 +112,26 @@ TEST_F(StickyCombo, armed_both_release_both_returns_to_idle) {
     VERIFY_AND_CLEAR(driver);
 }
 
+TEST_F(StickyCombo, armed_release_both_without_tap_returns_to_plain_keys) {
+    TestDriver driver;
+    KeymapKey  key_j(0, 0, 0, KC_J);
+    KeymapKey  key_k(0, 0, 1, KC_K);
+    set_keymap({key_j, key_k});
+
+    InSequence seq;
+    EXPECT_REPORT(driver, (KC_J));
+    EXPECT_EMPTY_REPORT(driver);
+
+    key_j.press(); run_one_scan_loop();
+    key_k.press(); run_one_scan_loop();
+    key_j.release(); run_one_scan_loop();
+    key_k.release(); run_one_scan_loop();
+    key_j.press(); run_one_scan_loop();
+    key_j.release(); idle_for(20);
+
+    VERIFY_AND_CLEAR(driver);
+}
+
 TEST_F(StickyCombo, armed_hold_key2_tap_key1_emits_up) {
     TestDriver driver;
     KeymapKey  key_j(0, 0, 0, KC_J);
