@@ -282,15 +282,15 @@ static void ARMED_FOR_KEY1_on_release_key2(StickyCombo* sm)
 static void ARMED_FOR_KEY1_on_tap_key1(StickyCombo* sm)
 {
     // armed_for_key1 behavior
-    // uml: on_tap_key1 TransitionTo(armed_for_key1)
+    // uml: on_tap_key1 TransitionTo(armed_both)
     {
         // Step 1: Exit states until we reach `ROOT` state (Least Common Ancestor for transition).
         ARMED_FOR_KEY1_exit(sm);
         
         // Step 2: Transition action: ``.
         
-        // Step 3: Enter/move towards transition target `armed_for_key1`.
-        ARMED_FOR_KEY1_enter(sm);
+        // Step 3: Enter/move towards transition target `armed_both`.
+        ARMED_BOTH_enter(sm);
         
         // Step 4: complete transition. Ends event dispatch. No other behaviors are checked.
         return;
@@ -337,15 +337,15 @@ static void ARMED_FOR_KEY2_on_release_key1(StickyCombo* sm)
 static void ARMED_FOR_KEY2_on_tap_key2(StickyCombo* sm)
 {
     // armed_for_key2 behavior
-    // uml: on_tap_key2 TransitionTo(armed_for_key2)
+    // uml: on_tap_key2 TransitionTo(armed_both)
     {
         // Step 1: Exit states until we reach `ROOT` state (Least Common Ancestor for transition).
         ARMED_FOR_KEY2_exit(sm);
         
         // Step 2: Transition action: ``.
         
-        // Step 3: Enter/move towards transition target `armed_for_key2`.
-        ARMED_FOR_KEY2_enter(sm);
+        // Step 3: Enter/move towards transition target `armed_both`.
+        ARMED_BOTH_enter(sm);
         
         // Step 4: complete transition. Ends event dispatch. No other behaviors are checked.
         return;
