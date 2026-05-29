@@ -44,6 +44,8 @@ STAMP="$(date +%Y%m%d)"
 
 cp .build/keychron_q3_max_ansi_encoder_keychron.bin   "$OUTDIR/"
 cp .build/keychron_q3_max_iso_encoder_keychron.bin    "$OUTDIR/"
+cp .build/keychron_q3_max_ansi_encoder_keychron.map   "$OUTDIR/"
+cp .build/keychron_q3_max_iso_encoder_keychron.map    "$OUTDIR/"
 cp .build/kbsm_sticky_combo.bin                       "$OUTDIR/"
 cp .build/kbsm_dyad.bin                               "$OUTDIR/"
 cp .build/kbsm_autotext.bin                           "$OUTDIR/"
@@ -54,6 +56,8 @@ ARCHIVE="keychron-q3-max-${STAMP}.tar.gz"
 tar czf "$OUTDIR/$ARCHIVE" -C "$OUTDIR" \
     keychron_q3_max_ansi_encoder_keychron.bin \
     keychron_q3_max_iso_encoder_keychron.bin \
+    keychron_q3_max_ansi_encoder_keychron.map \
+    keychron_q3_max_iso_encoder_keychron.map \
     kbsm_sticky_combo.bin \
     kbsm_dyad.bin \
     kbsm_autotext.bin \
@@ -80,6 +84,7 @@ if $DO_RELEASE; then
         gh release create "$VERSION" \
             --repo "$REPO" \
             "$OUTDIR"/*.bin \
+            "$OUTDIR"/*.map \
             "$OUTDIR/$ARCHIVE" \
             --title "$VERSION" \
             --notes "Firmware + kbsm SRAM module examples (dyad, autotext, holdseq, vim_modal)"
