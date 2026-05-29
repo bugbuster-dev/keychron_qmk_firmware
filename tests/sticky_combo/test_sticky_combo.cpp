@@ -10,6 +10,7 @@
 
 extern "C" {
 #include "kbsm.h"
+#include "sticky_combo_adapter.h"
 }
 
 using testing::_;
@@ -19,6 +20,7 @@ class StickyCombo : public TestFixture {
     void SetUp() override {
         TestFixture::SetUp();
         kbsm_init();
+        kbsm_register(sticky_combo_kbsm_get());
     }
 };
 
@@ -142,6 +144,32 @@ TEST_F(StickyCombo, armed_hold_key1_tap_key2_emits_down) {
 
     key_j.press(); run_one_scan_loop();
     key_k.press(); run_one_scan_loop();
+    key_k.release(); run_one_scan_loop();
+    key_k.press(); run_one_scan_loop();
+    key_k.release(); run_one_scan_loop();
+    key_j.release(); idle_for(20);
+
+    VERIFY_AND_CLEAR(driver);
+}
+
+TEST_F(StickyCombo, armed_tap_key1_can_cross_over_to_tap_key2) {
+    TestDriver driver;
+    KeymapKey  key_j(0, 0, 0, KC_J);
+    KeymapKey  key_k(0, 0, 1, KC_K);
+    set_keymap({key_j, key_k});
+
+    // Hold K, tap J -> UP, then release K while J is held to cross over,
+    // then tap K -> DOWN.
+    InSequence seq;
+    EXPECT_REPORT(driver, (KC_UP));
+    EXPECT_EMPTY_REPORT(driver);
+    EXPECT_REPORT(driver, (KC_DOWN));
+    EXPECT_EMPTY_REPORT(driver);
+
+    key_j.press(); run_one_scan_loop();
+    key_k.press(); run_one_scan_loop();
+    key_j.release(); run_one_scan_loop();
+    key_j.press(); run_one_scan_loop();
     key_k.release(); run_one_scan_loop();
     key_k.press(); run_one_scan_loop();
     key_k.release(); run_one_scan_loop();

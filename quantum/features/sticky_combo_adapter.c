@@ -153,6 +153,7 @@ static kbsm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecor
 
         if (kc == key1) {
             if (event->pressed) {
+                st->key1_held = true;
                 uint16_t action = sticky_combos[st->active_combo].tap_action_1;
                 if (action != KC_NO) tap_code16(action);
                 StickyCombo_dispatch_event(&st->sm, StickyCombo_EventId_ON_TAP_KEY1);
@@ -179,6 +180,7 @@ static kbsm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecor
 
         if (kc == key2) {
             if (event->pressed) {
+                st->key2_held = true;
                 uint16_t action = sticky_combos[st->active_combo].tap_action_2;
                 if (action != KC_NO) tap_code16(action);
                 StickyCombo_dispatch_event(&st->sm, StickyCombo_EventId_ON_TAP_KEY2);

@@ -7,7 +7,7 @@
 
 // This function is used when StateSmith doesn't know what the active leaf state is at
 // compile time due to sub states or when multiple states need to be exited.
-static void exit_up_to_state_handler(StickyCombo* sm, StickyCombo_StateId desired_state);
+static void __attribute__((unused)) exit_up_to_state_handler(StickyCombo* sm, StickyCombo_StateId desired_state);
 
 static void ROOT_enter(StickyCombo* sm);
 
@@ -140,7 +140,7 @@ void StickyCombo_dispatch_event(StickyCombo* sm, StickyCombo_EventId event_id)
 
 // This function is used when StateSmith doesn't know what the active leaf state is at
 // compile time due to sub states or when multiple states need to be exited.
-static void exit_up_to_state_handler(StickyCombo* sm, StickyCombo_StateId desired_state)
+static void __attribute__((unused)) exit_up_to_state_handler(StickyCombo* sm, StickyCombo_StateId desired_state)
 {
     while (sm->state_id != desired_state)
     {
