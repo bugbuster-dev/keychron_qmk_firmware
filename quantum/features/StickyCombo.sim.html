@@ -426,13 +426,13 @@ armed_both --> armed_for_key2 : <span class='syntax-trigger-name'>on_release_key
 
 armed_both --> idle : <span class='syntax-trigger-name'>on_release_both</span>
 
-armed_for_key1 --> armed_for_key1 : <span class='syntax-trigger-name'>on_tap_key1</span>
+armed_for_key1 --> armed_both : <span class='syntax-trigger-name'>on_tap_key1</span>
 
-armed_for_key1 --> idle : <span class='syntax-trigger-name'>on_release_key2</span>
+armed_for_key1 --> idle : <span class='syntax-trigger-name'>on_release_both</span>
 
-armed_for_key2 --> armed_for_key2 : <span class='syntax-trigger-name'>on_tap_key2</span>
+armed_for_key2 --> armed_both : <span class='syntax-trigger-name'>on_tap_key2</span>
 
-armed_for_key2 --> idle : <span class='syntax-trigger-name'>on_release_key1</span>
+armed_for_key2 --> idle : <span class='syntax-trigger-name'>on_release_both</span>
 
 ROOT.(InitialState) --> idle
 
@@ -615,7 +615,7 @@ evaluateGuard = null;
                 switch (eventId)
                 {
                     case StickyCombo.EventId.ON_TAP_KEY1: this._ARMED_FOR_KEY1_on_tap_key1(); break;
-                    case StickyCombo.EventId.ON_RELEASE_KEY2: this._ARMED_FOR_KEY1_on_release_key2(); break;
+                    case StickyCombo.EventId.ON_RELEASE_BOTH: this._ARMED_FOR_KEY1_on_release_both(); break;
                 }
                 break;
             
@@ -624,7 +624,7 @@ evaluateGuard = null;
                 switch (eventId)
                 {
                     case StickyCombo.EventId.ON_TAP_KEY2: this._ARMED_FOR_KEY2_on_tap_key2(); break;
-                    case StickyCombo.EventId.ON_RELEASE_KEY1: this._ARMED_FOR_KEY2_on_release_key1(); break;
+                    case StickyCombo.EventId.ON_RELEASE_BOTH: this._ARMED_FOR_KEY2_on_release_both(); break;
                 }
                 break;
             
@@ -791,10 +791,10 @@ evaluateGuard = null;
         this.stateId = StickyCombo.StateId.ROOT;
     }
     
-    _ARMED_FOR_KEY1_on_release_key2()
+    _ARMED_FOR_KEY1_on_release_both()
     {
         // armed_for_key1 behavior
-        // uml: on_release_key2 / { this.tracer?.edgeTransition('edge5'); } TransitionTo(idle)
+        // uml: on_release_both / { this.tracer?.edgeTransition('edge5'); } TransitionTo(idle)
         {
             // Step 1: Exit states until we reach `ROOT` state (Least Common Ancestor for transition).
             this._ARMED_FOR_KEY1_exit();
@@ -815,7 +815,7 @@ evaluateGuard = null;
     _ARMED_FOR_KEY1_on_tap_key1()
     {
         // armed_for_key1 behavior
-        // uml: on_tap_key1 / { this.tracer?.edgeTransition('edge4'); } TransitionTo(armed_for_key1)
+        // uml: on_tap_key1 / { this.tracer?.edgeTransition('edge4'); } TransitionTo(armed_both)
         {
             // Step 1: Exit states until we reach `ROOT` state (Least Common Ancestor for transition).
             this._ARMED_FOR_KEY1_exit();
@@ -823,8 +823,8 @@ evaluateGuard = null;
             // Step 2: Transition action: `this.tracer?.edgeTransition('edge4');`.
             this.tracer?.edgeTransition('edge4');
             
-            // Step 3: Enter/move towards transition target `armed_for_key1`.
-            this._ARMED_FOR_KEY1_enter();
+            // Step 3: Enter/move towards transition target `armed_both`.
+            this._ARMED_BOTH_enter();
             
             // Step 4: complete transition. Ends event dispatch. No other behaviors are checked.
             return;
@@ -862,10 +862,10 @@ evaluateGuard = null;
         this.stateId = StickyCombo.StateId.ROOT;
     }
     
-    _ARMED_FOR_KEY2_on_release_key1()
+    _ARMED_FOR_KEY2_on_release_both()
     {
         // armed_for_key2 behavior
-        // uml: on_release_key1 / { this.tracer?.edgeTransition('edge7'); } TransitionTo(idle)
+        // uml: on_release_both / { this.tracer?.edgeTransition('edge7'); } TransitionTo(idle)
         {
             // Step 1: Exit states until we reach `ROOT` state (Least Common Ancestor for transition).
             this._ARMED_FOR_KEY2_exit();
@@ -886,7 +886,7 @@ evaluateGuard = null;
     _ARMED_FOR_KEY2_on_tap_key2()
     {
         // armed_for_key2 behavior
-        // uml: on_tap_key2 / { this.tracer?.edgeTransition('edge6'); } TransitionTo(armed_for_key2)
+        // uml: on_tap_key2 / { this.tracer?.edgeTransition('edge6'); } TransitionTo(armed_both)
         {
             // Step 1: Exit states until we reach `ROOT` state (Least Common Ancestor for transition).
             this._ARMED_FOR_KEY2_exit();
@@ -894,8 +894,8 @@ evaluateGuard = null;
             // Step 2: Transition action: `this.tracer?.edgeTransition('edge6');`.
             this.tracer?.edgeTransition('edge6');
             
-            // Step 3: Enter/move towards transition target `armed_for_key2`.
-            this._ARMED_FOR_KEY2_enter();
+            // Step 3: Enter/move towards transition target `armed_both`.
+            this._ARMED_BOTH_enter();
             
             // Step 4: complete transition. Ends event dispatch. No other behaviors are checked.
             return;
@@ -1042,11 +1042,11 @@ evaluateGuard = null;
     "on_release_key2"
   ],
   "armed_for_key1": [
-    "on_release_key2",
+    "on_release_both",
     "on_tap_key1"
   ],
   "armed_for_key2": [
-    "on_release_key1",
+    "on_release_both",
     "on_tap_key2"
   ]
 };
@@ -1076,8 +1076,8 @@ evaluateGuard = null;
   "StickyCombo": "\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003EVertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003EROOT\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003EStickyCombo\u003C/span\u003E\u003C/h3\u003E\u003Cspan class=\u0027vertex-meta\u0027\u003EChildren: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003Eidle\u003C/span\u003E, \u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_both\u003C/span\u003E, \u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_for_key1\u003C/span\u003E, \u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_for_key2\u003C/span\u003E, \u003Cspan class=\u0027syntax-vertex-name\u0027\u003EROOT.\u0026lt;InitialState\u0026gt;\u003C/span\u003E\u003Cbr\u003E\u003C/span\u003E\u003C/td\u003E\u003C/tr\u003E",
   "idle": "\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003EVertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003Eidle\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003Eidle\u003C/span\u003E\u003C/h3\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_combo_press\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_both\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003C/td\u003E\u003C/tr\u003E\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003E\u21E1 Parent Vertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003EROOT\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003EStickyCombo\u003C/span\u003E\u003C/h3\u003E\u003C/td\u003E\u003C/tr\u003E",
   "armed_both": "\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003EVertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_both\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003Earmed_both\u003C/span\u003E\u003C/h3\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_release_key1\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_for_key1\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_release_key2\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_for_key2\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_release_both\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Eidle\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003C/td\u003E\u003C/tr\u003E\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003E\u21E1 Parent Vertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003EROOT\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003EStickyCombo\u003C/span\u003E\u003C/h3\u003E\u003C/td\u003E\u003C/tr\u003E",
-  "armed_for_key1": "\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003EVertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_for_key1\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003Earmed_for_key1\u003C/span\u003E\u003C/h3\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_tap_key1\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_for_key1\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_release_key2\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Eidle\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003C/td\u003E\u003C/tr\u003E\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003E\u21E1 Parent Vertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003EROOT\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003EStickyCombo\u003C/span\u003E\u003C/h3\u003E\u003C/td\u003E\u003C/tr\u003E",
-  "armed_for_key2": "\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003EVertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_for_key2\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003Earmed_for_key2\u003C/span\u003E\u003C/h3\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_tap_key2\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_for_key2\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_release_key1\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Eidle\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003C/td\u003E\u003C/tr\u003E\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003E\u21E1 Parent Vertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003EROOT\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003EStickyCombo\u003C/span\u003E\u003C/h3\u003E\u003C/td\u003E\u003C/tr\u003E"
+  "armed_for_key1": "\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003EVertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_for_key1\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003Earmed_for_key1\u003C/span\u003E\u003C/h3\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_tap_key1\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_both\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_release_both\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Eidle\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003C/td\u003E\u003C/tr\u003E\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003E\u21E1 Parent Vertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003EROOT\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003EStickyCombo\u003C/span\u003E\u003C/h3\u003E\u003C/td\u003E\u003C/tr\u003E",
+  "armed_for_key2": "\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003EVertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_for_key2\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003Earmed_for_key2\u003C/span\u003E\u003C/h3\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_tap_key2\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Earmed_both\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003Cspan class=\u0027syntax-trigger-name\u0027\u003Eon_release_both\u003C/span\u003E \u003Cspan class=\u0027syntax-transition-arrow\u0027\u003E--\u003E \u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003ETransitionTo(\u003C/span\u003E\u003Cspan class=\u0027syntax-vertex-name\u0027\u003Eidle\u003C/span\u003E\u003Cspan class=\u0027syntax-transition-to\u0027\u003E)\u003C/span\u003E\u003Cbr\u003E\u003C/td\u003E\u003C/tr\u003E\u003Ctr\u003E\u003Ctd\u003E\u003Ch3\u003E\u21E1 Parent Vertex: \u003Cspan class=\u0027syntax-vertex-name\u0027\u003EROOT\u003C/span\u003E, \u003Cb\u003EDiagram Id:\u003C/b\u003E \u003Cspan class=\u0027syntax-vertex-id\u0027\u003EStickyCombo\u003C/span\u003E\u003C/h3\u003E\u003C/td\u003E\u003C/tr\u003E"
 };
 
         // Get page element references

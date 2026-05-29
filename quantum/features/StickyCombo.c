@@ -27,8 +27,6 @@ static void ARMED_FOR_KEY1_exit(StickyCombo* sm);
 
 static void ARMED_FOR_KEY1_on_release_both(StickyCombo* sm);
 
-static void ARMED_FOR_KEY1_on_release_key2(StickyCombo* sm);
-
 static void ARMED_FOR_KEY1_on_tap_key1(StickyCombo* sm);
 
 static void ARMED_FOR_KEY2_enter(StickyCombo* sm);
@@ -37,17 +35,7 @@ static void ARMED_FOR_KEY2_exit(StickyCombo* sm);
 
 static void ARMED_FOR_KEY2_on_release_both(StickyCombo* sm);
 
-static void ARMED_FOR_KEY2_on_release_key1(StickyCombo* sm);
-
 static void ARMED_FOR_KEY2_on_tap_key2(StickyCombo* sm);
-
-static void ARMED_NONE_enter(StickyCombo* sm);
-
-static void ARMED_NONE_exit(StickyCombo* sm);
-
-static void ARMED_NONE_on_tap_key1(StickyCombo* sm);
-
-static void ARMED_NONE_on_tap_key2(StickyCombo* sm);
 
 static void IDLE_enter(StickyCombo* sm);
 
@@ -120,7 +108,6 @@ void StickyCombo_dispatch_event(StickyCombo* sm, StickyCombo_EventId event_id)
             switch (event_id)
             {
                 case StickyCombo_EventId_ON_TAP_KEY1: ARMED_FOR_KEY1_on_tap_key1(sm); break;
-                case StickyCombo_EventId_ON_RELEASE_KEY2: ARMED_FOR_KEY1_on_release_key2(sm); break;
                 case StickyCombo_EventId_ON_RELEASE_BOTH: ARMED_FOR_KEY1_on_release_both(sm); break;
                 
                 default: break; // to avoid "unused enumeration value in switch" warning
@@ -132,19 +119,7 @@ void StickyCombo_dispatch_event(StickyCombo* sm, StickyCombo_EventId event_id)
             switch (event_id)
             {
                 case StickyCombo_EventId_ON_TAP_KEY2: ARMED_FOR_KEY2_on_tap_key2(sm); break;
-                case StickyCombo_EventId_ON_RELEASE_KEY1: ARMED_FOR_KEY2_on_release_key1(sm); break;
                 case StickyCombo_EventId_ON_RELEASE_BOTH: ARMED_FOR_KEY2_on_release_both(sm); break;
-                
-                default: break; // to avoid "unused enumeration value in switch" warning
-            }
-            break;
-        
-        // STATE: armed_none
-        case StickyCombo_StateId_ARMED_NONE:
-            switch (event_id)
-            {
-                case StickyCombo_EventId_ON_TAP_KEY1: ARMED_NONE_on_tap_key1(sm); break;
-                case StickyCombo_EventId_ON_TAP_KEY2: ARMED_NONE_on_tap_key2(sm); break;
                 
                 default: break; // to avoid "unused enumeration value in switch" warning
             }
@@ -176,8 +151,6 @@ static void __attribute__((unused)) exit_up_to_state_handler(StickyCombo* sm, St
             case StickyCombo_StateId_ARMED_FOR_KEY1: ARMED_FOR_KEY1_exit(sm); break;
             
             case StickyCombo_StateId_ARMED_FOR_KEY2: ARMED_FOR_KEY2_exit(sm); break;
-            
-            case StickyCombo_StateId_ARMED_NONE: ARMED_NONE_exit(sm); break;
             
             case StickyCombo_StateId_IDLE: IDLE_exit(sm); break;
             
@@ -306,26 +279,6 @@ static void ARMED_FOR_KEY1_on_release_both(StickyCombo* sm)
     // No ancestor handles this event.
 }
 
-static void ARMED_FOR_KEY1_on_release_key2(StickyCombo* sm)
-{
-    // armed_for_key1 behavior
-    // uml: on_release_key2 TransitionTo(armed_none)
-    {
-        // Step 1: Exit states until we reach `ROOT` state (Least Common Ancestor for transition).
-        ARMED_FOR_KEY1_exit(sm);
-        
-        // Step 2: Transition action: ``.
-        
-        // Step 3: Enter/move towards transition target `armed_none`.
-        ARMED_NONE_enter(sm);
-        
-        // Step 4: complete transition. Ends event dispatch. No other behaviors are checked.
-        return;
-    } // end of behavior for armed_for_key1
-    
-    // No ancestor handles this event.
-}
-
 static void ARMED_FOR_KEY1_on_tap_key1(StickyCombo* sm)
 {
     // armed_for_key1 behavior
@@ -381,26 +334,6 @@ static void ARMED_FOR_KEY2_on_release_both(StickyCombo* sm)
     // No ancestor handles this event.
 }
 
-static void ARMED_FOR_KEY2_on_release_key1(StickyCombo* sm)
-{
-    // armed_for_key2 behavior
-    // uml: on_release_key1 TransitionTo(armed_none)
-    {
-        // Step 1: Exit states until we reach `ROOT` state (Least Common Ancestor for transition).
-        ARMED_FOR_KEY2_exit(sm);
-        
-        // Step 2: Transition action: ``.
-        
-        // Step 3: Enter/move towards transition target `armed_none`.
-        ARMED_NONE_enter(sm);
-        
-        // Step 4: complete transition. Ends event dispatch. No other behaviors are checked.
-        return;
-    } // end of behavior for armed_for_key2
-    
-    // No ancestor handles this event.
-}
-
 static void ARMED_FOR_KEY2_on_tap_key2(StickyCombo* sm)
 {
     // armed_for_key2 behavior
@@ -417,61 +350,6 @@ static void ARMED_FOR_KEY2_on_tap_key2(StickyCombo* sm)
         // Step 4: complete transition. Ends event dispatch. No other behaviors are checked.
         return;
     } // end of behavior for armed_for_key2
-    
-    // No ancestor handles this event.
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-// event handlers for state ARMED_NONE
-////////////////////////////////////////////////////////////////////////////////
-
-static void ARMED_NONE_enter(StickyCombo* sm)
-{
-    sm->state_id = StickyCombo_StateId_ARMED_NONE;
-}
-
-static void ARMED_NONE_exit(StickyCombo* sm)
-{
-    sm->state_id = StickyCombo_StateId_ROOT;
-}
-
-static void ARMED_NONE_on_tap_key1(StickyCombo* sm)
-{
-    // armed_none behavior
-    // uml: on_tap_key1 TransitionTo(armed_for_key2)
-    {
-        // Step 1: Exit states until we reach `ROOT` state (Least Common Ancestor for transition).
-        ARMED_NONE_exit(sm);
-        
-        // Step 2: Transition action: ``.
-        
-        // Step 3: Enter/move towards transition target `armed_for_key2`.
-        ARMED_FOR_KEY2_enter(sm);
-        
-        // Step 4: complete transition. Ends event dispatch. No other behaviors are checked.
-        return;
-    } // end of behavior for armed_none
-    
-    // No ancestor handles this event.
-}
-
-static void ARMED_NONE_on_tap_key2(StickyCombo* sm)
-{
-    // armed_none behavior
-    // uml: on_tap_key2 TransitionTo(armed_for_key1)
-    {
-        // Step 1: Exit states until we reach `ROOT` state (Least Common Ancestor for transition).
-        ARMED_NONE_exit(sm);
-        
-        // Step 2: Transition action: ``.
-        
-        // Step 3: Enter/move towards transition target `armed_for_key1`.
-        ARMED_FOR_KEY1_enter(sm);
-        
-        // Step 4: complete transition. Ends event dispatch. No other behaviors are checked.
-        return;
-    } // end of behavior for armed_none
     
     // No ancestor handles this event.
 }
@@ -520,7 +398,6 @@ char const * StickyCombo_state_id_to_string(StickyCombo_StateId id)
         case StickyCombo_StateId_ARMED_BOTH: return "ARMED_BOTH";
         case StickyCombo_StateId_ARMED_FOR_KEY1: return "ARMED_FOR_KEY1";
         case StickyCombo_StateId_ARMED_FOR_KEY2: return "ARMED_FOR_KEY2";
-        case StickyCombo_StateId_ARMED_NONE: return "ARMED_NONE";
         case StickyCombo_StateId_IDLE: return "IDLE";
         default: return "?";
     }

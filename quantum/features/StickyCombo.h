@@ -25,13 +25,12 @@ typedef enum StickyCombo_StateId
     StickyCombo_StateId_ARMED_BOTH = 1,
     StickyCombo_StateId_ARMED_FOR_KEY1 = 2,
     StickyCombo_StateId_ARMED_FOR_KEY2 = 3,
-    StickyCombo_StateId_ARMED_NONE = 4,
-    StickyCombo_StateId_IDLE = 5
+    StickyCombo_StateId_IDLE = 4
 } StickyCombo_StateId;
 
 enum
 {
-    StickyCombo_StateIdCount = 6
+    StickyCombo_StateIdCount = 5
 };
 
 

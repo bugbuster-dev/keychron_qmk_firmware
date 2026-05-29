@@ -3,7 +3,6 @@ state idle
 state armed_both
 state armed_for_key1
 state armed_for_key2
-state armed_none
 
 [*] -> idle
 
@@ -13,15 +12,10 @@ armed_both --> armed_for_key2 : on_release_key2
 armed_both --> idle : on_release_both
 
 armed_for_key1 --> armed_both : on_tap_key1
-armed_for_key1 --> armed_none : on_release_key2
 armed_for_key1 --> idle : on_release_both
 
 armed_for_key2 --> armed_both : on_tap_key2
-armed_for_key2 --> armed_none : on_release_key1
 armed_for_key2 --> idle : on_release_both
-
-armed_none --> armed_for_key2 : on_tap_key1
-armed_none --> armed_for_key1 : on_tap_key2
 
 /'! $CONFIG : toml
 SmRunnerSettings.transpilerId = "C99"
