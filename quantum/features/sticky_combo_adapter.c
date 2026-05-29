@@ -168,11 +168,14 @@ static kbsm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecor
 
         if (kc == key2) {
             if (event->pressed) {
-                // Cross-tap: fire tap_action_2, stay in armed_for_key1
+                // Cross-tap: fire tap_action_2, update held flag, stay in armed_for_key1
+                st->key2_held = true;
                 uint16_t action = sticky_combos[st->active_combo].tap_action_2;
                 if (action != KC_NO) tap_code16(action);
-            } else {
+            } else if (st->key2_held) {
                 st->key2_held = false;
+                // Don't exit armed - key2 was just tapped, not the held key
+            } else {
                 StickyCombo_dispatch_event(&st->sm, StickyCombo_EventId_ON_RELEASE_KEY2);
                 st->active_combo = -1;
             }
@@ -206,11 +209,14 @@ static kbsm_result_t sticky_combo_handle(void *self, keyevent_t *event, keyrecor
 
         if (kc == key1) {
             if (event->pressed) {
-                // Cross-tap: fire tap_action_1, stay in armed_for_key2
+                // Cross-tap: fire tap_action_1, update held flag, stay in armed_for_key2
+                st->key1_held = true;
                 uint16_t action = sticky_combos[st->active_combo].tap_action_1;
                 if (action != KC_NO) tap_code16(action);
-            } else {
+            } else if (st->key1_held) {
                 st->key1_held = false;
+                // Don't exit armed - key1 was just tapped, not the held key
+            } else {
                 StickyCombo_dispatch_event(&st->sm, StickyCombo_EventId_ON_RELEASE_KEY1);
                 st->active_combo = -1;
             }
