@@ -803,7 +803,7 @@ static void _qmkata_send_struct_layout_config(uint8_t seqnum) {
 
 //------------------------------------------------------------------------------
 
-#define DYNLD_FUNC_SIZE 1024 // dynld function max size
+#define DYNLD_FUNC_SIZE 1536 // dynld function max size
 static uint8_t dynld_func_buf[DYNLD_FUN_ID_MAX][DYNLD_FUNC_SIZE] __attribute__((aligned(4)));
 dynld_funcs_t  g_dynld_funcs = {0};
 
