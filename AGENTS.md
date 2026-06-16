@@ -29,6 +29,33 @@ Rule format: `make <keyboard>/<variant>:<keymap>[:target]`
 
 Use `scripts/release.sh` to build all firmware variants and SRAM modules, then package for GitHub release.
 
+Important: SRAM module sources come from the sibling qmk-tools repo (`~/qmk/qmk-tools/`). For tagged releases, `scripts/release.sh` runs `scripts/release-preflight.sh`, verifies qmk-tools state, tags qmk-tools with the same release version, then tags/releases this firmware repo. Agents must still ensure qmk-tools module/source changes are committed and pushed before release.
+
+Release checklist:
+
+```bash
+# 1. Verify firmware work is committed, pushed, and tested.
+git status -sb
+make test:sticky_combo
+python3 emulator/scripts/build_sram_module.py --feature sticky_combo
+
+# 2. Verify qmk-tools module/source changes are committed and pushed.
+# Leave unrelated untracked files alone.
+git -C ~/qmk/qmk-tools status -sb
+git -C ~/qmk/qmk-tools log --oneline -5
+
+# 3. Run release preflight. This checks firmware/qmk-tools status and tags.
+./scripts/release-preflight.sh v0.2.0
+
+# 4. Build, tag qmk-tools, tag firmware, and publish the firmware release.
+./scripts/release.sh --release v0.2.0
+
+# 5. Verify against origin explicitly. gh may default to upstream Keychron/qmk_firmware.
+git ls-remote --tags origin v0.2.0
+git -C ~/qmk/qmk-tools ls-remote --tags origin v0.2.0
+gh release view v0.2.0 --repo bugbuster-dev/keychron_qmk_firmware --json tagName,url,assets
+```
+
 ```bash
 # Build + package only → .release/keychron-q3-max-<date>.tar.gz
 ./scripts/release.sh
