@@ -26,7 +26,7 @@
 /* Total SRAM reserved for modules. Override per-keymap via
    OPT_DEFS += -DMODULE_SRAM_TOTAL_SIZE=N. Default 4 KB = one slot. */
 #ifndef MODULE_SRAM_TOTAL_SIZE
-#    define MODULE_SRAM_TOTAL_SIZE 0x1000
+#    define MODULE_SRAM_TOTAL_SIZE 0x2000
 #endif
 
 /* Per-slot size. Match flash slot size so module binaries are portable

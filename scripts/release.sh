@@ -6,12 +6,17 @@
 #   ./scripts/release.sh --tag v0.2.0 # also create tag + push
 #   ./scripts/release.sh --release v0.2.0  # also create GitHub release (needs gh)
 #
+# Env:
+#   QMK_TOOLS_REPO=/path/to/qmk-tools  # defaults to ../qmk-tools
+#
 # Output: .release/keychron-q3-max-<date>.tar.gz
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
+
+QMK_TOOLS_REPO="${QMK_TOOLS_REPO:-$(dirname "$REPO_ROOT")/qmk-tools}"
 
 VERSION=""
 DO_TAG=false
@@ -24,6 +29,31 @@ while [[ $# -gt 0 ]]; do
         *) echo "unknown flag: $1"; exit 1 ;;
     esac
 done
+
+tag_qmk_tools() {
+    local local_tag remote_tag
+
+    echo "=== Tagging qmk-tools $VERSION ==="
+
+    local_tag="$(git -C "$QMK_TOOLS_REPO" tag --list "$VERSION")"
+    remote_tag="$(git -C "$QMK_TOOLS_REPO" ls-remote --tags origin "refs/tags/$VERSION" "refs/tags/$VERSION^{}")"
+
+    if [[ -n "$remote_tag" ]]; then
+        echo "qmk-tools tag $VERSION already exists on origin"
+        return
+    fi
+
+    if [[ -z "$local_tag" ]]; then
+        git -C "$QMK_TOOLS_REPO" tag -a "$VERSION" -m "Release $VERSION"
+    fi
+
+    git -C "$QMK_TOOLS_REPO" push origin "$VERSION"
+}
+
+if $DO_TAG; then
+    echo "=== Release preflight $VERSION ==="
+    FIRMWARE_REPO="$REPO_ROOT" QMK_TOOLS_REPO="$QMK_TOOLS_REPO" bash "$REPO_ROOT/scripts/release-preflight.sh" "$VERSION"
+fi
 
 OUTDIR=".release"
 mkdir -p "$OUTDIR"
@@ -72,7 +102,9 @@ echo "Contents:"
 tar tzf "$OUTDIR/$ARCHIVE"
 
 if $DO_TAG; then
-    echo "=== Tagging $VERSION ==="
+    tag_qmk_tools
+
+    echo "=== Tagging firmware $VERSION ==="
     git tag -a "$VERSION" -m "Release $VERSION"
     git push origin "$VERSION"
 fi
