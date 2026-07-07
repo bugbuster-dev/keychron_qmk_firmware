@@ -18,6 +18,8 @@
 
 #include "eeconfig_kb.h"
 
+#define DEFAULT_DEBOUNCE_TYPE DEBOUNCE_ASYM_EAGER_DEFER_PER_KEY
+
 /* CPU Clock: uncomment for 84 MHz (default 48 MHz)
  *
  * 48 MHz:  SPI divisor auto-adjusts to 16  → 1.5 MHz SPI
